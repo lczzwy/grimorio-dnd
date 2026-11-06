@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { SrdData } from '../data/types';
 import { importCompanion, isCompanionFile, type CompanionFile } from './companion';
-import { armorClass, computeScores, maxHp, skillMod, spellSlots } from '../engine/rules';
+import { armorClass, classSummary, computeScores, maxHp, skillMod, spellSlots } from '../engine/rules';
 
 const srd = JSON.parse(fs.readFileSync(path.join(__dirname, '../../public/data/srd-2014.json'), 'utf8')) as SrdData;
 
@@ -96,5 +96,10 @@ describe('5e Companion import', () => {
     expect(c.notes).toBe('Lembrar do ASI');
     expect(c.alignment).toBe('Leal e Neutro');
     expect(c.currency.gp).toBe(5);
+  });
+
+  it('roster summary works before the SRD has loaded (blank page regression)', () => {
+    expect(classSummary(c, undefined)).toBe('hb-mystic 4');
+    expect(classSummary(c, merged)).toBe('Mystic 4');
   });
 });

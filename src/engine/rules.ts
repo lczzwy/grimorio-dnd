@@ -7,12 +7,13 @@ export const totalLevel = (c: Character) => Math.max(1, c.classes.reduce((s, e) 
 
 export const XP_TABLE = [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000];
 
-export const findClass = (srd: SrdData, id?: string) => srd.classes.find((c) => c.id === id);
-export const findSpecies = (srd: SrdData, id?: string) => srd.species.find((s) => s.id === id);
+// lookups tolerate data that hasn't loaded yet (pages render once before the SRD fetch resolves)
+export const findClass = (srd: SrdData | null | undefined, id?: string) => srd?.classes.find((c) => c.id === id);
+export const findSpecies = (srd: SrdData | null | undefined, id?: string) => srd?.species.find((s) => s.id === id);
 export function findSubrace(srd: SrdData, c: Character): SubraceDef | undefined {
   return findSpecies(srd, c.speciesId)?.subraces?.find((s) => s.id === c.subraceId);
 }
-export const findBackground = (srd: SrdData, id?: string) => srd.backgrounds.find((b) => b.id === id);
+export const findBackground = (srd: SrdData | null | undefined, id?: string) => srd?.backgrounds.find((b) => b.id === id);
 
 /* ---------------- ability scores ---------------- */
 
@@ -552,7 +553,7 @@ export const ALIGNMENTS = [
   'Leal e Mau', 'Neutro e Mau', 'Caótico e Mau',
 ];
 
-export const className = (id: string, srd?: SrdData) => CLASS_PT[id] ?? findClass(srd as SrdData, id)?.name ?? id;
+export const className = (id: string, srd?: SrdData) => CLASS_PT[id] ?? findClass(srd, id)?.name ?? id;
 export const speciesName = (id: string | undefined, srd?: SrdData) => (id ? SPECIES_PT[id] ?? srd?.species.find((s) => s.id === id)?.name ?? id : '');
 
 export function classSummary(c: Character, srd?: SrdData) {

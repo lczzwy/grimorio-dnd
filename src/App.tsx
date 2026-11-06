@@ -9,6 +9,7 @@ import { Creator } from './pages/Creator';
 import { Sheet } from './pages/Sheet';
 import { Compendium } from './pages/Compendium';
 import { HomebrewPage } from './pages/Homebrew';
+import { ErrorBoundary } from './ui/ErrorBoundary';
 
 export default function App() {
   const route = useRoute();
@@ -51,7 +52,7 @@ export default function App() {
           </nav>
         )}
       </header>
-      {page}
+      <ErrorBoundary key={route.join('/')}>{page}</ErrorBoundary>
       {ed && <DiceTray />}
       <RollToast />
       <FlashHost />
