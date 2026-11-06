@@ -3,6 +3,7 @@ import { useApp } from '../store';
 import type { Edition } from '../data/types';
 import { useSrd } from '../data/srd';
 import { isCompanionFile } from '../import/companion';
+import { sanitizeHomebrew } from '../data/homebrew';
 import { companionReport, importCompanionCharacter } from '../import/importFile';
 import { go, pickFile, useFlash, download } from '../ui/ui';
 import { armorClass, classSummary, maxHp, speciesName } from '../engine/rules';
@@ -18,7 +19,7 @@ export function Avatar({ name, portrait, size }: { name: string; portrait?: stri
 export function Roster({ edition }: { edition: Edition }) {
   const srd = useSrd(edition);
   const all = useApp((s) => s.characters);
-  const { importCharacter, duplicateCharacter, removeCharacter } = useApp();
+  const { importCharacter, duplicateCharacter, removeCharacter, importHomebrew } = useApp();
   const flash = useFlash((s) => s.show);
   const chars = all.filter((c) => c.edition === edition).sort((a, b) => b.updatedAt - a.updatedAt);
 
@@ -36,14 +37,24 @@ export function Roster({ edition }: { edition: Edition }) {
         go(`2014/c/${character.id}`);
         return;
       }
-      if (raw.edition && raw.edition !== edition) {
-        if (!confirm(`Esta ficha é da edição ${raw.edition}. Importar mesmo assim para a mesa ${raw.edition}?`)) return;
+      if (raw?.edition === '2014' || raw?.edition === '2024') {
+        if (raw.edition !== edition && !confirm(`Esta ficha é da edição ${raw.edition}. Importar mesmo assim para a mesa ${raw.edition}?`)) return;
+        const c = importCharacter(raw);
+        flash(`${c.name || 'Personagem'} importado!`);
+        go(`${c.edition}/c/${c.id}`);
+        return;
       }
-      const c = importCharacter(raw);
-      flash(`${c.name || 'Personagem'} importado!`);
-      go(`${c.edition}/c/${c.id}`);
+      // a homebrew content pack picked in the wrong button: import it where it belongs
+      const pack = sanitizeHomebrew(raw);
+      if (pack.kept) {
+        if (!confirm(`Este arquivo é um pacote de homebrew (${pack.kept} item(ns)), não uma ficha.\n\nAdicionar ao Homebrew da mesa D&D ${edition}?`)) return;
+        importHomebrew(edition, raw);
+        flash(`${pack.kept} item(ns) adicionado(s) ao Homebrew ${edition}.`);
+        return;
+      }
+      alert('Esse arquivo não é uma ficha que o site reconheça.\n\nO botão "Importar ficha" aceita:\n• fichas exportadas por este site (.json)\n• fichas do 5e Companion App (.cah)\n\nPacotes de raças, magias e talentos vão em Homebrew → Importar pacote.');
     } catch (e) {
-      alert('Não consegui ler esse arquivo: ' + (e as Error).message);
+      alert('Não consegui ler esse arquivo (ele precisa ser .json ou .cah): ' + (e as Error).message);
     }
   };
 
