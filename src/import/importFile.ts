@@ -6,9 +6,12 @@ import { importCompanion, type CompanionFile } from './companion';
 export async function importCompanionCharacter(raw: CompanionFile) {
   const { character, homebrew, warnings } = importCompanion(raw, await loadSrd('2014'));
   const app = useApp.getState();
-  app.importHomebrew('2014', homebrew);
+  // keep content the user already has (e.g. a translated feat) instead of the sheet's copy
+  const before = app.homebrew['2014'];
+  app.importHomebrew('2014', homebrew, { keepExisting: true });
   app.addCharacter(character);
-  const created = Object.values(homebrew).flat().map((x) => (x as { name: string }).name);
+  const had = new Set(Object.values(before).flat().map((x) => (x as { id: string }).id));
+  const created = Object.values(homebrew).flat().filter((x) => !had.has((x as { id: string }).id)).map((x) => (x as { name: string }).name);
   return { character, created, warnings };
 }
 

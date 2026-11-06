@@ -64,3 +64,23 @@ export function sanitizeHomebrew(input: unknown): SanitizeResult {
   }
   return { homebrew: out, kept, dropped, ignoredKeys };
 }
+
+/**
+ * Merges sanitized homebrew into existing homebrew.
+ * `keepExisting`: entries already present (same id) win — used by character imports so a
+ * re-imported sheet never replaces content the user edited or translated.
+ */
+export function mergeHomebrew(existing: Homebrew, incoming: Homebrew, keepExisting = false): Homebrew {
+  const out: Record<string, { id: string }[]> = { ...(existing as Record<string, { id: string }[]>) };
+  for (const [k, list] of Object.entries(incoming) as [string, { id: string }[]][]) {
+    const cur = out[k] || [];
+    if (keepExisting) {
+      const have = new Set(cur.map((x) => x.id));
+      out[k] = [...cur, ...list.filter((x) => !have.has(x.id))];
+    } else {
+      const ids = new Set(list.map((x) => x.id));
+      out[k] = [...cur.filter((x) => !ids.has(x.id)), ...list];
+    }
+  }
+  return out as Homebrew;
+}

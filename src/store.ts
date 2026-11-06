@@ -4,7 +4,7 @@ import type { Character, Edition, RollEntry } from './data/types';
 import { normalizeCharacter, uid } from './engine/character';
 import { rollFormula, type RollMode } from './engine/dice';
 
-import { sanitizeHomebrew, type Homebrew, type HomebrewKind, type SanitizeResult } from './data/homebrew';
+import { mergeHomebrew, sanitizeHomebrew, type Homebrew, type HomebrewKind, type SanitizeResult } from './data/homebrew';
 export type { Homebrew, HomebrewKind } from './data/homebrew';
 
 interface AppState {
@@ -17,7 +17,7 @@ interface AppState {
   importCharacter: (raw: unknown) => Character;
   addHomebrew: (ed: Edition, kind: HomebrewKind, item: { id: string; name: string }) => void;
   removeHomebrew: (ed: Edition, kind: HomebrewKind, id: string) => void;
-  importHomebrew: (ed: Edition, hb: unknown) => SanitizeResult;
+  importHomebrew: (ed: Edition, hb: unknown, opts?: { keepExisting?: boolean }) => SanitizeResult;
 }
 
 export const useApp = create<AppState>()(
@@ -64,16 +64,9 @@ export const useApp = create<AppState>()(
           (hb as Record<string, unknown>)[kind] = ((hb[kind] as { id: string }[] | undefined) || []).filter((x) => x.id !== id);
           return { homebrew: { ...s.homebrew, [ed]: hb } };
         }),
-      importHomebrew: (ed, incoming) => {
+      importHomebrew: (ed, incoming, opts) => {
         const result = sanitizeHomebrew(incoming);
-        set((s) => {
-          const hb = { ...s.homebrew[ed] } as Record<string, { id: string }[]>;
-          for (const [k, list] of Object.entries(result.homebrew) as [string, { id: string }[]][]) {
-            const ids = new Set(list.map((x) => x.id));
-            hb[k] = [...(hb[k] || []).filter((x) => !ids.has(x.id)), ...list];
-          }
-          return { homebrew: { ...s.homebrew, [ed]: hb as Homebrew } };
-        });
+        set((s) => ({ homebrew: { ...s.homebrew, [ed]: mergeHomebrew(s.homebrew[ed], result.homebrew, opts?.keepExisting) } }));
         return result;
       },
     }),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeHomebrew } from './homebrew';
+import { mergeHomebrew, sanitizeHomebrew } from './homebrew';
 
 // Shape of a 5e Companion character export: arrays under keys that look like homebrew kinds,
 // but with entries in a different format (no `desc`, no `category`, …). Pasting this into
@@ -52,5 +52,20 @@ describe('sanitizeHomebrew', () => {
     expect(sanitizeHomebrew(null).kept).toBe(0);
     expect(sanitizeHomebrew([1, 2]).kept).toBe(0);
     expect(sanitizeHomebrew('x').kept).toBe(0);
+  });
+});
+
+describe('mergeHomebrew', () => {
+  const translated = { feats: [{ id: 'hb-telekinetic', name: 'Telecinético [TCE]', desc: 'PT-BR' }] } as const;
+  const fromSheet = { feats: [{ id: 'hb-telekinetic', name: 'Telekinetic', desc: 'EN' }, { id: 'hb-x', name: 'X', desc: 'x' }] } as const;
+
+  it('re-importing a character sheet keeps the user’s translated feat', () => {
+    const m = mergeHomebrew(translated as never, fromSheet as never, true);
+    expect(m.feats?.map((f) => f.name)).toEqual(['Telecinético [TCE]', 'X']);
+  });
+
+  it('importing a pack replaces entries with the same id', () => {
+    const m = mergeHomebrew(fromSheet as never, translated as never);
+    expect(m.feats?.map((f) => f.name)).toEqual(['X', 'Telecinético [TCE]']);
   });
 });
