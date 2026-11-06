@@ -1,5 +1,6 @@
 import type { Ability, Character, ClassDef, FeatureRef, Resource, SpeciesDef, SrdData, SubraceDef, WeaponStats } from '../data/types';
 import { ABILITIES } from '../data/types';
+import { isPsiResource, psiLevel, psiTable } from './psi';
 
 export const abilityMod = (score: number) => Math.floor((score - 10) / 2);
 export const profBonus = (level: number) => 2 + Math.floor((Math.max(1, level) - 1) / 4);
@@ -78,6 +79,12 @@ export function skillMod(c: Character, srd: SrdData, key: string) {
   else if (lvl === 0.5 || hasJack(c)) bonus = Math.floor(p / 2);
   return mods(c, srd)[sk.ability] + bonus;
 }
+
+/** CON save DC to keep concentration after taking damage. */
+export const concentrationDc = (damage: number, edition: Character['edition']) => {
+  const dc = Math.max(10, Math.floor(damage / 2));
+  return edition === '2024' ? Math.min(30, dc) : dc;
+};
 
 export const passivePerception = (c: Character, srd: SrdData) => 10 + skillMod(c, srd, 'perception');
 export const passiveInvestigation = (c: Character, srd: SrdData) => 10 + skillMod(c, srd, 'investigation');
@@ -439,7 +446,12 @@ export function suggestedResources(c: Character, srd: SrdData): Omit<Resource, '
 /** Keeps auto-managed resources in sync with level/class while preserving used counts and custom ones. */
 export function syncResources(c: Character, srd: SrdData, mkId: () => string): Resource[] {
   const sugg = suggestedResources(c, srd);
-  const custom = c.resources.filter((r) => !r.auto);
+  // psi points (Mystic) follow the class table so they grow on level up
+  const custom = c.resources.filter((r) => !r.auto).map((r) => {
+    if (!isPsiResource(r)) return r;
+    const max = psiTable(psiLevel(c)).points;
+    return { ...r, max, used: Math.min(r.used, max) };
+  });
   const auto = sugg.map((s) => {
     const prev = c.resources.find((r) => r.auto === s.auto);
     return { uid: prev?.uid ?? mkId(), used: Math.min(prev?.used ?? 0, s.max), ...s };

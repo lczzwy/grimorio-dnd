@@ -1,5 +1,7 @@
 import { useApp } from '../store';
-import { go } from '../ui/ui';
+import { Download, Upload } from 'lucide-react';
+import { download, go, pickFile, useFlash } from '../ui/ui';
+import { isBackupFile, makeBackup } from '../data/backup';
 
 function Sigil({ variant }: { variant: '2014' | '2024' }) {
   const c = variant === '2014' ? '#c8423a' : '#8b6cff';
@@ -55,10 +57,56 @@ export function Home() {
           </div>
         </button>
       </div>
-      <p className="center small faint" style={{ marginTop: 40, maxWidth: 680, marginInline: 'auto' }}>
+      <BackupPanel />
+      <p className="center small faint" style={{ marginTop: 24, maxWidth: 680, marginInline: 'auto' }}>
         Conteúdo de regras do System Reference Document 5.1 e 5.2 da Wizards of the Coast LLC, sob licença CC-BY-4.0. Dados via 5e-bits/5e-database. Este site não é afiliado à Wizards of the Coast.
         Suas fichas ficam salvas neste navegador; use Exportar para fazer backup.
       </p>
     </main>
+  );
+}
+
+function BackupPanel() {
+  const { characters, homebrew, lastBackupAt, markBackup, restore } = useApp();
+  const flash = useFlash((s) => s.show);
+  const hbCount = Object.values(homebrew).reduce((s, h) => s + Object.values(h).reduce((t, a) => t + (a?.length || 0), 0), 0);
+  const days = lastBackupAt ? Math.floor((Date.now() - lastBackupAt) / 86400000) : null;
+  const stale = characters.length > 0 && (days === null || days >= 7);
+
+  const save = () => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    download(`grimorio-backup-${stamp}.json`, makeBackup(characters, homebrew));
+    markBackup();
+    flash('Backup baixado!');
+  };
+  const load = async () => {
+    const f = await pickFile();
+    if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      if (!isBackupFile(data)) {
+        alert('Esse arquivo não é um backup do Grimório. Para fichas avulsas, use "Importar ficha" dentro da mesa.');
+        return;
+      }
+      const r = restore(data);
+      alert(`Backup restaurado.\n\n• ${r.added} personagem(ns) novo(s)\n• ${r.updated} atualizado(s) com a versão do backup\n• ${r.kept} mantido(s) (a versão daqui era mais recente)\n\nNada foi apagado.`);
+    } catch (e) {
+      alert('Não consegui ler o backup: ' + (e as Error).message);
+    }
+  };
+
+  return (
+    <section className="panel row wrap" style={{ marginTop: 28, gap: 14, borderColor: stale ? 'var(--warn)' : undefined }}>
+      <div className="grow" style={{ minWidth: 220 }}>
+        <h3 style={{ marginBottom: 4 }}>💾 Backup</h3>
+        <div className="small muted">
+          {characters.length} personagem(ns) · {hbCount} item(ns) de homebrew ·{' '}
+          {days === null ? 'nenhum backup feito ainda' : days === 0 ? 'último backup hoje' : `último backup há ${days} dia(s)`}
+        </div>
+        {stale && <div className="small" style={{ color: 'var(--warn)', marginTop: 4 }}>Suas fichas só existem neste navegador. Baixe um backup de vez em quando.</div>}
+      </div>
+      <button className="btn" onClick={load}><Upload size={16} /> Restaurar backup</button>
+      <button className="btn primary" disabled={!characters.length && !hbCount} onClick={save}><Download size={16} /> Baixar backup</button>
+    </section>
   );
 }

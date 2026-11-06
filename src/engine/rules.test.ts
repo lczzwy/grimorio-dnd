@@ -14,6 +14,7 @@ import {
   totalLevel,
   weaponAttacks,
   passivePerception,
+  concentrationDc,
   spellSaveDc,
 } from './rules';
 import { parseDice, rollFormula } from './dice';
@@ -168,5 +169,15 @@ describe('dice', () => {
       expect(a.dropped!.length).toBe(1);
       expect(a.rolls[0]).toBeGreaterThanOrEqual(a.dropped![0]);
     }
+  });
+});
+
+describe('concentration', () => {
+  it('DC is max(10, half damage), capped at 30 in 2024', () => {
+    expect(concentrationDc(7, '2014')).toBe(10);
+    expect(concentrationDc(22, '2014')).toBe(11);
+    expect(concentrationDc(23, '2014')).toBe(11);
+    expect(concentrationDc(80, '2014')).toBe(40);
+    expect(concentrationDc(80, '2024')).toBe(30);
   });
 });

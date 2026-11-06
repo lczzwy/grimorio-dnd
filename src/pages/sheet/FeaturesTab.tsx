@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { ChevronRight, Plus, Trash2, ArrowUpCircle, Dices } from 'lucide-react';
-import type { FeatDef } from '../../data/types';
+import type { Ability, Character, FeatDef } from '../../data/types';
+import { ABILITIES } from '../../data/types';
 import { useDice } from '../../store';
 import { uid } from '../../engine/character';
 import { ABILITY_PT, XP_TABLE, allFeatures, className, computeScores, findClass, maxHp, mods, speciesName, syncResources, totalLevel } from '../../engine/rules';
 import { fmtMod } from '../../engine/dice';
 import { Markdown, Modal, NumInput } from '../../ui/ui';
 import type { SheetProps } from '../Sheet';
+import { PsiOptions } from './PsiOptions';
 
 const KIND_COLOR: Record<string, string> = { class: 'accent', subclass: 'accent', species: 'good', background: 'gold', feat: 'gold', custom: '' };
 
@@ -110,9 +112,10 @@ export function FeaturesTab({ c, srd, upd, onLevelUp }: SheetProps & { onLevelUp
                   <ChevronRight className="chev" size={16} />
                   {f.level != null && <span className="tag" style={{ minWidth: 26, justifyContent: 'center' }}>{f.level}</span>}
                   <span className="grow">{f.name}</span>
+                  {c.psychicFocus === f.name && <span className="tag gold">foco</span>}
                   {g.kind === 'custom' && <button className="btn icon sm ghost danger" onClick={(e) => { e.preventDefault(); upd((d) => (d.customFeatures = d.customFeatures.filter((x) => x.uid !== f.id))); }}><Trash2 size={13} /></button>}
                 </summary>
-                <div className="body"><Markdown text={f.desc} /></div>
+                <div className="body"><Markdown text={f.desc} /><PsiOptions c={c} upd={upd} name={f.name} desc={f.desc} /></div>
               </details>
             ))}
           </div>
@@ -176,27 +179,48 @@ export function LevelUpModal({ c, srd, upd, onClose, onDone }: SheetProps & { on
   const mcOk = entry || !cls.multiclass?.prereq?.length || cls.multiclass.prereq.every((p) => scores[p.ability] >= p.min);
   const gain = Math.max(1, (hpMode === 'avg' ? avg : rolled ?? avg) + con);
 
+  // Ability Score Improvement: listed in the class table, or the usual levels for homebrew classes
+  const hasAsi = (row?.features || []).some((f) => /ability score improvement|aumento de atributo/i.test(f.name)) || (!!cls.custom && [4, 8, 12, 16, 19].includes(newLevel));
+  const [asiMode, setAsiMode] = useState<'plus2' | 'split' | 'feat' | 'later'>('plus2');
+  const [asiA, setAsiA] = useState<Ability>('str');
+  const [asiB, setAsiB] = useState<Ability>('dex');
+  const [asiFeat, setAsiFeat] = useState('');
+  const room = (a: Ability) => Math.max(0, 20 - scores[a]);
+  const asiPlan: Partial<Record<Ability, number>> = !hasAsi ? {} : asiMode === 'plus2' ? { [asiA]: Math.min(2, room(asiA)) } : asiMode === 'split' ? { [asiA]: Math.min(1, room(asiA)), [asiB]: Math.min(1, room(asiB)) } : {};
+  const asiReady = !hasAsi || asiMode === 'later' || (asiMode === 'feat' ? !!asiFeat : asiMode === 'split' ? asiA !== asiB : true);
+
+  const mutate = (d: Character) => {
+    const e = d.classes.find((x) => x.classId === classId);
+    if (e) { e.level += 1; if (sub && !e.subclassId) e.subclassId = sub; }
+    else {
+      d.classes.push({ classId, level: 1, subclassId: sub || undefined });
+      // multiclass: add the class' multiclass proficiencies to the text
+      if (cls.multiclass?.profs?.length) d.proficienciesText = [d.proficienciesText, ...cls.multiclass.profs].filter(Boolean).join(', ');
+    }
+    if (hpMode === 'roll' && rolled != null) d.hp.maxBonus += rolled - avg;
+    // a fixed max HP (e.g. imported from another app) still grows by this level's hit points
+    if (d.hp.maxOverride) d.hp.maxOverride += gain;
+    for (const [a, n] of Object.entries(asiPlan) as [Ability, number][]) if (n) d.extra[a] = (d.extra[a] || 0) + n;
+    if (hasAsi && asiMode === 'feat' && asiFeat) d.feats.push(asiFeat);
+    d.resources = syncResources(d, srd, uid);
+  };
+
   const apply = () => {
     const before = maxHp(c, srd);
+    const sim = structuredClone(c);
+    mutate(sim);
+    const after = maxHp(sim, srd); // includes CON increases from the ASI
     upd((d) => {
-      const e = d.classes.find((x) => x.classId === classId);
-      if (e) { e.level += 1; if (sub && !e.subclassId) e.subclassId = sub; }
-      else {
-        d.classes.push({ classId, level: 1, subclassId: sub || undefined });
-        // multiclass: add the class' multiclass proficiencies to the text
-        if (cls.multiclass?.profs?.length) d.proficienciesText = [d.proficienciesText, ...cls.multiclass.profs].filter(Boolean).join(', ');
-      }
-      if (hpMode === 'roll' && rolled != null) d.hp.maxBonus += rolled - avg;
-      d.resources = syncResources(d, srd, uid);
+      mutate(d);
+      d.hp.current = Math.min(after, d.hp.current + (after - before));
     });
-    const after = before + gain;
-    upd((d) => (d.hp.current = Math.min(after, d.hp.current + gain)));
-    onDone(`🎉 ${c.name} agora é nível ${total}! +${gain} PV`);
+    const asiText = Object.entries(asiPlan).filter(([, n]) => n).map(([a, n]) => `${ABILITY_PT[a as Ability].short} +${n}`).join(', ');
+    onDone(`🎉 ${c.name} agora é nível ${total}! +${after - before} PV${asiText ? ` · ${asiText}` : ''}${hasAsi && asiMode === 'feat' && asiFeat ? ` · talento ${srd.feats.find((f) => f.id === asiFeat)?.name}` : ''}`);
   };
 
   return (
     <Modal title={`Subir para o nível ${total}`} onClose={onClose} icon={<ArrowUpCircle color="var(--accent-2)" />}
-      footer={<><button className="btn" onClick={onClose}>Cancelar</button><button className="btn primary" disabled={!mcOk || (hpMode === 'roll' && rolled == null)} onClick={apply}>Confirmar</button></>}>
+      footer={<><button className="btn" onClick={onClose}>Cancelar</button><button className="btn primary" disabled={!mcOk || (hpMode === "roll" && rolled == null) || !asiReady} onClick={apply}>Confirmar</button></>}>
       <div className="col">
         <label className="field">Classe que vai ganhar o nível
           <select className="select" value={classId} onChange={(e) => { setClassId(e.target.value); setSub(''); }}>
@@ -242,8 +266,35 @@ export function LevelUpModal({ c, srd, upd, onClose, onDone }: SheetProps & { on
           </details>
         ))}
         {!(row?.features || []).length && !subFeatures.length && <div className="small faint">Nenhuma característica nova listada neste nível.</div>}
-        {(row?.features || []).some((f) => /ability score|aumento/i.test(f.name)) && (
-          <div className="tag gold" style={{ alignSelf: 'flex-start' }}>Lembrete: aumente atributos (aba Principal → Editar atributos → bônus extra) ou escolha um talento.</div>
+        {hasAsi && (
+          <div className="panel col" style={{ borderColor: 'var(--gold)' }}>
+            <div className="row"><span className="grow" style={{ fontWeight: 700 }}>⭐ Aumento de Atributo</span>
+              <div className="seg">
+                <button className={asiMode === 'plus2' ? 'on' : ''} onClick={() => setAsiMode('plus2')}>+2 em um</button>
+                <button className={asiMode === 'split' ? 'on' : ''} onClick={() => setAsiMode('split')}>+1 em dois</button>
+                <button className={asiMode === 'feat' ? 'on' : ''} onClick={() => setAsiMode('feat')}>Talento</button>
+                <button className={asiMode === 'later' ? 'on' : ''} onClick={() => setAsiMode('later')}>Depois</button>
+              </div>
+            </div>
+            {(asiMode === 'plus2' || asiMode === 'split') && (
+              <div className="row wrap">
+                {[asiA, ...(asiMode === 'split' ? [asiB] : [])].map((cur, i) => (
+                  <select key={i} className="select" style={{ width: 'auto' }} value={cur} onChange={(e) => (i === 0 ? setAsiA : setAsiB)(e.target.value as Ability)}>
+                    {ABILITIES.map((a) => <option key={a} value={a} disabled={room(a) === 0}>{ABILITY_PT[a].name} ({scores[a]}{room(a) === 0 ? ', máximo' : ` → ${Math.min(20, scores[a] + (asiMode === 'plus2' ? 2 : 1))}`})</option>)}
+                  </select>
+                ))}
+                {asiMode === 'split' && asiA === asiB && <span className="tag bad">Escolha dois atributos diferentes</span>}
+              </div>
+            )}
+            {asiMode === 'feat' && (
+              <select className="select" value={asiFeat} onChange={(e) => setAsiFeat(e.target.value)}>
+                <option value="">Escolha um talento…</option>
+                {srd.feats.filter((f) => f.type !== 'origin' || c.edition === '2014').map((f) => <option key={f.id} value={f.id}>{f.name}{f.type ? ` (${f.type})` : ''}{f.prereq ? ` · requer ${f.prereq}` : ''}</option>)}
+              </select>
+            )}
+            {asiMode === 'later' && <div className="small muted">Você pode ajustar depois em Principal → Editar atributos, ou em Habilidades → + Talento.</div>}
+            <div className="small faint">Nenhum atributo passa de 20.</div>
+          </div>
         )}
         {row?.spellcasting && <div className="small muted">Magias: {row.spellcasting.cantrips != null && `${row.spellcasting.cantrips} truques · `}{row.spellcasting.known != null && `${row.spellcasting.known} conhecidas · `}{row.spellcasting.prepared != null && `${row.spellcasting.prepared} preparadas · `}espaços {row.spellcasting.slots.filter(Boolean).join('/')}</div>}
       </div>

@@ -6,6 +6,7 @@ import { rollFormula, type RollMode } from './engine/dice';
 
 import { mergeHomebrew, sanitizeHomebrew, type Homebrew, type HomebrewKind, type SanitizeResult } from './data/homebrew';
 export type { Homebrew, HomebrewKind } from './data/homebrew';
+import { restoreBackup, type BackupFile, type RestoreResult } from './data/backup';
 
 interface AppState {
   characters: Character[];
@@ -18,6 +19,9 @@ interface AppState {
   addHomebrew: (ed: Edition, kind: HomebrewKind, item: { id: string; name: string }) => void;
   removeHomebrew: (ed: Edition, kind: HomebrewKind, id: string) => void;
   importHomebrew: (ed: Edition, hb: unknown, opts?: { keepExisting?: boolean }) => SanitizeResult;
+  lastBackupAt?: number;
+  markBackup: () => void;
+  restore: (b: BackupFile) => RestoreResult;
 }
 
 export const useApp = create<AppState>()(
@@ -25,6 +29,12 @@ export const useApp = create<AppState>()(
     (set, get) => ({
       characters: [],
       homebrew: { '2014': {}, '2024': {} },
+      markBackup: () => set({ lastBackupAt: Date.now() }),
+      restore: (b) => {
+        const r = restoreBackup({ characters: get().characters, homebrew: get().homebrew }, b);
+        set({ characters: r.characters, homebrew: r.homebrew });
+        return r;
+      },
       addCharacter: (c) => set((s) => ({ characters: [...s.characters, c] })),
       updateCharacter: (id, fn) =>
         set((s) => ({

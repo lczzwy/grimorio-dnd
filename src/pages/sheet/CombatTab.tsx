@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { Heart, HeartCrack, Shield, Plus, Trash2, Skull, Dices, Zap, Minus } from 'lucide-react';
+import { Heart, HeartCrack, Shield, Plus, Trash2, Skull, Dices, Zap, Minus, Brain } from 'lucide-react';
 import type { CustomAttack } from '../../data/types';
 import { ABILITIES } from '../../data/types';
 import { useDice } from '../../store';
 import { uid } from '../../engine/character';
-import { ABILITY_PT, CONDITION_PT, armorClass, hitDice, maxHp, mods, weaponAttacks, syncResources } from '../../engine/rules';
+import { type AttackLine, ABILITY_PT, CONDITION_PT, armorClass, concentrationDc, hitDice, maxHp, mods, saveMod, weaponAttacks, syncResources } from '../../engine/rules';
 import { fmtMod, rollFormula } from '../../engine/dice';
-import { Modal, NumInput, Markdown } from '../../ui/ui';
+import { Modal, NumInput, Markdown, useFlash } from '../../ui/ui';
 import { AdvToggle } from '../../ui/Dice';
 import type { SheetProps } from '../Sheet';
+import { fullAttack as sharedFullAttack } from './attack';
+import { TurnPanel } from './TurnPanel';
 
 function HpRing({ cur, max, temp }: { cur: number; max: number; temp: number }) {
   const r = 56;
@@ -39,6 +41,19 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
   const [fx, setFx] = useState<'' | 'flash-dmg shake' | 'flash-heal'>('');
   const [atkEdit, setAtkEdit] = useState<CustomAttack | null>(null);
   const [condInfo, setCondInfo] = useState<string | null>(null);
+  const [concCheck, setConcCheck] = useState<{ dc: number; dmg: number } | null>(null);
+  const flash = useFlash((s) => s.show);
+  const concName = c.concentration ? srd.spells.find((s) => s.id === c.concentration)?.name ?? c.concentration : '';
+  const conSave = saveMod(c, srd, 'con');
+  const rollConcentration = () => {
+    if (!concCheck) return;
+    const r = roll(`${who}: concentração em ${concName} (CD ${concCheck.dc})`, `1d20${fmtMod(conSave)}`);
+    if (r.total < concCheck.dc) {
+      upd((d) => (d.concentration = undefined));
+      setTimeout(() => flash(`Falhou (${r.total} vs CD ${concCheck.dc}): concentração em ${concName} perdida.`), 900);
+    } else setTimeout(() => flash(`Passou (${r.total} vs CD ${concCheck.dc}): continua concentrado.`), 900);
+    setConcCheck(null);
+  };
   const max = maxHp(c, srd);
   const who = c.name || 'Personagem';
   const attacks = weaponAttacks(c, srd);
@@ -50,6 +65,9 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
   const damage = (n: number) => {
     if (!n) return;
     pulse('flash-dmg shake');
+    // concentration: dropping to 0 HP ends it; otherwise a CON save is required
+    const tempAbsorbs = Math.min(c.hp.temp, n);
+    const dropsTo0 = c.hp.current > 0 && c.hp.current - (n - tempAbsorbs) <= 0;
     upd((d) => {
       let left = n;
       const t = Math.min(d.hp.temp, left);
@@ -57,7 +75,12 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
       left -= t;
       if (d.hp.current <= 0 && left > 0) { d.deathSaves.fail = Math.min(3, d.deathSaves.fail + 1); return; }
       d.hp.current = Math.max(0, d.hp.current - left);
+      if (d.hp.current <= 0) d.concentration = undefined;
     });
+    if (c.concentration) {
+      if (dropsTo0 || c.hp.current <= 0) flash(`Concentração em ${concName} perdida (0 PV).`);
+      else setConcCheck({ dc: concentrationDc(n, c.edition), dmg: n });
+    }
     setAmt(undefined);
   };
   const heal = (n: number) => {
@@ -69,6 +92,8 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
     });
     setAmt(undefined);
   };
+
+  const fullAttack = (a: AttackLine, attackOnly = false) => sharedFullAttack(who, a, attackOnly);
 
   const deathSave = () => {
     const r = roll(`${who}: salvaguarda contra a morte`, '1d20');
@@ -84,8 +109,24 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
   const resources = c.resources;
 
   return (
+    <>
+    <TurnPanel c={c} srd={srd} upd={upd} />
     <div className="sheet-grid-3">
       <div className="col" style={{ gap: 16 }}>
+        {c.concentration && (
+          <div className="panel row" style={{ borderColor: 'var(--gold)', padding: '10px 14px' }}>
+            <Brain size={18} color="var(--gold)" />
+            <span className="grow">Concentrado em <b>{concName}</b> <span className="small muted">· salvaguarda de CON {fmtMod(conSave)}</span></span>
+            <button className="btn sm" onClick={() => upd((d) => (d.concentration = undefined))}>Encerrar</button>
+          </div>
+        )}
+        {c.psychicFocus && (
+          <div className="panel row" style={{ borderColor: 'var(--accent-2)', padding: '10px 14px' }}>
+            <Brain size={18} color="var(--accent-2)" />
+            <span className="grow">Foco psíquico: <b>{c.psychicFocus}</b></span>
+            <button className="btn sm" onClick={() => upd((d) => (d.psychicFocus = undefined))}>Encerrar</button>
+          </div>
+        )}
         {/* HP */}
         <div className={'panel hp-panel ' + fx}>
           <div className="panel-title"><h3>Pontos de Vida</h3><span className="spacer" />
@@ -196,7 +237,7 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
                 <div className="an">{a.name}</div>
                 <div className="small muted">{[a.type, a.range, a.mastery && `Maestria: ${a.mastery}`, a.notes].filter(Boolean).join(' · ')}</div>
               </div>
-              <button className="roll-chip" onClick={() => roll(`${who}: ${a.name} (ataque)`, `1d20${fmtMod(a.toHit)}`)} title="Rolar ataque">
+              <button className="roll-chip" onClick={(e) => fullAttack(a, e.shiftKey)} title="Ataque completo: rola o acerto e depois o dano (20 natural = crítico automático). Shift+clique: só o acerto.">
                 <Zap size={14} /> {fmtMod(a.toHit)}
               </button>
               <div className="row" style={{ gap: 4 }}>
@@ -209,7 +250,7 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
               </div>
             </div>
           ))}
-          <p className="small faint" style={{ margin: '6px 0 0' }}>Armas equipadas no Inventário aparecem aqui automaticamente. 💥 rola o dano crítico (dados dobrados).</p>
+          <p className="small faint" style={{ margin: '6px 0 0' }}>⚡ rola o acerto e já rola o dano (no 20 natural, dano crítico automático; Shift+clique rola só o acerto). Armas equipadas no Inventário aparecem aqui sozinhas.</p>
         </div>
 
         {/* resources */}
@@ -288,12 +329,27 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
           </div>
         </Modal>
       )}
+      {concCheck && (
+        <Modal title="Teste de concentração" icon={<Brain color="var(--gold)" />} onClose={() => setConcCheck(null)}
+          footer={<>
+            <button className="btn danger" onClick={() => { upd((d) => (d.concentration = undefined)); setConcCheck(null); }}>Perdi a concentração</button>
+            <button className="btn" onClick={() => setConcCheck(null)}>Mantive</button>
+            <button className="btn primary" onClick={rollConcentration}><Dices size={15} /> Rolar CON {fmtMod(conSave)}</button>
+          </>}>
+          <p style={{ margin: 0 }}>Você levou <b>{concCheck.dmg}</b> de dano concentrado em <b>{concName}</b>.</p>
+          <div className="row" style={{ margin: '14px 0 4px', gap: 18 }}>
+            <div className="center"><div className="display" style={{ fontSize: 38, fontWeight: 900 }}>{concCheck.dc}</div><div className="tiny muted">CD</div></div>
+            <div className="small muted">CD = o maior entre 10 e metade do dano{c.edition === '2024' ? ' (máximo 30)' : ''}. Se falhar, a magia termina.</div>
+          </div>
+        </Modal>
+      )}
       {condInfo && (
         <Modal title={CONDITION_PT[condInfo] || condInfo} onClose={() => setCondInfo(null)}>
           <Markdown text={srd.conditions.find((x) => x.id === condInfo)?.desc} />
         </Modal>
       )}
     </div>
+    </>
   );
 }
 

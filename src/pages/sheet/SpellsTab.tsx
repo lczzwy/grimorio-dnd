@@ -121,7 +121,7 @@ export function SpellsTab({ c, srd, upd }: SheetProps) {
   const spells = c.spells.map((k) => ({ k, sp: srd.spells.find((s) => s.id === k.id) })).filter((x): x is { k: typeof x.k; sp: SpellDef } => !!x.sp);
   const byLevel = new Map<number, typeof spells>();
   spells.sort((a, b) => a.sp.name.localeCompare(b.sp.name)).forEach((x) => byLevel.set(x.sp.level, [...(byLevel.get(x.sp.level) || []), x]));
-  const conc = c.concentration ? srd.spells.find((s) => s.id === c.concentration) : undefined;
+  const conc = c.concentration ? { name: srd.spells.find((s) => s.id === c.concentration)?.name ?? c.concentration } : undefined;
 
   const doCast = (sp: SpellDef, slotLevel: number, usePact: boolean) => {
     upd((d) => {

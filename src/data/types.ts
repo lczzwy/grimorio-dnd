@@ -243,7 +243,8 @@ export interface Character {
   conditions: string[];
   exhaustion: number;
   inspiration: boolean;
-  concentration?: string; // spell id
+  concentration?: string; // spell id, or free text for non-spell effects
+  psychicFocus?: string; // name of the discipline under psychic focus (Mystic)
 
   acBonus: number;
   acOverride?: number;
