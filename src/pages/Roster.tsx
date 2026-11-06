@@ -1,7 +1,8 @@
 import { Plus, Upload, Copy, Trash2, Download } from 'lucide-react';
 import { useApp } from '../store';
 import type { Edition } from '../data/types';
-import { useSrd } from '../data/srd';
+import { useSrd, loadSrd } from '../data/srd';
+import { importCompanion, isCompanionFile } from '../import/companion';
 import { go, pickFile, useFlash, download } from '../ui/ui';
 import { armorClass, classSummary, maxHp, speciesName } from '../engine/rules';
 
@@ -16,15 +17,32 @@ export function Avatar({ name, portrait, size }: { name: string; portrait?: stri
 export function Roster({ edition }: { edition: Edition }) {
   const srd = useSrd(edition);
   const all = useApp((s) => s.characters);
-  const { importCharacter, duplicateCharacter, removeCharacter } = useApp();
+  const { importCharacter, duplicateCharacter, removeCharacter, importHomebrew, addCharacter } = useApp();
   const flash = useFlash((s) => s.show);
   const chars = all.filter((c) => c.edition === edition).sort((a, b) => b.updatedAt - a.updatedAt);
 
   const onImport = async () => {
-    const f = await pickFile();
+    const f = await pickFile('.json,.cah');
     if (!f) return;
     try {
       const raw = JSON.parse(await f.text());
+      if (isCompanionFile(raw)) {
+        // 5e Companion App exports use the 2014 rules
+        if (edition !== '2014' && !confirm('Fichas do 5e Companion usam as regras de 2014. Importar na mesa D&D 2014?')) return;
+        const { character, homebrew, warnings } = importCompanion(raw, await loadSrd('2014'));
+        importHomebrew('2014', homebrew);
+        addCharacter(character);
+        const created = Object.values(homebrew).flat().map((x) => (x as { name: string }).name);
+        flash(`${character.name} importado do 5e Companion!`);
+        if (created.length || warnings.length) {
+          alert([
+            created.length ? `Conteúdo novo cadastrado no Homebrew (2014):\n• ${created.join('\n• ')}` : '',
+            warnings.length ? `Avisos:\n• ${warnings.join('\n• ')}` : '',
+          ].filter(Boolean).join('\n\n'));
+        }
+        go(`2014/c/${character.id}`);
+        return;
+      }
       if (raw.edition && raw.edition !== edition) {
         if (!confirm(`Esta ficha é da edição ${raw.edition}. Importar mesmo assim para a mesa ${raw.edition}?`)) return;
       }

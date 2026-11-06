@@ -323,8 +323,9 @@ export function spellSlots(c: Character, srd: SrdData): { slots: number[]; pact?
   if (casters.length === 0) return { slots: pad9([]), pact };
   if (casters.length === 1) {
     const e = casters[0];
-    const row = findClass(srd, e.classId)?.levels.find((l) => l.level === e.level)?.spellcasting?.slots;
-    if (row) return { slots: pad9(row), pact };
+    const cls = findClass(srd, e.classId);
+    // single class: its own table is authoritative (a custom class may have an ability but no slots)
+    if (cls && !THIRD_SUBCLASSES.includes(e.subclassId || '')) return { slots: pad9(cls.levels.find((l) => l.level === e.level)?.spellcasting?.slots || []), pact };
   }
   let lvl = 0;
   for (const e of casters) {
