@@ -5,7 +5,9 @@ import { ABILITIES } from '../data/types';
 import { useSrd } from '../data/srd';
 import { useApp, type HomebrewKind } from '../store';
 import { ABILITY_PT, SCHOOL_PT, SKILL_PT, className, profBonus } from '../engine/rules';
-import { Modal, NumInput, download, pickFile, useFlash } from '../ui/ui';
+import { Modal, NumInput, download, go, pickFile, useFlash } from '../ui/ui';
+import { isCompanionFile } from '../import/companion';
+import { importCompanionCharacter, companionReport } from '../import/importFile';
 
 type AnyItem = { id: string; name: string } & Record<string, unknown>;
 
@@ -269,15 +271,33 @@ export function HomebrewPage({ edition }: { edition: Edition }) {
 
   const total = Object.values(hb || {}).reduce((s, a) => s + (a?.length || 0), 0);
 
-  const doImport = (txt: string) => {
+  const doImport = async (txt: string) => {
+    let data: unknown;
     try {
-      const data = JSON.parse(txt);
-      importHb(edition, data);
-      flash('Pacote importado!');
-      setPaste(null);
+      data = JSON.parse(txt);
     } catch (e) {
       alert('JSON inválido: ' + (e as Error).message);
+      return;
     }
+    if (isCompanionFile(data)) {
+      // a character sheet, not a content pack: route it to the character importer
+      if (!confirm(`Isso é uma ficha de personagem do 5e Companion, não um pacote de homebrew.
+
+Importar como personagem na mesa D&D 2014?`)) return;
+      setPaste(null);
+      const { character, created, warnings } = await importCompanionCharacter(data);
+      flash(`${character.name} importado do 5e Companion!`);
+      if (created.length || warnings.length) alert(companionReport(created, warnings));
+      go(`2014/c/${character.id}`);
+      return;
+    }
+    const r = importHb(edition, data);
+    if (!r.kept) {
+      alert('Nada foi importado: o arquivo não tem itens de homebrew reconhecíveis (species, classes, subclasses, backgrounds, feats, spells, equipment ou magicItems, cada um com "name").');
+      return;
+    }
+    setPaste(null);
+    flash(`${r.kept} item(ns) importado(s)${r.dropped ? `, ${r.dropped} ignorado(s) por formato inválido` : ''}.`);
   };
 
   const openEdit = (kind: HomebrewKind, item: AnyItem) => {
@@ -298,7 +318,7 @@ export function HomebrewPage({ edition }: { edition: Edition }) {
           <p className="muted" style={{ margin: '6px 0 0', maxWidth: 720 }}>Cadastre raças, classes, magias e itens de outros livros ou criados por vocês. Tudo aparece no criador de personagem e no compêndio. Exporte o pacote para compartilhar com a mesa.</p>
         </div>
         <button className="btn" onClick={() => setPaste('')}><ClipboardPaste size={16} /> Colar JSON</button>
-        <button className="btn" onClick={async () => { const f = await pickFile(); if (f) doImport(await f.text()); }}><Upload size={16} /> Importar pacote</button>
+        <button className="btn" onClick={async () => { const f = await pickFile('.json,.cah'); if (f) doImport(await f.text()); }}><Upload size={16} /> Importar pacote</button>
         <button className="btn" disabled={!total} onClick={() => download(`homebrew-${edition}.json`, hb)}><Download size={16} /> Exportar ({total})</button>
       </div>
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Edition, SrdData } from './types';
 import { useApp } from '../store';
+import { HOMEBREW_KINDS, type HomebrewKind } from './homebrew';
 
 const cache: Partial<Record<Edition, Promise<SrdData>>> = {};
 
@@ -32,7 +33,7 @@ export function useSrd(ed: Edition | undefined): SrdData | null {
     if (!homebrew) return base;
     const merged = { ...base } as SrdData;
     for (const [k, arr] of Object.entries(homebrew)) {
-      if (!Array.isArray(arr) || !arr.length) continue;
+      if (!HOMEBREW_KINDS.includes(k as HomebrewKind) || !Array.isArray(arr) || !arr.length) continue;
       const key = k as keyof SrdData;
       const ids = new Set(arr.map((x: { id: string }) => x.id));
       (merged as unknown as Record<string, unknown>)[key] = [...(base[key] as { id: string }[]).filter((x) => !ids.has(x.id)), ...arr];

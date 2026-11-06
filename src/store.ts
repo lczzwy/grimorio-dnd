@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Character, Edition, RollEntry, SrdData } from './data/types';
+import type { Character, Edition, RollEntry } from './data/types';
 import { normalizeCharacter, uid } from './engine/character';
 import { rollFormula, type RollMode } from './engine/dice';
 
-export type HomebrewKind = 'spells' | 'feats' | 'species' | 'backgrounds' | 'equipment' | 'magicItems' | 'subclasses' | 'classes';
-export type Homebrew = Partial<Pick<SrdData, HomebrewKind>>;
+import { sanitizeHomebrew, type Homebrew, type HomebrewKind, type SanitizeResult } from './data/homebrew';
+export type { Homebrew, HomebrewKind } from './data/homebrew';
 
 interface AppState {
   characters: Character[];
@@ -17,7 +17,7 @@ interface AppState {
   importCharacter: (raw: unknown) => Character;
   addHomebrew: (ed: Edition, kind: HomebrewKind, item: { id: string; name: string }) => void;
   removeHomebrew: (ed: Edition, kind: HomebrewKind, id: string) => void;
-  importHomebrew: (ed: Edition, hb: Homebrew) => void;
+  importHomebrew: (ed: Edition, hb: unknown) => SanitizeResult;
 }
 
 export const useApp = create<AppState>()(
@@ -64,21 +64,33 @@ export const useApp = create<AppState>()(
           (hb as Record<string, unknown>)[kind] = ((hb[kind] as { id: string }[] | undefined) || []).filter((x) => x.id !== id);
           return { homebrew: { ...s.homebrew, [ed]: hb } };
         }),
-      importHomebrew: (ed, incoming) =>
+      importHomebrew: (ed, incoming) => {
+        const result = sanitizeHomebrew(incoming);
         set((s) => {
           const hb = { ...s.homebrew[ed] } as Record<string, { id: string }[]>;
-          for (const [k, arr] of Object.entries(incoming)) {
-            if (!Array.isArray(arr)) continue;
-            const ids = new Set(arr.map((x: { id: string }) => x.id));
-            hb[k] = [...(hb[k] || []).filter((x) => !ids.has(x.id)), ...arr.map((x: object) => ({ ...x, custom: true }))] as { id: string }[];
+          for (const [k, list] of Object.entries(result.homebrew) as [string, { id: string }[]][]) {
+            const ids = new Set(list.map((x) => x.id));
+            hb[k] = [...(hb[k] || []).filter((x) => !ids.has(x.id)), ...list];
           }
           return { homebrew: { ...s.homebrew, [ed]: hb as Homebrew } };
-        }),
+        });
+        return result;
+      },
     }),
     {
       name: 'grimorio-v1',
       storage: createJSONStorage(() => localStorage),
-      version: 1,
+      version: 2,
+      // v1 → v2: drop malformed homebrew (e.g. a character file pasted as a homebrew pack),
+      // which used to break the edition's pages on load
+      migrate: (persisted) => {
+        const st = (persisted || {}) as { characters?: Character[]; homebrew?: Record<string, unknown> };
+        return {
+          ...st,
+          characters: Array.isArray(st.characters) ? st.characters : [],
+          homebrew: { '2014': sanitizeHomebrew(st.homebrew?.['2014']).homebrew, '2024': sanitizeHomebrew(st.homebrew?.['2024']).homebrew },
+        } as unknown as AppState;
+      },
     },
   ),
 );
