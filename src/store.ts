@@ -1,0 +1,128 @@
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import type { Character, Edition, RollEntry, SrdData } from './data/types';
+import { normalizeCharacter, uid } from './engine/character';
+import { rollFormula, type RollMode } from './engine/dice';
+
+export type HomebrewKind = 'spells' | 'feats' | 'species' | 'backgrounds' | 'equipment' | 'magicItems' | 'subclasses' | 'classes';
+export type Homebrew = Partial<Pick<SrdData, HomebrewKind>>;
+
+interface AppState {
+  characters: Character[];
+  homebrew: Record<Edition, Homebrew>;
+  addCharacter: (c: Character) => void;
+  updateCharacter: (id: string, fn: (c: Character) => void) => void;
+  removeCharacter: (id: string) => void;
+  duplicateCharacter: (id: string) => string | undefined;
+  importCharacter: (raw: unknown) => Character;
+  addHomebrew: (ed: Edition, kind: HomebrewKind, item: { id: string; name: string }) => void;
+  removeHomebrew: (ed: Edition, kind: HomebrewKind, id: string) => void;
+  importHomebrew: (ed: Edition, hb: Homebrew) => void;
+}
+
+export const useApp = create<AppState>()(
+  persist(
+    (set, get) => ({
+      characters: [],
+      homebrew: { '2014': {}, '2024': {} },
+      addCharacter: (c) => set((s) => ({ characters: [...s.characters, c] })),
+      updateCharacter: (id, fn) =>
+        set((s) => ({
+          characters: s.characters.map((c) => {
+            if (c.id !== id) return c;
+            const copy = structuredClone(c);
+            fn(copy);
+            copy.updatedAt = Date.now();
+            return copy;
+          }),
+        })),
+      removeCharacter: (id) => set((s) => ({ characters: s.characters.filter((c) => c.id !== id) })),
+      duplicateCharacter: (id) => {
+        const src = get().characters.find((c) => c.id === id);
+        if (!src) return;
+        const copy = { ...structuredClone(src), id: uid(), name: src.name + ' (cópia)', createdAt: Date.now(), updatedAt: Date.now() };
+        set((s) => ({ characters: [...s.characters, copy] }));
+        return copy.id;
+      },
+      importCharacter: (raw) => {
+        const r = raw as Partial<Character>;
+        if (!r || typeof r !== 'object' || (r.edition !== '2014' && r.edition !== '2024')) throw new Error('Arquivo não é uma ficha válida.');
+        const c = normalizeCharacter({ ...r, edition: r.edition, id: uid(), updatedAt: Date.now() });
+        set((s) => ({ characters: [...s.characters, c] }));
+        return c;
+      },
+      addHomebrew: (ed, kind, item) =>
+        set((s) => {
+          const hb = { ...s.homebrew[ed] };
+          const list = ((hb[kind] as { id: string }[] | undefined) || []).filter((x) => x.id !== item.id);
+          (hb as Record<string, unknown>)[kind] = [...list, { ...item, custom: true }];
+          return { homebrew: { ...s.homebrew, [ed]: hb } };
+        }),
+      removeHomebrew: (ed, kind, id) =>
+        set((s) => {
+          const hb = { ...s.homebrew[ed] };
+          (hb as Record<string, unknown>)[kind] = ((hb[kind] as { id: string }[] | undefined) || []).filter((x) => x.id !== id);
+          return { homebrew: { ...s.homebrew, [ed]: hb } };
+        }),
+      importHomebrew: (ed, incoming) =>
+        set((s) => {
+          const hb = { ...s.homebrew[ed] } as Record<string, { id: string }[]>;
+          for (const [k, arr] of Object.entries(incoming)) {
+            if (!Array.isArray(arr)) continue;
+            const ids = new Set(arr.map((x: { id: string }) => x.id));
+            hb[k] = [...(hb[k] || []).filter((x) => !ids.has(x.id)), ...arr.map((x: object) => ({ ...x, custom: true }))] as { id: string }[];
+          }
+          return { homebrew: { ...s.homebrew, [ed]: hb as Homebrew } };
+        }),
+    }),
+    {
+      name: 'grimorio-v1',
+      storage: createJSONStorage(() => localStorage),
+      version: 1,
+    },
+  ),
+);
+
+/* ---------------- dice (not persisted) ---------------- */
+
+export interface ActiveRoll extends RollEntry { mode?: RollMode; key: number; charName?: string }
+
+interface DiceState {
+  log: ActiveRoll[];
+  current?: ActiveRoll;
+  mode: RollMode;
+  setMode: (m: RollMode) => void;
+  roll: (label: string, formula: string, opts?: { mode?: RollMode; crit?: boolean; charName?: string }) => ActiveRoll;
+  dismiss: () => void;
+  clear: () => void;
+}
+
+let rollKey = 0;
+export const useDice = create<DiceState>((set, get) => ({
+  log: [],
+  mode: 'normal',
+  setMode: (m) => set({ mode: m }),
+  roll: (label, formula, opts = {}) => {
+    const mode = opts.mode ?? get().mode;
+    const r = rollFormula(formula, { mode, crit: opts.crit });
+    const kind = r.natural === 20 ? 'crit' : r.natural === 1 ? 'fumble' : undefined;
+    const entry: ActiveRoll = {
+      id: uid(),
+      key: ++rollKey,
+      label,
+      formula,
+      rolls: r.rolls,
+      dropped: r.dropped,
+      total: r.total,
+      kind,
+      at: Date.now(),
+      mode: r.natural != null ? mode : 'normal',
+      charName: opts.charName,
+    };
+    // advantage toggle is one-shot, like tapping the button before a roll at the table
+    set((s) => ({ current: entry, log: [entry, ...s.log].slice(0, 80), mode: 'normal' }));
+    return entry;
+  },
+  dismiss: () => set({ current: undefined }),
+  clear: () => set({ log: [] }),
+}));
