@@ -5,20 +5,31 @@
 .chat-colors { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 2px 10px; }
 .chat-swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--bg); outline: 1px solid var(--line-2); cursor: pointer; }
 .chat-swatch.on { outline: 2px solid var(--gold); }
-.chat-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 4px 8px 0; scrollbar-width: thin; }
-.chat-line.compact { margin-top: -6px; }
-.chat-head { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; min-width: 0; }
-.chat-head b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.chat-av { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 2px solid; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #111; }
-.chat-body { position: relative; padding: 0 22px 0 33px; overflow-wrap: anywhere; white-space: pre-wrap; line-height: 1.4; }
-.chat-del { position: absolute; right: 0; top: 0; opacity: 0; background: none; border: 0; color: var(--faint); cursor: pointer; }
+.chat-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding: 2px 4px 8px 0; scrollbar-width: thin; font-size: 14px; }
+.chat-line.compact { margin-top: -5px; }
+.chat-head { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; min-width: 0; line-height: 1.2; }
+.chat-head b { font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-head .tag { font-size: 9.5px; line-height: 1.5; }
+.chat-head .tiny { font-size: 10.5px; }
+.chat-av { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #111; }
+.chat-body { position: relative; padding: 0 20px 0 26px; overflow-wrap: anywhere; white-space: pre-wrap; line-height: 1.35; }
+.chat-del { position: absolute; right: 0; top: 0; opacity: 0; background: none; border: 0; color: var(--faint); cursor: pointer; padding: 0; }
 .chat-line:hover .chat-del { opacity: 1; }
 @media (hover: none) { .chat-del { opacity: 0.6; } }
-.chat-roll { margin-left: 33px; display: flex; align-items: center; gap: 10px; padding: 7px 10px; background: var(--bg-2); border: 1px solid var(--line); border-left: 4px solid; }
+
+/* rolagem compacta: rótulo + fórmula numa linha, dados em fichinhas e o total */
+.chat-roll { margin-left: 26px; padding: 4px 8px 5px; background: var(--bg-2); border: 1px solid var(--line); border-left: 3px solid; }
+.chat-roll.hidden { border-style: dashed; }
 .chat-roll.crit { box-shadow: 0 0 0 1px var(--good); }
 .chat-roll.fumble { box-shadow: 0 0 0 1px var(--bad); }
-.chat-roll-label { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.chat-total { font-family: 'Cinzel', serif; font-weight: 700; font-size: 26px; font-variant-numeric: lining-nums; color: var(--gold); min-width: 40px; text-align: right; }
+.chat-roll-top { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.chat-roll-label { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.chat-roll-formula { flex: none; margin-left: auto; font-family: 'Cinzel', serif; font-size: 11px; color: var(--muted); font-variant-numeric: lining-nums; }
+.chat-roll-dice { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin-top: 3px; }
+.chat-die { min-width: 20px; height: 20px; padding: 0 4px; display: inline-grid; place-items: center; border: 1px solid var(--line-2); border-radius: 3px; font-family: 'Cinzel', serif; font-size: 11.5px; font-weight: 700; font-variant-numeric: lining-nums; color: var(--text); background: var(--panel); }
+.chat-die.dropped { opacity: 0.45; text-decoration: line-through; }
+.chat-eq { color: var(--faint); margin: 0 2px 0 4px; font-size: 12px; }
+.chat-total { font-family: 'Cinzel', serif; font-weight: 700; font-size: 19px; line-height: 1; color: var(--gold); font-variant-numeric: lining-nums; }
 .chat-roll.crit .chat-total { color: var(--good); }
 .chat-roll.fumble .chat-total { color: var(--bad); }
 .chat-input { display: flex; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
@@ -28,7 +39,7 @@
 @media (min-width: 1100px) {
   .page:has(.camp-wrap) { max-width: 1560px; }
   .camp-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; }
-  .camp-chat { position: sticky; top: 76px; height: calc(100vh - 96px); }
+  .camp-chat { position: sticky; top: 70px; height: calc(100vh - 86px); }
   .camp-chat .chat { height: 100%; }
 }
 .camp-chat-tab .chat { height: calc(100vh - 230px); min-height: 380px; }

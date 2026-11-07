@@ -76,8 +76,8 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
   const body = campaignTabs[current];
   const props: CampaignProps = { campaign, members, isGm, uid: user.id };
 
-  return (
-    <main className="page">
+  const header = (
+    <>
       <div className="row wrap" style={{ marginBottom: 12 }}>
         <button className="btn ghost sm" onClick={() => go('campanhas')}><ChevronLeft size={14} /> Campanhas</button>
         <h1 className="grow" style={{ fontSize: 28 }}>{campaign.name}</h1>
@@ -91,20 +91,30 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
           </button>
         ))}
       </nav>
-      {wide ? (
+    </>
+  );
+  const content = (
+    <>
+      <TableDice campaignId={campaign.id} variant="tray" />
+      {body ? body(props) : <div className="panel empty">Em construção.</div>}
+    </>
+  );
+
+  // PC: the chat takes the whole right side from the top, like a virtual tabletop
+  if (wide) {
+    return (
+      <main className="page">
         <div className="camp-wrap">
-          <div style={{ minWidth: 0 }}>
-            <TableDice campaignId={campaign.id} variant="tray" />
-            {body ? body(props) : <div className="panel empty">Em construção.</div>}
-          </div>
+          <div style={{ minWidth: 0 }}>{header}{content}</div>
           <aside className="camp-chat"><ChatPanel {...props} /></aside>
         </div>
-      ) : (
-        <>
-          <TableDice campaignId={campaign.id} variant="tray" />
-          {body ? body(props) : <div className="panel empty">Em construção.</div>}
-        </>
-      )}
+      </main>
+    );
+  }
+  return (
+    <main className="page">
+      {header}
+      {content}
     </main>
   );
 }

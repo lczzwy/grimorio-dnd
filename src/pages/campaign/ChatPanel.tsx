@@ -127,7 +127,8 @@ export function ChatPanel({ campaign, members, isGm, uid }: CampaignProps) {
   );
 }
 
-function Line({ it, p, compact, canDelete }: { it: FeedItem; p: Person; compact: boolean; canDelete: boolean }) {
+/** One chat line (exported for the visual check in development). */
+export function Line({ it, p, compact, canDelete }: { it: FeedItem; p: Person; compact: boolean; canDelete: boolean }) {
   const head = (
     <div className="chat-head">
       <span className="chat-av" style={{ borderColor: p.color, background: p.portrait ? `center / cover url(${p.portrait})` : p.color }}>
@@ -156,25 +157,22 @@ function Line({ it, p, compact, canDelete }: { it: FeedItem; p: Person; compact:
     );
   }
   const r = it.row;
+  const crit = r.kind === 'crit', fumble = r.kind === 'fumble';
   return (
     <div className="chat-line">
       {head}
-      <div className={'chat-roll ' + (r.kind === 'crit' || r.kind === 'fumble' ? r.kind : '')} style={{ borderLeftColor: p.color, borderStyle: r.hidden ? 'dashed' : undefined }}>
-        <div className="grow" style={{ minWidth: 0 }}>
-          <div className="chat-roll-label">
-            {r.label}
-            {r.hidden && (
-              <span className="tag" style={{ marginLeft: 6 }}>
-                <EyeOff size={11} /> oculta
-              </span>
-            )}
-          </div>
-          <div className="small muted mono">
-            {r.formula} [{r.rolls.join(', ')}]{r.dropped?.length ? ` ~${r.dropped.join(',')}` : ''}
-            {r.kind === 'adv' ? ' · vantagem' : r.kind === 'dis' ? ' · desvantagem' : ''}
-          </div>
+      <div className={'chat-roll' + (crit ? ' crit' : fumble ? ' fumble' : '') + (r.hidden ? ' hidden' : '')} style={{ borderLeftColor: p.color }}>
+        <div className="chat-roll-top">
+          <span className="chat-roll-label">{r.label}</span>
+          <span className="chat-roll-formula">{r.formula}{r.kind === 'adv' ? ' · vant.' : r.kind === 'dis' ? ' · desv.' : ''}</span>
+          {r.hidden && <EyeOff size={11} className="faint" />}
         </div>
-        <div className="chat-total">{r.total}</div>
+        <div className="chat-roll-dice">
+          {r.rolls.map((v, i) => <span key={i} className="chat-die">{v}</span>)}
+          {r.dropped?.map((v, i) => <span key={'d' + i} className="chat-die dropped" title="descartado">{v}</span>)}
+          <span className="chat-eq">=</span>
+          <b className="chat-total">{r.total}</b>
+        </div>
       </div>
     </div>
   );

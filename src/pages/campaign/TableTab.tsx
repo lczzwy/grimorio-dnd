@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { HeartCrack, Heart, Shield, Eye, Brain, Skull, Dices } from 'lucide-react';
+import { HeartCrack, Heart, Shield, Brain, Skull } from 'lucide-react';
 import type { Character } from '../../data/types';
 import { useCampaignSrd } from '../../cloud/campaignHomebrew';
 import { watchCharacters } from '../../cloud/sync';
 import { gmApply } from '../../cloud/campaigns';
 import { partySummary } from '../../cloud/party';
-import { BAND_COLOR } from '../../engine/hpBand';
 import { CONDITION_PT } from '../../engine/rules';
 import { Modal, NumInput, go, useFlash } from '../../ui/ui';
-import { Avatar } from '../Roster';
 import { Sheet } from '../Sheet';
 import type { CampaignProps } from '../Campaign';
 
@@ -48,56 +46,43 @@ export function TableTab({ campaign, members, isGm, uid }: CampaignProps) {
   return (
     <div className="col" style={{ gap: 14 }}>
       {players.length === 0 && <div className="panel empty">Nenhum jogador ainda. Mande o link de convite (aba Ajustes).</div>}
-      <div className="cards">
+      <div className="party-tokens">
         {players.map((m) => {
           const c = m.character_id ? chars[m.character_id] : undefined;
-          if (!c) return (
-            <div key={m.user_id} className="char-card" style={{ cursor: 'default' }}>
-              <b>{m.display_name}</b>
-              <div className="small muted">{m.character_id ? 'Carregando ficha…' : 'Ainda não escolheu personagem.'}</div>
-            </div>
-          );
+          if (!c) {
+            return (
+              <div key={m.user_id} className="token empty-token" title={m.character_id ? 'Carregando ficha…' : 'Ainda não escolheu personagem'}>
+                <div className="token-ring"><span className="token-face">?</span></div>
+                <div className="token-name">{m.display_name}</div>
+                <div className="token-sub">{m.character_id ? 'carregando…' : 'sem personagem'}</div>
+              </div>
+            );
+          }
           const s = partySummary(c, srd);
-          const pct = Math.max(0, Math.min(100, (s.hp / s.maxHp) * 100));
           return (
-            <div key={m.user_id} className="char-card" style={{ cursor: 'default', borderColor: s.dying ? 'var(--bad)' : undefined }}>
-              <div className="top">
-                <Avatar name={s.name} portrait={c.portrait} />
-                <div className="grow" style={{ minWidth: 0 }}>
-                  <div className="display" style={{ fontSize: 18, fontWeight: 700 }}>{s.name}</div>
-                  <div className="small muted">{s.summary} · {m.display_name}</div>
-                </div>
-                {m.user_id === uid
-                  ? <button className="btn sm primary" title="Abrir minha ficha para rolar e editar" onClick={() => go(`campanha/${campaign.id}/ficha`)}><Dices size={14} /> Minha ficha</button>
-                  : <button className="btn icon sm ghost" title="Ver ficha" onClick={() => setView(c.id)}><Eye size={15} /></button>}
+            <button
+              key={m.user_id}
+              className={'token' + (s.dying ? ' dying' : '')}
+              onClick={() => (m.user_id === uid ? go(`campanha/${campaign.id}/ficha`) : setView(c.id))}
+              title={`${s.name} · ${s.summary} · ${m.display_name}`}
+            >
+              <HpRing hp={s.hp} max={s.maxHp} temp={s.temp} portrait={c.portrait} name={s.name} dying={s.dying} />
+              <div className="token-name">{s.name}</div>
+              <div className="token-sub">{m.display_name}</div>
+              <div className="token-badges">
+                <span title="Classe de Armadura"><Shield size={11} /> {s.ac}</span>
+                {s.concentration && <span className="gold" title={'Concentrando: ' + s.concentration}><Brain size={11} /></span>}
+                {s.conditions.length > 0 && <span className="bad" title={s.conditions.map((x) => CONDITION_PT[x] || x).join(', ')}>{s.conditions.length} cond.</span>}
               </div>
-              <div className="row small wrap">
-                <span className="tag" style={{ color: BAND_COLOR[s.band] }}>{s.dying ? <><Skull size={12} /> Caído</> : <>PV {s.hp}/{s.maxHp}</>}{s.temp ? ` +${s.temp}` : ''}</span>
-                <span className="tag"><Shield size={12} /> CA {s.ac}</span>
-                <span className="tag"><Eye size={12} /> {s.passive}</span>
-                {s.concentration && <span className="tag gold"><Brain size={12} /> {s.concentration}</span>}
-                {s.dying && <span className="tag bad">TR morte {c.deathSaves.success}✓ {c.deathSaves.fail}✗</span>}
-              </div>
-              <div className={'hpbar' + (pct < 30 ? ' low' : pct < 60 ? ' mid' : '')}><span style={{ width: pct + '%' }} /></div>
-              {s.conditions.length > 0 && <div className="cond-grid">{s.conditions.map((x) => <span key={x} className="cond on">{CONDITION_PT[x] || x}</span>)}</div>}
-              {isGm && (
-                <div className="col" style={{ gap: 6 }}>
-                  <div className="row" style={{ gap: 6 }}>
-                    <NumInput value={amount[c.id]} min={0} placeholder="Valor" onChange={(n) => setAmount((a) => ({ ...a, [c.id]: n }))} style={{ width: 80 }} />
-                    <button className="btn sm hurt" disabled={!amount[c.id]} onClick={() => act(c, { deltaHp: -amount[c.id]! }, `${s.name}: −${amount[c.id]} PV`)}><HeartCrack size={13} /> Dano</button>
-                    <button className="btn sm heal" disabled={!amount[c.id]} onClick={() => act(c, { deltaHp: amount[c.id]! }, `${s.name}: +${amount[c.id]} PV`)}><Heart size={13} /> Cura</button>
-                    <button className="btn sm" disabled={!amount[c.id]} onClick={() => act(c, { tempHp: amount[c.id]! }, `${s.name}: ${amount[c.id]} PV temporários`)}>Temp</button>
-                  </div>
-                  <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setConds(c.id)}>Condições…</button>
-                </div>
-              )}
-            </div>
+            </button>
           );
         })}
       </div>
+      {isGm && players.some((m) => m.character_id && chars[m.character_id]) && <div className="tiny muted">Clique num personagem para ver a ficha, aplicar dano, cura ou condições.</div>}
 
       {view && chars[view] && (
         <Modal wide title={chars[view].name} onClose={() => setView(null)}>
+          {isGm && <GmBar c={chars[view]} amount={amount[view]} setAmount={(n) => setAmount((x) => ({ ...x, [view]: n }))} act={act} onConds={() => setConds(view)} name={partySummary(chars[view], srd).name} />}
           <Sheet edition={campaign.edition} id={view} character={chars[view]} readOnly campaignId={campaign.id} />
         </Modal>
       )}
@@ -111,6 +96,35 @@ export function TableTab({ campaign, members, isGm, uid }: CampaignProps) {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+/** Portrait with a circular HP ring; hovering shows the exact HP. */
+function HpRing({ hp, max, temp, portrait, name, dying }: { hp: number; max: number; temp: number; portrait?: string; name: string; dying: boolean }) {
+  const pct = max > 0 ? Math.max(0, Math.min(1, hp / max)) : 0;
+  const color = dying ? 'var(--bad)' : pct > 0.6 ? 'var(--good)' : pct > 0.3 ? 'var(--warn)' : 'var(--bad)';
+  const R = 44, C = 2 * Math.PI * R;
+  return (
+    <div className="token-ring">
+      <svg viewBox="0 0 100 100" aria-hidden>
+        <circle cx="50" cy="50" r={R} className="ring-bg" />
+        <circle cx="50" cy="50" r={R} className="ring-hp" style={{ stroke: color, strokeDasharray: `${C * pct} ${C}`, strokeOpacity: pct > 0 ? 1 : 0 }} />
+      </svg>
+      <span className="token-face" style={portrait ? { backgroundImage: `url(${portrait})` } : undefined}>{!portrait && (name.trim()[0]?.toUpperCase() || '?')}</span>
+      <span className="token-hp">{dying ? <Skull size={20} /> : <>{hp}<small>/{max}</small></>}{temp ? <i>+{temp}</i> : null}</span>
+    </div>
+  );
+}
+
+function GmBar({ c, amount, setAmount, act, onConds, name }: { c: Character; amount?: number; setAmount: (n: number | undefined) => void; act: (c: Character, o: Parameters<typeof gmApply>[2], msg: string) => Promise<void>; onConds: () => void; name: string }) {
+  return (
+    <div className="row wrap" style={{ gap: 6, marginBottom: 12 }}>
+      <NumInput value={amount} min={0} placeholder="Valor" onChange={setAmount} style={{ width: 80 }} />
+      <button className="btn sm hurt" disabled={!amount} onClick={() => act(c, { deltaHp: -amount! }, `${name}: −${amount} PV`)}><HeartCrack size={13} /> Dano</button>
+      <button className="btn sm heal" disabled={!amount} onClick={() => act(c, { deltaHp: amount! }, `${name}: +${amount} PV`)}><Heart size={13} /> Cura</button>
+      <button className="btn sm" disabled={!amount} onClick={() => act(c, { tempHp: amount! }, `${name}: ${amount} PV temporários`)}>Temp</button>
+      <button className="btn sm ghost" onClick={onConds}>Condições…</button>
     </div>
   );
 }

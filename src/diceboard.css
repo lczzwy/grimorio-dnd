@@ -45,3 +45,31 @@
   .dice-board-felt { height: 200px; }
   .dice-board-frame { padding: 10px; }
 }
+
+/* ---- Grupo na mesa: fichas redondas com anel de vida ---- */
+.party-tokens { display: flex; flex-wrap: wrap; gap: 18px 22px; padding: 4px 2px; }
+.token { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 104px; padding: 0; background: none; border: 0; color: var(--text); cursor: pointer; font: inherit; }
+.token.empty-token { cursor: default; opacity: 0.6; }
+.token-ring { position: relative; width: 92px; height: 92px; }
+.token-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.token-ring .ring-bg { fill: none; stroke: color-mix(in srgb, var(--line-2) 70%, transparent); stroke-width: 6; }
+.token-ring .ring-hp { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dasharray 0.6s ease, stroke 0.6s; }
+.token-face { position: absolute; inset: 10px; border-radius: 50%; display: grid; place-items: center; overflow: hidden; background: radial-gradient(circle at 35% 30%, color-mix(in oklab, var(--accent) 80%, white 12%), color-mix(in oklab, var(--accent) 70%, black)) center / cover; color: #f0e3c5; font-family: var(--font-display); font-size: 30px; box-shadow: 0 0 0 2px var(--bg); }
+.token-face[style] { background-size: cover; background-position: center; }
+/* PV exato: aparece ao passar o mouse, retrato escurecido */
+.token-hp { position: absolute; inset: 10px; border-radius: 50%; display: grid; place-content: center; justify-items: center; background: rgba(0, 0, 0, 0.62); color: #fff; font-family: 'Cinzel', serif; font-weight: 700; font-size: 19px; font-variant-numeric: lining-nums; line-height: 1; opacity: 0; transition: opacity 0.15s; }
+.token-hp small { font-size: 12px; opacity: 0.8; }
+.token-hp i { font-style: normal; font-size: 11px; color: #8fd0ff; margin-top: 2px; }
+.token:hover .token-hp, .token:focus-visible .token-hp, .token.dying .token-hp { opacity: 1; }
+.token.dying .token-face { filter: grayscale(1); }
+.token-name { font-weight: 700; font-size: 14px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.token-sub { font-size: 11px; color: var(--muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -3px; }
+.token-badges { display: flex; gap: 6px; font-size: 11px; color: var(--muted); align-items: center; }
+.token-badges span { display: inline-flex; align-items: center; gap: 2px; }
+.token-badges .gold { color: var(--gold); }
+.token-badges .bad { color: var(--bad); }
+/* telas de toque não têm "passar o mouse": o PV fica à mostra, menor, sobre a parte de baixo do retrato */
+@media (hover: none) {
+  .token-hp { opacity: 1; background: linear-gradient(transparent 55%, rgba(0, 0, 0, 0.7) 56%); place-content: end center; padding-bottom: 8px; font-size: 13px; }
+  .token-hp small { font-size: 10px; }
+}

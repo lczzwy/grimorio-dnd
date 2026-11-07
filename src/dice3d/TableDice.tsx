@@ -63,6 +63,52 @@ interface DiceBoxLike {
   desk?: { material: { opacity: number } };
 }
 
+/* After the dice settle, turn each one in place so its result face looks straight at the camera.
+   A die resting near the edge of a wide table is seen at an angle, and its top face can read as
+   the neighbouring number; this makes every result read flat, as if it stopped mid-table.
+   Works on the library's three.js objects without importing three (classes come from the meshes). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Any = any;
+function faceCamera(b: DiceBoxLike, ms = 260): Promise<void> {
+  const box = b as Any;
+  const dice: Any[] = box.diceList || [];
+  const cam = box.camera;
+  if (!cam || !dice.length) return Promise.resolve();
+  const moves = dice.map((d) => {
+    const V = d.position.constructor;
+    const Q = d.quaternion.constructor;
+    const normals = d.geometry.getAttribute('normal').array as ArrayLike<number>;
+    // same rule the library uses to read a die: the face whose normal is closest to world up
+    // (a d4 is read by the face lying on the table, its top corner pointing up)
+    const up = new V(0, 0, d.shape === 'd4' ? -1 : 1);
+    let best: Any = null;
+    let bestAngle = Infinity;
+    d.geometry.groups.forEach((g: Any, i: number) => {
+      if (g.materialIndex === 0) return;
+      const n = new V(normals[i * 9], normals[i * 9 + 1], normals[i * 9 + 2]).applyQuaternion(d.quaternion);
+      const a = n.angleTo(up);
+      if (a < bestAngle) { bestAngle = a; best = n; }
+    });
+    if (!best) return null;
+    const toCam = cam.position.clone().sub(d.position).normalize();
+    const target = d.shape === 'd4' ? toCam.negate() : toCam;
+    const turn = new Q().setFromUnitVectors(best.normalize(), target);
+    return { d, from: d.quaternion.clone(), to: new Q().multiplyQuaternions(turn, d.quaternion) };
+  }).filter(Boolean) as { d: Any; from: Any; to: Any }[];
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    const step = () => {
+      const k = Math.min(1, (performance.now() - t0) / ms);
+      const e = 1 - Math.pow(1 - k, 3);
+      for (const m of moves) m.d.quaternion.copy(m.from).slerp(m.to, e);
+      box.renderer.render(box.scene, cam);
+      if (k < 1) requestAnimationFrame(step);
+      else resolve();
+    };
+    requestAnimationFrame(step);
+  });
+}
+
 const BADGE_MS = 2600;
 const MAX_QUEUE = 4;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -209,6 +255,7 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
         if (useDicePrefs.getState().sound) playDiceSound(notation.split('@')[1].split(',').length);
         // never hang the queue if the physics misbehaves
         await Promise.race([b.roll(notation), sleep(6000)]);
+        try { await faceCamera(b); } catch { /* cosmetic only */ }
         // the dice have settled: now the chat shows the roll
         done();
         if (tray) {
