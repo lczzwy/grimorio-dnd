@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { ThemePicker } from './ui/ThemePicker';
 import { BookOpen, Users, Hammer, LogIn, UserCircle, Swords, HelpCircle } from 'lucide-react';
 import { initAuth, useAuth } from './cloud/auth';
 import { startSync } from './cloud/sync';
@@ -69,6 +70,7 @@ export default function App() {
             </button>
           </nav>
         )}
+        <ThemePicker />
         <button className="btn ghost sm icon" title="Como usar" onClick={() => useOnboarding.getState().show()}><HelpCircle size={16} /></button>
         {auth.user && (
           <button className={'btn ghost sm' + (route[0] === 'campanhas' || route[0] === 'campanha' ? ' active' : '')} onClick={() => go('campanhas')} title="Campanhas">
