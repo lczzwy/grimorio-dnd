@@ -7,6 +7,7 @@ import { setMyColor } from '../../cloud/campaigns';
 import { useFlash } from '../../ui/ui';
 import { useParty } from './TableTab';
 import type { CampaignProps } from '../Campaign';
+import { DicePrefsButtons } from '../../dice3d/TableDice';
 
 const time = (iso: string) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
 
@@ -76,6 +77,7 @@ export function ChatPanel({ campaign, members, isGm, uid }: CampaignProps) {
       <div className="panel-title">
         <h3>Chat da mesa</h3>
         <span className="spacer" />
+        <DicePrefsButtons />
         <button className="btn ghost sm" title="Sua cor na mesa" onClick={() => setPickColor(!pickColor)}>
           <span className="chat-dot" style={{ background: myColor }} /> <Palette size={14} />
         </button>

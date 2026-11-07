@@ -12,6 +12,7 @@
     "data": "node scripts/fetch-data.mjs && node scripts/build-data.mjs"
   },
   "dependencies": {
+    "@3d-dice/dice-box-threejs": "^0.0.12",
     "@supabase/supabase-js": "^2.49.4",
     "lucide-react": "^0.468.0",
     "react": "^19.1.0",

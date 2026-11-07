@@ -16,6 +16,7 @@ import { SpellsTab } from './sheet/SpellsTab';
 import { InventoryTab } from './sheet/InventoryTab';
 import { FeaturesTab, LevelUpModal } from './sheet/FeaturesTab';
 import { StoryTab } from './sheet/StoryTab';
+import { TableDice } from '../dice3d/TableDice';
 
 /** Wide screens (PC) show attributes in a fixed side column next to the tabs. */
 const WIDE = '(min-width: 1200px)';
@@ -152,6 +153,8 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
         </div>
       </div>
 
+      {/* standalone sheet of a character in play: its table's dice fall here too */}
+      {!readOnly && !campaignId && myCampaign && <TableDice campaignId={myCampaign} />}
       {rest && <RestModal {...props} kind={rest} onClose={() => setRest(null)} onDone={(m) => { setRest(null); flash(m); }} />}
       {levelUp && <LevelUpModal {...props} onClose={() => setLevelUp(false)} onDone={(m) => { setLevelUp(false); flash(m); }} />}
     </main>

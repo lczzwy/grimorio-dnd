@@ -10,6 +10,7 @@ import { RollsTab } from './campaign/RollsTab';
 import { CombatTab } from './campaign/CombatTab';
 import { HomebrewTab } from './campaign/HomebrewTab';
 import { ChatPanel } from './campaign/ChatPanel';
+import { TableDice } from '../dice3d/TableDice';
 import { useTable } from '../cloud/rolls';
 
 export interface CampaignProps { campaign: CampaignT; members: Member[]; isGm: boolean; uid: string }
@@ -77,6 +78,7 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
         <span className="ed-chip">D&D {campaign.edition}</span>
         {isGm && <span className="tag gold"><Crown size={12} /> Você é o mestre</span>}
       </div>
+      <TableDice campaignId={campaign.id} />
       <nav className="tabs">
         {TABS.filter((t) => allowed(t.k)).map((t) => (
           <button key={t.k} className={'tab' + (current === t.k ? ' on' : '')} onClick={() => go(`campanha/${id}/${t.k}`)}>
