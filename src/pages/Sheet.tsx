@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { ChevronLeft, Download, Trash2, ArrowUpCircle, LayoutGrid, Swords, Sparkles, Backpack, Scroll, Feather, Moon, Coffee, Star } from 'lucide-react';
 import type { Character, Edition, SrdData } from '../data/types';
-import { useSrd } from '../data/srd';
 import { useApp, useDice } from '../store';
 import { go, download, useFlash } from '../ui/ui';
 import { armorClass, classSummary, initiative, maxHp, pb, speed, speciesName, passivePerception, findBackground } from '../engine/rules';
 import { fmtMod } from '../engine/dice';
 import { Avatar } from './Roster';
+import { confirmAndDelete } from '../cloud/sync';
+import { useCharacterCampaign, useTable } from '../cloud/rolls';
+import { useCampaignSrd } from '../cloud/campaignHomebrew';
 import { fileToPortrait } from './Creator';
 import { MainTab } from './sheet/MainTab';
 import { CombatTab, RestModal } from './sheet/CombatTab';
@@ -26,11 +28,16 @@ const TABS = [
   { k: 'story', label: 'História', icon: Feather },
 ] as const;
 
-export function Sheet({ edition, id }: { edition: Edition; id: string }) {
-  const srd = useSrd(edition);
-  const c = useApp((s) => s.characters.find((x) => x.id === id));
+/** `character` + `readOnly` show someone else's sheet (campaign table) without editing it. */
+export function Sheet({ edition, id, character, readOnly, campaignId }: { edition: Edition; id: string; character?: Character; readOnly?: boolean; campaignId?: string }) {
+  const stored = useApp((s) => s.characters.find((x) => x.id === id));
+  const c = character ?? stored;
+  const myCampaign = useCharacterCampaign(readOnly ? undefined : c?.id, c?.cloud);
+  // inside a campaign page the page itself points the dice at the table
+  useTable(readOnly || campaignId ? undefined : myCampaign);
+  // rules = SRD + this browser's homebrew + the campaign's homebrew
+  const srd = useCampaignSrd(campaignId ?? myCampaign, edition);
   const update = useApp((s) => s.updateCharacter);
-  const remove = useApp((s) => s.removeCharacter);
   const roll = useDice((s) => s.roll);
   const flash = useFlash((s) => s.show);
   const [tab, setTab] = useState<(typeof TABS)[number]['k']>(() => (sessionStorage.getItem('tab') as never) || 'main');
@@ -40,7 +47,7 @@ export function Sheet({ edition, id }: { edition: Edition; id: string }) {
   if (!c) return <main className="page"><div className="empty">Personagem não encontrado. <a href={'#/' + edition}>Voltar</a></div></main>;
   if (!srd) return <main className="page"><div className="empty">Abrindo o grimório…</div></main>;
 
-  const upd = (fn: (d: Character) => void) => update(c.id, fn);
+  const upd = (fn: (d: Character) => void) => (readOnly ? undefined : update(c.id, fn));
   const props: SheetProps = { c, srd, upd };
   const max = maxHp(c, srd);
   const ac = armorClass(c, srd);
@@ -50,14 +57,15 @@ export function Sheet({ edition, id }: { edition: Edition; id: string }) {
   const pickTab = (k: typeof tab) => { setTab(k); try { sessionStorage.setItem('tab', k); } catch { /* private mode */ } };
 
   return (
-    <main className="page">
+    <main className="page" style={readOnly || campaignId ? { padding: 0 } : undefined}>
+      {readOnly && <div className="tag accent" style={{ marginBottom: 10 }}>Somente leitura · ficha de outro jogador, atualizada ao vivo</div>}
       <div className="sheet-hero">
         <label style={{ cursor: 'pointer' }} title="Trocar retrato">
           <Avatar name={c.name} portrait={c.portrait} size="lg" />
           <input type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const p = await fileToPortrait(f); upd((d) => (d.portrait = p)); } }} />
         </label>
         <div style={{ minWidth: 0 }}>
-          <button className="btn ghost sm" style={{ marginLeft: -6, marginBottom: 2 }} onClick={() => go(edition)}><ChevronLeft size={14} /> Personagens</button>
+          {!campaignId && <button className="btn ghost sm" style={{ marginLeft: -6, marginBottom: 2 }} onClick={() => go(edition)}><ChevronLeft size={14} /> Personagens</button>}
           <input className="name-input" value={c.name} placeholder="Nome do personagem" onChange={(e) => upd((d) => (d.name = e.target.value))} />
           <div className="row wrap small" style={{ marginTop: 4, paddingLeft: 6 }}>
             <span className="tag accent">{classSummary(c, srd)}</span>
@@ -74,7 +82,7 @@ export function Sheet({ edition, id }: { edition: Edition; id: string }) {
           <button className="btn sm" onClick={() => setRest('long')}><Moon size={15} /> Descanso longo</button>
           <button className="btn sm primary" onClick={() => setLevelUp(true)}><ArrowUpCircle size={15} /> Subir nível</button>
           <button className="btn icon sm" title="Exportar ficha" onClick={() => download(`${c.name || 'personagem'}.json`, c)}><Download size={15} /></button>
-          <button className="btn icon sm danger" title="Excluir" onClick={() => { if (confirm(`Excluir ${c.name}? Não dá para desfazer.`)) { remove(c.id); go(edition); } }}><Trash2 size={15} /></button>
+          <button className="btn icon sm danger" title="Excluir" onClick={async () => { if (await confirmAndDelete(c)) go(edition); }}><Trash2 size={15} /></button>
         </div>
       </div>
 

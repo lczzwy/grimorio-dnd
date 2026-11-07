@@ -7,9 +7,14 @@ import { parseDice } from '../engine/dice';
 const DICE = [4, 6, 8, 10, 12, 20, 100];
 
 export function AdvToggle() {
-  const { mode, setMode } = useDice();
+  const { mode, setMode, table, setHidden } = useDice();
   return (
     <span className="adv-toggle" title="Vale para a próxima rolagem de d20">
+      {table && (
+        <button className={table.hidden ? 'on dis' : ''} onClick={() => setHidden(!table.hidden)} title={table.hidden ? (table.isGm ? 'Rolagens escondidas da mesa' : 'Só você e o mestre veem') : 'A mesa vê suas rolagens'}>
+          {table.hidden ? '🔒 Oculta' : '👁 Mesa'}
+        </button>
+      )}
       <button className={'adv' + (mode === 'adv' ? ' on' : '')} onClick={() => setMode(mode === 'adv' ? 'normal' : 'adv')}>VAN</button>
       <button className={'dis' + (mode === 'dis' ? ' on' : '')} onClick={() => setMode(mode === 'dis' ? 'normal' : 'dis')}>DES</button>
     </span>

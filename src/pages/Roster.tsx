@@ -3,6 +3,8 @@ import { useApp } from '../store';
 import type { Edition } from '../data/types';
 import { useSrd } from '../data/srd';
 import { isCompanionFile } from '../import/companion';
+import { confirmAndDelete } from '../cloud/sync';
+import { Cloud } from 'lucide-react';
 import { sanitizeHomebrew } from '../data/homebrew';
 import { companionReport, importCompanionCharacter } from '../import/importFile';
 import { go, pickFile, useFlash, download } from '../ui/ui';
@@ -19,7 +21,7 @@ export function Avatar({ name, portrait, size }: { name: string; portrait?: stri
 export function Roster({ edition }: { edition: Edition }) {
   const srd = useSrd(edition);
   const all = useApp((s) => s.characters);
-  const { importCharacter, duplicateCharacter, removeCharacter, importHomebrew } = useApp();
+  const { importCharacter, duplicateCharacter, importHomebrew } = useApp();
   const flash = useFlash((s) => s.show);
   const chars = all.filter((c) => c.edition === edition).sort((a, b) => b.updatedAt - a.updatedAt);
 
@@ -77,7 +79,7 @@ export function Roster({ edition }: { edition: Edition }) {
               <div className="top">
                 <Avatar name={c.name} portrait={c.portrait} />
                 <div className="grow">
-                  <div className="display" style={{ fontSize: 19, fontWeight: 700 }}>{c.name || 'Sem nome'}</div>
+                  <div className="display" style={{ fontSize: 19, fontWeight: 700 }}>{c.name || 'Sem nome'} {c.cloud && <Cloud size={14} color="var(--accent-2)" aria-label="Na nuvem" />}</div>
                   <div className="small muted">{[speciesName(c.speciesId, srd || undefined), classSummary(c, srd || undefined)].filter(Boolean).join(' · ')}</div>
                 </div>
               </div>
@@ -95,7 +97,7 @@ export function Roster({ edition }: { edition: Edition }) {
                 <span className="faint small grow">Editado {new Date(c.updatedAt).toLocaleDateString()}</span>
                 <button className="btn icon sm ghost" title="Exportar" onClick={() => download(`${c.name || 'personagem'}.json`, c)}><Download size={14} /></button>
                 <button className="btn icon sm ghost" title="Duplicar" onClick={() => duplicateCharacter(c.id)}><Copy size={14} /></button>
-                <button className="btn icon sm ghost danger" title="Excluir" onClick={() => confirm(`Excluir ${c.name || 'este personagem'}? Não dá para desfazer.`) && removeCharacter(c.id)}><Trash2 size={14} /></button>
+                <button className="btn icon sm ghost danger" title="Excluir" onClick={() => void confirmAndDelete(c)}><Trash2 size={14} /></button>
               </div>
             </div>
           );

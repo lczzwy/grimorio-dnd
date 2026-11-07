@@ -4,24 +4,26 @@ import { useApp } from '../store';
 import { HOMEBREW_KINDS, type HomebrewKind } from './homebrew';
 
 const cache: Partial<Record<Edition, Promise<SrdData>>> = {};
+const ready: Partial<Record<Edition, SrdData>> = {};
 
 export function loadSrd(ed: Edition): Promise<SrdData> {
   if (!cache[ed]) {
     cache[ed] = fetch(`${import.meta.env.BASE_URL}data/srd-${ed}.json`).then((r) => {
       if (!r.ok) throw new Error('Falha ao carregar dados do SRD ' + ed);
       return r.json();
-    });
+    }).then((d: SrdData) => (ready[ed] = d));
   }
   return cache[ed]!;
 }
 
 /** SRD data for an edition, merged with the user's homebrew content. */
 export function useSrd(ed: Edition | undefined): SrdData | null {
-  const [base, setBase] = useState<SrdData | null>(null);
+  const [base, setBase] = useState<SrdData | null>(() => (ed && ready[ed]) || null);
   const homebrew = useApp((s) => (ed ? s.homebrew[ed] : undefined));
   useEffect(() => {
     if (!ed) return;
     let alive = true;
+    if (ready[ed]) return setBase(ready[ed]!); // already loaded: no loading flash
     setBase(null);
     loadSrd(ed).then((d) => alive && setBase(d));
     return () => {

@@ -110,6 +110,18 @@ interface DiceState {
   roll: (label: string, formula: string, opts?: { mode?: RollMode; crit?: boolean; charName?: string }) => ActiveRoll;
   dismiss: () => void;
   clear: () => void;
+  /** Campaign that receives this page's rolls (set by the sheet / campaign pages). */
+  table?: { campaignId: string; hidden: boolean; isGm: boolean };
+  setTable: (t?: { campaignId: string; hidden: boolean; isGm: boolean }) => void;
+  setHidden: (hidden: boolean) => void;
+}
+
+type RollListener = (e: ActiveRoll, table: NonNullable<DiceState['table']>) => void;
+const rollListeners = new Set<RollListener>();
+/** Called for every roll made while a campaign table is active. */
+export function onTableRoll(fn: RollListener) {
+  rollListeners.add(fn);
+  return () => rollListeners.delete(fn);
 }
 
 let rollKey = 0;
@@ -136,8 +148,12 @@ export const useDice = create<DiceState>((set, get) => ({
     };
     // advantage toggle is one-shot, like tapping the button before a roll at the table
     set((s) => ({ current: entry, log: [entry, ...s.log].slice(0, 80), mode: 'normal' }));
+    const table = get().table;
+    if (table) rollListeners.forEach((fn) => fn(entry, table));
     return entry;
   },
+  setTable: (t) => set({ table: t }),
+  setHidden: (hidden) => set((s) => (s.table ? { table: { ...s.table, hidden } } : {})),
   dismiss: () => set({ current: undefined }),
   clear: () => set({ log: [] }),
 }));
