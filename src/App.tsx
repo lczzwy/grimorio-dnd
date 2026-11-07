@@ -1,8 +1,11 @@
 import { useEffect } from 'react';
-import { BookOpen, Users, Hammer, LogIn, UserCircle } from 'lucide-react';
+import { BookOpen, Users, Hammer, LogIn, UserCircle, Swords } from 'lucide-react';
 import { initAuth, useAuth } from './cloud/auth';
 import { startSync } from './cloud/sync';
 import { Account } from './pages/Account';
+import { Campaigns } from './pages/Campaigns';
+import { Invite } from './pages/Invite';
+import { Campaign } from './pages/Campaign';
 import { useRoute, go, FlashHost, D20Icon } from './ui/ui';
 import { DiceTray, RollToast } from './ui/Dice';
 import type { Edition } from './data/types';
@@ -18,11 +21,12 @@ export default function App() {
   const route = useRoute();
   const ed = (route[0] === '2014' || route[0] === '2024' ? route[0] : undefined) as Edition | undefined;
   const view = route[1];
+  const top = route[0];
 
   useEffect(() => {
     if (ed) document.documentElement.dataset.ed = ed;
-    else delete document.documentElement.dataset.ed;
-  }, [ed]);
+    else if (top !== 'campanha') delete document.documentElement.dataset.ed;
+  }, [ed, top]);
 
   const auth = useAuth();
   useEffect(() => initAuth(), []);
@@ -31,6 +35,9 @@ export default function App() {
 
   let page;
   if (route[0] === 'conta') page = <Account />;
+  else if (route[0] === 'campanhas') page = <Campaigns />;
+  else if (route[0] === 'convite' && route[1]) page = <Invite code={route[1]} />;
+  else if (route[0] === 'campanha' && route[1]) page = <Campaign id={route[1]} tab={route[2]} />;
   else if (!ed) page = <Home />;
   else if (view === 'novo') page = <Creator edition={ed} />;
   else if (view === 'c' && route[2]) page = <Sheet edition={ed} id={route[2]} />;
@@ -59,6 +66,11 @@ export default function App() {
               <Hammer size={15} /> <span className="hidden-mobile">Homebrew</span>
             </button>
           </nav>
+        )}
+        {auth.user && (
+          <button className={'btn ghost sm' + (route[0] === 'campanhas' || route[0] === 'campanha' ? ' active' : '')} onClick={() => go('campanhas')} title="Campanhas">
+            <Swords size={15} /> <span className="hidden-mobile">Campanhas</span>
+          </button>
         )}
         <button className={'btn sm' + (route[0] === 'conta' ? ' active' : '')} onClick={() => go('conta')} title={auth.user ? 'Sua conta' : 'Entrar'}>
           {auth.user ? <><UserCircle size={15} /> <span className="hidden-mobile">{auth.profile?.display_name || 'Conta'}</span></> : <><LogIn size={15} /> <span className="hidden-mobile">Entrar</span></>}
