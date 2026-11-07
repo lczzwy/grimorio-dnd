@@ -10,15 +10,15 @@ export function Home() {
   return (
     <main className="page">
       <section className="hero grim">
-        <div className="ornament">✦ Livro de fichas &amp; feitiços ✦</div>
+        <div className="ornament">✦ Diário de bordo da tripulação ✦</div>
         <h1>Grimório</h1>
-        <p>Abra o tomo da sua mesa. Cada edição guarda suas próprias regras, heróis e segredos.</p>
+        <p>Entre a bordo. Cada edição é uma rota pelas estrelas, com suas próprias regras, tripulantes e mundos.</p>
       </section>
       <div className="portals">
         <button className="portal p2014" onClick={() => go('2014')}>
           <span className="art" aria-hidden />
           <span className="count tag gold">{n14} personagem{n14 === 1 ? '' : 's'}</span>
-          <div className="tiny" style={{ color: '#d9a08f' }}>Tomo I · Regras clássicas</div>
+          <div className="tiny" style={{ color: '#d9a08f' }}>Carta I · Regras clássicas</div>
           <h2>D&D 2014</h2>
           <p>A 5ª edição original. Bônus de atributo vêm da raça, subraças, antecedentes com característica própria.</p>
           <div className="meta">
@@ -28,7 +28,7 @@ export function Home() {
         <button className="portal p2024" onClick={() => go('2024')}>
           <span className="art" aria-hidden />
           <span className="count tag gold">{n24} personagem{n24 === 1 ? '' : 's'}</span>
-          <div className="tiny" style={{ color: '#9cc4b8' }}>Tomo II · Regras revisadas</div>
+          <div className="tiny" style={{ color: '#9cc4b8' }}>Carta II · Regras revisadas</div>
           <h2>D&D 2024</h2>
           <p>O novo Livro do Jogador. Atributos e talento de origem vêm do antecedente, maestria de armas, espécies.</p>
           <div className="meta">
@@ -42,7 +42,7 @@ export function Home() {
         Suas fichas ficam salvas neste navegador; use Exportar para fazer backup.
       </p>
       <p className="center credit" style={{ maxWidth: 680, marginInline: 'auto' }}>
-        Gravuras de Gustave Doré (domínio público, via Wikimedia Commons): A Morte no Cavalo Pálido; Duzentos cavaleiros atacam vinte mil sarracenos; Paraíso Perdido; Dom Quixote.
+        Gravuras em domínio público (Wikimedia Commons): gravura de Flammarion (1888); Gustave Doré, A Balada do Velho Marinheiro; Andreas Cellarius, Harmonia Macrocosmica (1660).
       </p>
     </main>
   );
