@@ -393,3 +393,18 @@ for (const ed of ['2014', '2024']) {
     .join(' ');
   console.log(ed, (fs.statSync(file).size / 1024).toFixed(0) + 'KB', counts);
 }
+
+// Portuguese overlays: scripts/pt/<kind>-<edition>[-part].json → public/data/pt-<edition>.json
+const PT = path.join(ROOT, 'scripts', 'pt');
+for (const ed of ['2014', '2024']) {
+  const out = { conditions: {}, spells: {} };
+  if (fs.existsSync(PT)) {
+    for (const f of fs.readdirSync(PT).sort()) {
+      const m = /^(conditions|spells)-(\d{4})/.exec(f);
+      if (!m || m[2] !== ed) continue;
+      Object.assign(out[m[1]], JSON.parse(fs.readFileSync(path.join(PT, f), 'utf8')));
+    }
+  }
+  fs.writeFileSync(path.join(OUT, `pt-${ed}.json`), JSON.stringify(out));
+  console.log(ed, 'pt', Object.keys(out.conditions).length, 'condições', Object.keys(out.spells).length, 'magias');
+}

@@ -15,7 +15,7 @@ function sections(srd: SrdData, ed: Edition): { k: Sec; label: string; icon: typ
   const out: { k: Sec; label: string; icon: typeof Search; entries: Entry[] }[] = [
     {
       k: 'magias', label: 'Magias', icon: Sparkles,
-      entries: srd.spells.map((s: SpellDef) => ({ id: s.id, name: s.name, custom: s.custom, sub: `${s.level === 0 ? 'Truque' : s.level + 'º'} · ${SCHOOL_PT[s.school || ''] || s.school || ''}`, filterKey: String(s.level) + '|' + (s.classes || []).join(','), render: () => <SpellCard sp={s} srd={srd} /> })),
+      entries: srd.spells.map((s: SpellDef) => ({ id: s.id, name: s.name, custom: s.custom, sub: `${s.level === 0 ? 'Truque' : s.level + 'º'} · ${SCHOOL_PT[s.school || ''] || s.school || ''}${s.en ? ` · ${s.en}` : ''}`, filterKey: String(s.level) + '|' + (s.classes || []).join(','), render: () => <SpellCard sp={s} srd={srd} /> })),
     },
     {
       k: 'classes', label: 'Classes', icon: Crown,

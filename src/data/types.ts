@@ -93,6 +93,7 @@ export interface FeatDef { id: string; name: string; type?: string; desc: string
 export interface SpellDef {
   id: string;
   name: string;
+  en?: string; // original English name when translated
   level: number;
   school?: string;
   classes?: string[];

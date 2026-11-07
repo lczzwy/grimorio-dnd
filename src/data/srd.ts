@@ -2,16 +2,21 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Edition, SrdData } from './types';
 import { useApp } from '../store';
 import { HOMEBREW_KINDS, type HomebrewKind } from './homebrew';
+import { applyTranslation, type Translation } from './translate';
 
 const cache: Partial<Record<Edition, Promise<SrdData>>> = {};
 const ready: Partial<Record<Edition, SrdData>> = {};
 
 export function loadSrd(ed: Edition): Promise<SrdData> {
   if (!cache[ed]) {
-    cache[ed] = fetch(`${import.meta.env.BASE_URL}data/srd-${ed}.json`).then((r) => {
-      if (!r.ok) throw new Error('Falha ao carregar dados do SRD ' + ed);
-      return r.json();
-    }).then((d: SrdData) => (ready[ed] = d));
+    const base = `${import.meta.env.BASE_URL}data/`;
+    const pt = fetch(`${base}pt-${ed}.json`).then((r) => (r.ok ? (r.json() as Promise<Translation>) : undefined)).catch(() => undefined);
+    cache[ed] = fetch(`${base}srd-${ed}.json`)
+      .then((r) => {
+        if (!r.ok) throw new Error('Falha ao carregar dados do SRD ' + ed);
+        return r.json() as Promise<SrdData>;
+      })
+      .then(async (d) => (ready[ed] = applyTranslation(d, await pt)));
   }
   return cache[ed]!;
 }

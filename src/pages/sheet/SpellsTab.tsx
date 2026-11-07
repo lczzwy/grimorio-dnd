@@ -43,6 +43,7 @@ export function SpellCard({ sp, srd, c, actions }: { sp: SpellDef; srd: SrdData;
         {sp.conc && <span className="tag gold">Concentração</span>}
         {sp.ritual && <span className="tag gold">Ritual</span>}
         {sp.custom && <span className="tag good">homebrew</span>}
+        {sp.en && <span className="tag" title="Nome original">{sp.en}</span>}
       </div>
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
         {[['Tempo de conjuração', sp.time], ['Alcance', sp.range + (sp.area ? ` (${sp.area})` : '')], ['Componentes', sp.comp + (sp.material ? ` (${sp.material})` : '')], ['Duração', sp.duration]].map(([k, v]) => (
@@ -70,14 +71,14 @@ export function SpellPicker({ srd, c, onPick, onClose, title = 'Adicionar magia'
   const [sel, setSel] = useState<SpellDef | null>(null);
   const known = new Set(c?.spells.map((s) => s.id));
   const list = useMemo(() => srd.spells
-    .filter((s) => (!cls || s.classes?.includes(cls)) && (lvl === '' || s.level === lvl) && (!q || s.name.toLowerCase().includes(q.toLowerCase())))
+    .filter((s) => (!cls || s.classes?.includes(cls)) && (lvl === '' || s.level === lvl) && (!q || (s.name + ' ' + (s.en || '')).toLowerCase().includes(q.toLowerCase())))
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)), [srd, cls, lvl, q]);
   return (
     <Modal wide title={title} onClose={onClose}>
       <div className="row wrap" style={{ marginBottom: 12 }}>
         <div className="row grow" style={{ position: 'relative', minWidth: 200 }}>
           <Search size={15} style={{ position: 'absolute', left: 10, color: 'var(--faint)' }} />
-          <input className="input" style={{ paddingLeft: 32 }} autoFocus placeholder="Buscar magia (nome em inglês)…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input" style={{ paddingLeft: 32 }} autoFocus placeholder="Buscar magia (português ou inglês)…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <select className="select" style={{ width: 150 }} value={cls} onChange={(e) => setCls(e.target.value)}>
           <option value="">Todas as classes</option>
