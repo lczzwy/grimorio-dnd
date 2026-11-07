@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { EyeOff, Palette, Send, Trash2 } from 'lucide-react';
 import { useDice } from '../../store';
 import { deleteChat, sendChat, useTableFeed } from '../../cloud/chat';
-import { colorFor, mergeFeed, parseChatInput, PLAYER_COLORS, type FeedItem } from '../../cloud/chatLogic';
+import { colorFor, mergeFeed, parseChatInput, PLAYER_COLORS, rollBreakdown, type FeedItem } from '../../cloud/chatLogic';
 import { setMyColor } from '../../cloud/campaigns';
 import { useFlash } from '../../ui/ui';
 import { useParty } from './TableTab';
@@ -199,12 +199,28 @@ export function Line({ it, p, compact, canDelete }: { it: FeedItem; p: Person; c
       </div>
     );
   }
+  return <RollLine it={it} p={p} head={head} />;
+}
+
+/** A roll in the chat; clicking it opens the full calculation. */
+function RollLine({ it, p, head }: { it: Extract<FeedItem, { type: 'roll' }>; p: Person; head: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
   const r = it.row;
   const crit = r.kind === 'crit', fumble = r.kind === 'fumble';
+  const b = open ? rollBreakdown(r.formula, r.rolls, r.dropped, r.kind) : null;
   return (
     <div className="chat-line">
       {head}
-      <div className={'chat-roll' + (crit ? ' crit' : fumble ? ' fumble' : '') + (r.hidden ? ' hidden' : '')} style={{ borderLeftColor: p.color }}>
+      <div
+        className={'chat-roll' + (crit ? ' crit' : fumble ? ' fumble' : '') + (r.hidden ? ' hidden' : '') + (open ? ' open' : '')}
+        style={{ borderLeftColor: p.color }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        title={open ? 'Fechar detalhes' : 'Ver de onde veio cada número'}
+        onClick={() => setOpen(!open)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!open); } }}
+      >
         <div className="chat-roll-top">
           <span className="chat-roll-label">{r.label}</span>
           <span className="chat-roll-formula">{r.formula}{r.kind === 'adv' ? ' · vant.' : r.kind === 'dis' ? ' · desv.' : ''}</span>
@@ -216,6 +232,34 @@ export function Line({ it, p, compact, canDelete }: { it: FeedItem; p: Person; c
           <span className="chat-eq">=</span>
           <b className="chat-total">{r.total}</b>
         </div>
+        {b && (
+          <div className="chat-detail" onClick={(e) => e.stopPropagation()}>
+            {b.parts.map((part, i) => (
+              <div key={i} className="chat-detail-row">
+                <span className="chat-detail-k">{i > 0 || part.sign < 0 ? (part.sign < 0 ? '− ' : '+ ') : ''}{part.label}</span>
+                <span className="chat-detail-v">
+                  {part.dice.map((v, j) => <span key={j} className={'chat-die' + (part.sides === 20 && v === 20 ? ' nat20' : part.sides === 20 && v === 1 ? ' nat1' : '')}>{v}</span>)}
+                  {part.dice.length > 1 && <span className="muted"> = {part.subtotal}</span>}
+                  {part.dropped.length > 0 && <span className="muted"> · descartado {part.dropped.map((v, j) => <span key={j} className="chat-die dropped">{v}</span>)}</span>}
+                </span>
+              </div>
+            ))}
+            {b.mod !== 0 && (
+              <div className="chat-detail-row">
+                <span className="chat-detail-k">{b.mod > 0 ? '+' : '−'} modificador</span>
+                <span className="chat-detail-v"><b>{Math.abs(b.mod)}</b></span>
+              </div>
+            )}
+            <div className="chat-detail-notes">
+              {b.adv === 'adv' && <span className="tag good">vantagem: rolou 2d20 e ficou com o maior</span>}
+              {b.adv === 'dis' && <span className="tag bad">desvantagem: rolou 2d20 e ficou com o menor</span>}
+              {b.crit && <span className="tag gold">crítico: dados de dano dobrados</span>}
+              {crit && <span className="tag good">20 natural</span>}
+              {fumble && <span className="tag bad">1 natural</span>}
+            </div>
+            <div className="tiny faint">{p.char ? `${p.char} (${p.name})` : p.name} · {r.created_at ? new Date(r.created_at).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</div>
+          </div>
+        )}
       </div>
     </div>
   );

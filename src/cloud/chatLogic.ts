@@ -45,3 +45,37 @@ export function mergeFeed(msgs: ChatRow[], rolls: RollRow[]): FeedItem[] {
   for (const row of rolls) if (row.id && !seen.has('r' + row.id)) { seen.add('r' + row.id); items.push({ type: 'roll', at: row.created_at || '', row }); }
   return items.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
 }
+
+export interface RollPart { label: string; sign: 1 | -1; sides: number; dice: number[]; dropped: number[]; subtotal: number }
+export interface RollBreakdown { parts: RollPart[]; mod: number; crit: boolean; total: number; adv: 'adv' | 'dis' | null }
+
+/**
+ * Splits a stored roll back into its terms: "1d20+2d6+3" with rolls [17, 3, 5] →
+ * d20: 17 · 2d6: 3 + 5 = 8 · +3. Handles advantage (the discarded d20) and critical hits (dice doubled).
+ */
+export function rollBreakdown(formula: string, rolls: number[], dropped?: number[] | null, kind?: string | null): RollBreakdown | null {
+  const p = parseDice(formula);
+  if (!p) return null;
+  const base = p.terms.reduce((n, t) => n + t.count, 0);
+  const crit = base > 0 && rolls.length === base * 2;
+  let i = 0;
+  const parts: RollPart[] = p.terms.map((t, ti) => {
+    const count = crit ? t.count * 2 : t.count;
+    const dice = rolls.slice(i, i + count);
+    i += count;
+    const subtotal = dice.reduce((a, b) => a + b, 0);
+    return {
+      label: `${count}d${t.sides}`,
+      sign: t.sign,
+      sides: t.sides,
+      dice,
+      dropped: ti === 0 && t.sides === 20 && dropped?.length ? dropped : [],
+      subtotal,
+    };
+  });
+  const total = parts.reduce((s, x) => s + x.sign * x.subtotal, 0) + p.mod;
+  // a crit/fumble row stores only that kind: advantage is then read from the discarded die
+  const kept = parts[0]?.dice[0];
+  const adv = kind === 'adv' || kind === 'dis' ? kind : dropped?.length && kept != null ? (kept >= dropped[0] ? 'adv' : 'dis') : null;
+  return { parts, mod: p.mod, crit, total, adv };
+}
