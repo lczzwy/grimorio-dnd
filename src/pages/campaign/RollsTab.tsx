@@ -7,7 +7,7 @@ export function RollsTab({ campaign, isGm, uid }: CampaignProps) {
   return (
     <div className="panel" style={{ maxWidth: 760 }}>
       <div className="panel-title"><h3>Rolagens da mesa</h3><span className="spacer" /><span className="small muted">ao vivo · últimas 200</span></div>
-      {rows.length === 0 && <div className="empty small">Nenhuma rolagem ainda. Rolagens feitas nas fichas em jogo aparecem aqui para todos.</div>}
+      {rows.length === 0 && <div className="empty small">Nenhuma rolagem ainda. Role pela sua ficha (aba Mesa → Minha ficha) ou pelo dado no canto da tela: aparece aqui para todos.</div>}
       <div className="log">
         {rows.map((r) => (
           <div key={r.id} className={'log-item ' + (r.kind === 'crit' || r.kind === 'fumble' ? r.kind : '')} style={r.hidden ? { borderStyle: 'dashed' } : undefined}>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { HeartCrack, Heart, Shield, Eye, Brain, Skull } from 'lucide-react';
+import { HeartCrack, Heart, Shield, Eye, Brain, Skull, Dices } from 'lucide-react';
 import type { Character } from '../../data/types';
 import { useCampaignSrd } from '../../cloud/campaignHomebrew';
 import { watchCharacters } from '../../cloud/sync';
@@ -7,7 +7,7 @@ import { gmApply } from '../../cloud/campaigns';
 import { partySummary } from '../../cloud/party';
 import { BAND_COLOR } from '../../engine/hpBand';
 import { CONDITION_PT } from '../../engine/rules';
-import { Modal, NumInput, useFlash } from '../../ui/ui';
+import { Modal, NumInput, go, useFlash } from '../../ui/ui';
 import { Avatar } from '../Roster';
 import { Sheet } from '../Sheet';
 import type { CampaignProps } from '../Campaign';
@@ -23,7 +23,7 @@ export function useParty(characterIds: string[]) {
   return chars;
 }
 
-export function TableTab({ campaign, members, isGm }: CampaignProps) {
+export function TableTab({ campaign, members, isGm, uid }: CampaignProps) {
   const srd = useCampaignSrd(campaign.id, campaign.edition);
   const flash = useFlash((s) => s.show);
   const players = members.filter((m) => m.role === 'player');
@@ -67,7 +67,9 @@ export function TableTab({ campaign, members, isGm }: CampaignProps) {
                   <div className="display" style={{ fontSize: 18, fontWeight: 700 }}>{s.name}</div>
                   <div className="small muted">{s.summary} · {m.display_name}</div>
                 </div>
-                <button className="btn icon sm ghost" title="Ver ficha" onClick={() => setView(c.id)}><Eye size={15} /></button>
+                {m.user_id === uid
+                  ? <button className="btn sm primary" title="Abrir minha ficha para rolar e editar" onClick={() => go(`${campaign.edition}/c/${c.id}`)}><Dices size={14} /> Minha ficha</button>
+                  : <button className="btn icon sm ghost" title="Ver ficha" onClick={() => setView(c.id)}><Eye size={15} /></button>}
               </div>
               <div className="row small wrap">
                 <span className="tag" style={{ color: BAND_COLOR[s.band] }}>{s.dying ? <><Skull size={12} /> Caído</> : <>PV {s.hp}/{s.maxHp}</>}{s.temp ? ` +${s.temp}` : ''}</span>

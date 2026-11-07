@@ -79,7 +79,7 @@ export default function App() {
       </header>
       {/* campaign tabs stay mounted: remounting refetched everything from the server on each click */}
       <ErrorBoundary key={route[0] === 'campanha' ? route.slice(0, 2).join('/') : route.join('/')}>{page}</ErrorBoundary>
-      {ed && <DiceTray />}
+      {(ed || route[0] === 'campanha') && <DiceTray />}
       <RollToast />
       <FlashHost />
     </div>
