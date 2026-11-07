@@ -67,6 +67,29 @@ export function droppedFlags(dice: Die[]): boolean[] {
   return groups.flatMap((g) => g.flags);
 }
 
+export interface Percentile { tensIndex: number; unitsIndex: number; tens: number; units: number; value: number }
+
+/**
+ * Each d100 is drawn as a tens die and a units die (see forcedNotation). Returns, in the order the
+ * 3D library creates the dice, where each pair is and how it reads: 77 → tens 70, units 7.
+ */
+export function percentiles(dice: Die[]): Percentile[] {
+  const out: Percentile[] = [];
+  let i = 0;
+  for (const d of dice) {
+    if (d.sides === 100) {
+      out.push({ tensIndex: i, unitsIndex: i + 1, tens: (Math.floor(d.value / 10) % 10) * 10, units: d.value % 10, value: d.value });
+      i += 2;
+    } else i += 1;
+  }
+  return out;
+}
+
+/** "70 + 7 = 77"; 100 reads "00 + 0 = 100", 5 reads "00 + 5 = 5". */
+export function percentileText(p: Percentile) {
+  return `${p.tens === 0 ? '00' : p.tens} + ${p.units} = ${p.value}`;
+}
+
 /** Dark numbers on light dice, light numbers on dark dice. */
 export function inkFor(hex: string) {
   const n = parseInt(hex.slice(1), 16);

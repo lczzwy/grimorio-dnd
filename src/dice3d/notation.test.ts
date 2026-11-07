@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diceOfRoll, droppedFlags, forcedNotation, inkFor } from './notation';
+import { diceOfRoll, droppedFlags, forcedNotation, inkFor, percentiles, percentileText } from './notation';
 
 describe('dice of a stored roll', () => {
   it('keeps formula order and ignores the flat modifier', () => {
@@ -49,5 +49,21 @@ describe('dropped flags', () => {
   });
   it('a d100 counts as two dice', () => {
     expect(droppedFlags([{ sides: 100, value: 57 }, { sides: 6, value: 2 }])).toEqual([false, false, false]);
+  });
+});
+
+describe('percentile dice', () => {
+  it('finds each tens/units pair in library order', () => {
+    const dice = [{ sides: 20, value: 12 }, { sides: 100, value: 77 }, { sides: 6, value: 3 }, { sides: 100, value: 100 }];
+    // library order: d20, tens, units, d6, tens, units
+    expect(percentiles(dice)).toEqual([
+      { tensIndex: 1, unitsIndex: 2, tens: 70, units: 7, value: 77 },
+      { tensIndex: 4, unitsIndex: 5, tens: 0, units: 0, value: 100 },
+    ]);
+  });
+  it('reads like a table', () => {
+    expect(percentileText({ tensIndex: 0, unitsIndex: 1, tens: 70, units: 7, value: 77 })).toBe('70 + 7 = 77');
+    expect(percentileText({ tensIndex: 0, unitsIndex: 1, tens: 0, units: 0, value: 100 })).toBe('00 + 0 = 100');
+    expect(percentileText({ tensIndex: 0, unitsIndex: 1, tens: 0, units: 5, value: 5 })).toBe('00 + 5 = 5');
   });
 });

@@ -4,7 +4,7 @@ import { Box, ChevronDown, ChevronUp, Volume2, VolumeX } from 'lucide-react';
 import { supabase } from '../cloud/client';
 import { colorFor } from '../cloud/chatLogic';
 import type { RollRow } from '../cloud/rollRow';
-import { diceOfRoll, droppedFlags, forcedNotation, inkFor } from './notation';
+import { diceOfRoll, droppedFlags, forcedNotation, inkFor, percentiles, percentileText } from './notation';
 import { playCritSound, playDiceSound, playFumbleSound, unlockAudio } from './sound';
 import { useReveal } from './reveal';
 
@@ -103,7 +103,7 @@ function uprightTwist(d: Any, group: Any, orientation: Any, toCam: Any, cam: Any
  * directly answers the moment they stop. Then the library's loop is halted so it cannot undo the
  * final upright turn.
  */
-function settled(b: DiceBoxLike, maxMs = 7000): Promise<void> {
+function settled(b: DiceBoxLike, maxMs = 7000): Promise<boolean> {
   const box = b as Any;
   return new Promise((resolve) => {
     const t0 = performance.now();
@@ -121,7 +121,8 @@ function settled(b: DiceBoxLike, maxMs = 7000): Promise<void> {
         clearInterval(tick);
         box.running = false; // stops animateThrow on its next frame
         box.rolling = false;
-        resolve();
+        // false: the dice never flew (tab in the background pauses the animation)
+        resolve(moved);
       }
     }, 100);
   });
@@ -164,6 +165,32 @@ function glowDie(b: DiceBoxLike, index: number, hex: number, ms = 1100): void {
   };
   requestAnimationFrame(step);
   setTimeout(() => { mats.forEach((m: Any) => { m.emissiveIntensity = 0.9 * 0.35; }); box.renderer.render(box.scene, box.camera); }, ms + 150);
+}
+
+/** Gives the tens die of each d100 a golden finish, so it is not mistaken for the units die. */
+function tintTens(b: DiceBoxLike, indices: number[]) {
+  const box = b as Any;
+  for (const i of indices) {
+    const d = box.diceList?.[i];
+    if (!d || d.userData?.tensTinted) return;
+    d.material = (Array.isArray(d.material) ? d.material : [d.material]).map((m: Any) => {
+      const c = m.clone();
+      c.color?.setHex(0xffe0a0);
+      if (c.emissive) { c.emissive.setHex(0x6b4a00); c.emissiveIntensity = 0.55; }
+      return c;
+    });
+    d.userData = { ...(d.userData || {}), tensTinted: true };
+  }
+}
+
+/** Where a die sits on the layer, in CSS pixels. */
+function screenPos(b: DiceBoxLike, index: number): { x: number; y: number } | null {
+  const box = b as Any;
+  const d = box.diceList?.[index];
+  const canvas: HTMLCanvasElement | undefined = box.renderer?.domElement;
+  if (!d || !canvas) return null;
+  const v = d.position.clone().project(box.camera);
+  return { x: ((v.x + 1) / 2) * canvas.clientWidth, y: ((1 - v.y) / 2) * canvas.clientHeight };
 }
 
 /** Fades and sinks the discarded dice of an advantage/disadvantage roll (flags in library order). */
@@ -294,6 +321,8 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
   const colors = useRef(new Map<string, string | null>());
   const names = useRef(new Map<string, string>());
   const [effect, setEffect] = useState<(null | 'crit' | 'fumble')[]>(() => Array(count).fill(null));
+  const [labels, setLabels] = useState<{ x: number; y: number; text: string }[][]>(() => Array.from({ length: count }, () => []));
+  const setLayerLabels = (i: number, v: { x: number; y: number; text: string }[]) => setLabels((l) => l.map((x, j) => (j === i ? v : x)));
   const [badge, setBadge] = useState<{ row: RollRow; color: string } | null>(null);
   const [visible, setVisible] = useState(false);
   const [fading, setFading] = useState<boolean[]>(() => Array(count).fill(false));
@@ -444,6 +473,8 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
   async function play(i: number, row: RollRow) {
     const done = () => { if (row.id) useReveal.getState().reveal(row.id); };
     try {
+      // a hidden tab cannot animate: skip the dice, the roll joins the chat right away
+      if (document.hidden) return done();
       const color = colorFor(row.user_id, colors.current.get(row.user_id));
       const notation = forcedNotation(diceOfRoll(row.formula, row.rolls, row.dropped));
       const b = notation ? await ensureBox(i) : null;
@@ -455,10 +486,36 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
       if (useDicePrefs.getState().sound) playDiceSound(notation.split('@')[1].split(',').length);
       // the roll's own promise can lag behind the dice; whichever says "stopped" first wins
       void b.roll(notation).catch(() => undefined);
-      await settled(b);
+      const dice = diceOfRoll(row.formula, row.rolls, row.dropped);
+      const pct = percentiles(dice);
+      if (pct.length) {
+        // the library builds its dice a moment after roll(): tint the tens dice as soon as they exist
+        const want = droppedFlags(dice).length;
+        const t0 = performance.now();
+        const wait = setInterval(() => {
+          const n = ((b as Any).diceList || []).length;
+          if (n >= want) { clearInterval(wait); try { tintTens(b, pct.map((p) => p.tensIndex)); } catch { /* cosmetic only */ } }
+          else if (performance.now() - t0 > 4000) clearInterval(wait);
+        }, 30);
+      }
+      const animated = await settled(b);
+      if (!animated) {
+        // nobody saw them fly (background tab): no frozen dice, the roll goes straight to the chat
+        b.clearDice();
+        done();
+        return;
+      }
       try { await faceCamera(b); } catch { /* cosmetic only */ }
+      // d100: "70 + 7 = 77" over each tens/units pair
+      if (pct.length) {
+        const marks = pct.map((p) => {
+          const a = screenPos(b, p.tensIndex), c = screenPos(b, p.unitsIndex);
+          return a && c ? { x: (a.x + c.x) / 2, y: Math.min(a.y, c.y), text: percentileText(p) } : null;
+        }).filter((m): m is { x: number; y: number; text: string } => !!m);
+        setLayerLabels(i, marks);
+      }
       // advantage/disadvantage: the discarded d20 fades and sinks
-      const flags = droppedFlags(diceOfRoll(row.formula, row.rolls, row.dropped));
+      const flags = droppedFlags(dice);
       if (flags.some(Boolean)) { try { await dimDropped(b, flags); } catch { /* cosmetic only */ } }
       // natural 20 / natural 1
       const fx = row.kind === 'crit' ? 'crit' : row.kind === 'fumble' ? 'fumble' : null;
@@ -479,6 +536,7 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
         b.clearDice();
         setFade(i, false);
         setFx(i, null);
+        setLayerLabels(i, []);
         return;
       }
       setBadge({ row, color });
@@ -488,6 +546,7 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
       b.clearDice();
       setBadge(null);
       setFx(i, null);
+      setLayerLabels(i, []);
     } catch (e) {
       console.warn('dados 3D:', e);
       done();
@@ -497,7 +556,10 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
   if (!on) return null;
 
   const layerEls = Array.from({ length: count }, (_, i) => (
-    <div key={i} id={layerId(i)} className={'dice-layer' + (fading[i] ? ' fading' : '') + (effect[i] ? ' ' + effect[i] : '')} />
+    <div key={i} className={'dice-layer-wrap' + (fading[i] ? ' fading' : '')}>
+      <div id={layerId(i)} className={'dice-layer' + (fading[i] ? ' fading' : '') + (effect[i] ? ' ' + effect[i] : '')} />
+      {labels[i].map((m, k) => <span key={k} className="pct-label" style={{ left: m.x, top: m.y }}>{m.text}</span>)}
+    </div>
   ));
 
   if (tray) {

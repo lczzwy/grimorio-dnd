@@ -153,3 +153,9 @@
   .beast-row { flex-direction: column; align-items: stretch; }
   .beast-row .input { width: 100% !important; }
 }
+
+/* d100: a conta "70 + 7 = 77" sobre o par de dados */
+.dice-layer-wrap { position: absolute; inset: 0; pointer-events: none; }
+.pct-label { position: absolute; transform: translate(-50%, calc(-100% - 26px)); padding: 3px 9px; border: 1px solid var(--gold); border-radius: 999px; background: color-mix(in srgb, var(--bg) 88%, transparent); color: var(--text); font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700; font-variant-numeric: lining-nums; white-space: nowrap; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45); animation: pct-in 0.25s ease-out both; transition: opacity 0.65s; }
+.dice-layer-wrap.fading .pct-label { opacity: 0; }
+@keyframes pct-in { from { opacity: 0; margin-top: 6px; } to { opacity: 1; margin-top: 0; } }
