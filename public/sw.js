@@ -1,7 +1,7 @@
 // Grimório service worker: lets the installed app open offline.
 // Pages: network first (always the latest version when online). Static files: cache first.
 // Cloud requests (Supabase) are never cached.
-const CACHE = 'grimorio-v1';
+const CACHE = 'grimorio-v2';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './manifest.webmanifest', './icon-192.png'])).then(() => self.skipWaiting()));
@@ -21,7 +21,8 @@ self.addEventListener('fetch', (e) => {
 
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req)
+      // no-cache: always revalidate with the server, so a reload never shows an old version
+      fetch(req, { cache: 'no-cache' })
         .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('./', copy)); return res; })
         .catch(() => caches.match('./')),
     );
