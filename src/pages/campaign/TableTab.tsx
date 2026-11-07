@@ -68,7 +68,7 @@ export function TableTab({ campaign, members, isGm, uid }: CampaignProps) {
                   <div className="small muted">{s.summary} · {m.display_name}</div>
                 </div>
                 {m.user_id === uid
-                  ? <button className="btn sm primary" title="Abrir minha ficha para rolar e editar" onClick={() => go(`${campaign.edition}/c/${c.id}`)}><Dices size={14} /> Minha ficha</button>
+                  ? <button className="btn sm primary" title="Abrir minha ficha para rolar e editar" onClick={() => go(`campanha/${campaign.id}/ficha`)}><Dices size={14} /> Minha ficha</button>
                   : <button className="btn icon sm ghost" title="Ver ficha" onClick={() => setView(c.id)}><Eye size={15} /></button>}
               </div>
               <div className="row small wrap">

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { onTableRoll, useDice } from '../store';
 import { supabase } from './client';
 import { useAuth } from './auth';
+import { useFlash } from '../ui/ui';
 import { toRollRow, type RollRow } from './rollRow';
 
 let wired = false;
@@ -12,7 +13,10 @@ export function initRollPublishing() {
   onTableRoll((entry, table) => {
     const { user, profile } = useAuth.getState();
     if (!user) return;
-    void supabase.from('rolls').insert(toRollRow(entry, table.campaignId, user.id, profile?.display_name || 'Jogador', table.hidden));
+    void supabase.from('rolls').insert(toRollRow(entry, table.campaignId, user.id, profile?.display_name || 'Jogador', table.hidden)).then(({ error }) => {
+      // surface the reason instead of failing silently
+      if (error) useFlash.getState().show('A rolagem não chegou à mesa: ' + error.message);
+    });
   });
 }
 
@@ -47,12 +51,17 @@ export function useRollFeed(campaignId: string) {
       supabase.from('rolls').select('*').eq('campaign_id', campaignId).order('created_at', { ascending: false }).limit(200)
         .then(({ data }) => alive && setRows((data as RollRow[]) || []));
     void load();
+    const onFocus = () => void load();
+    window.addEventListener('focus', onFocus);
+    const poll = setInterval(() => void load(), 15000);
     const ch = supabase
       .channel('rolls-' + campaignId)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rolls', filter: `campaign_id=eq.${campaignId}` }, () => void load())
       .subscribe();
     return () => {
       alive = false;
+      window.removeEventListener('focus', onFocus);
+      clearInterval(poll);
       void supabase.removeChannel(ch);
     };
   }, [campaignId]);

@@ -1,10 +1,11 @@
 import { useEffect, type ReactNode } from 'react';
-import { ChevronLeft, LayoutGrid, Swords, Dices, Hammer, Settings, Crown } from 'lucide-react';
+import { ScrollText, ChevronLeft, LayoutGrid, Swords, Dices, Hammer, Settings, Crown } from 'lucide-react';
 import { useAuth } from '../cloud/auth';
 import { useCampaign, type Campaign as CampaignT, type Member } from '../cloud/campaigns';
 import { go } from '../ui/ui';
 import { SettingsTab } from './campaign/SettingsTab';
 import { TableTab } from './campaign/TableTab';
+import { MySheetTab } from './campaign/MySheetTab';
 import { RollsTab } from './campaign/RollsTab';
 import { CombatTab } from './campaign/CombatTab';
 import { HomebrewTab } from './campaign/HomebrewTab';
@@ -13,6 +14,7 @@ import { useTable } from '../cloud/rolls';
 export interface CampaignProps { campaign: CampaignT; members: Member[]; isGm: boolean; uid: string }
 
 const TABS = [
+  { k: 'ficha', label: 'Minha ficha', icon: ScrollText },
   { k: 'mesa', label: 'Mesa', icon: LayoutGrid },
   { k: 'combate', label: 'Combate', icon: Swords },
   { k: 'rolagens', label: 'Rolagens', icon: Dices },
@@ -23,6 +25,7 @@ export type CampaignTab = (typeof TABS)[number]['k'];
 
 const campaignTabs: Partial<Record<CampaignTab, (p: CampaignProps) => ReactNode>> = {
   mesa: (p) => <TableTab {...p} />,
+  ficha: (p) => <MySheetTab {...p} />,
   rolagens: (p) => <RollsTab {...p} />,
   combate: (p) => <CombatTab {...p} />,
   homebrew: (p) => <HomebrewTab {...p} />,
@@ -44,7 +47,7 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
   if (!user || loading) return <main className="page"><div className="empty">Abrindo a campanha…</div></main>;
   if (error || !campaign) return <main className="page"><div className="panel empty">{error || 'Campanha não encontrada.'} <button className="btn sm" onClick={() => go('campanhas')}>Voltar</button></div></main>;
 
-  const current = (TABS.some((t) => t.k === tab) ? tab : 'mesa') as CampaignTab;
+  const current = (TABS.some((t) => t.k === tab) && !(tab === 'ficha' && isGm) ? tab : 'mesa') as CampaignTab;
   const body = campaignTabs[current];
   const props: CampaignProps = { campaign, members, isGm, uid: user.id };
 
@@ -57,7 +60,7 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
         {isGm && <span className="tag gold"><Crown size={12} /> Você é o mestre</span>}
       </div>
       <nav className="tabs">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.k !== 'ficha' || !isGm).map((t) => (
           <button key={t.k} className={'tab' + (current === t.k ? ' on' : '')} onClick={() => go(`campanha/${id}/${t.k}`)}>
             <t.icon size={17} /> {t.label}
           </button>
