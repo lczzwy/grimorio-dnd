@@ -144,7 +144,7 @@ export function CombatTab({ campaign, members, isGm }: CampaignProps) {
   );
 }
 
-function AddEnemy({ campaignId, edition, onClose, onAdded }: { campaignId: string; edition: CampaignProps['campaign']['edition']; onClose: () => void; onAdded: () => void }) {
+export function AddEnemy({ campaignId, edition, onClose, onAdded }: { campaignId: string; edition: CampaignProps['campaign']['edition']; onClose: () => void; onAdded: () => void }) {
   const [monsters, setMonsters] = useState<MonsterDef[]>([]);
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<MonsterDef | null>(null);

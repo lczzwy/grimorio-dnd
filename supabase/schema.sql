@@ -90,6 +90,9 @@ create table if not exists public.encounters (
   turn int not null default 0
 );
 
+-- o mestre pede iniciativa: cada jogador vê um botão para rolar a sua
+alter table public.encounters add column if not exists init_call boolean not null default false;
+
 create table if not exists public.combatants (
   id uuid primary key default gen_random_uuid(),
   campaign_id uuid not null references public.campaigns (id) on delete cascade,
@@ -240,6 +243,23 @@ begin
   update campaign_members set color = c where campaign_id = campaign and user_id = auth.uid();
 end $$;
 
+-- jogador grava a própria iniciativa (entra no combate se ainda não estiver)
+create or replace function public.roll_my_initiative(campaign uuid, val int) returns void
+language plpgsql security definer set search_path = public as $$
+declare ch text; nm text; img text;
+begin
+  if not is_member(campaign) then raise exception 'forbidden'; end if;
+  if val is null or val < -10 or val > 60 then raise exception 'bad_value'; end if;
+  select character_id into ch from campaign_members where campaign_id = campaign and user_id = auth.uid();
+  if ch is null then raise exception 'no_character'; end if;
+  update combatants set initiative = val where campaign_id = campaign and character_id = ch;
+  if not found then
+    select name, data ->> 'portrait' into nm, img from characters where id = ch;
+    insert into combatants (campaign_id, kind, character_id, name, image, initiative)
+    values (campaign, 'player', ch, coalesce(nullif(nm, ''), 'Jogador'), img, val);
+  end if;
+end $$;
+
 create or replace function public.new_invite_code(campaign uuid) returns text
 language plpgsql security definer set search_path = public as $$
 declare code text;
@@ -383,7 +403,7 @@ revoke all on
   public.rolls, public.encounters, public.combatants, public.combatant_secrets, public.chat_messages
   from anon;
 grant execute on function
-  public.join_campaign(text), public.set_member_character(uuid, text), public.set_member_color(uuid, text), public.new_invite_code(uuid),
+  public.join_campaign(text), public.set_member_character(uuid, text), public.set_member_color(uuid, text), public.roll_my_initiative(uuid, int), public.new_invite_code(uuid),
   public.gm_apply(text, uuid, int, int, text[], text[], int), public.hp_band(int, int)
   to authenticated;
 

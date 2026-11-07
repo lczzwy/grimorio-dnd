@@ -245,3 +245,25 @@ describe('chat & player colours', () => {
     await fails(as(OUT, `select set_member_color($1, '#000000')`, [campaign]), /forbidden/);
   });
 });
+
+describe('initiative from the table', () => {
+  it('a player records only their own initiative, joining the fight if needed', async () => {
+    await fails(as(OUT, `select roll_my_initiative($1, 15)`, [campaign]), /forbidden/);
+    await fails(as(P1, `select roll_my_initiative($1, 99)`, [campaign]), /bad_value/);
+    await as(P1, `select roll_my_initiative($1, 17)`, [campaign]);
+    const mine = () => as<{ name: string; initiative: number; kind: string }>(GM, `select name, initiative, kind from combatants where campaign_id = $1 and character_id = 'voss'`, [campaign]);
+    expect(await mine()).toEqual([{ name: 'Voss', initiative: 17, kind: 'player' }]);
+    // rolling again updates the same entry instead of adding another
+    await as(P1, `select roll_my_initiative($1, 9)`, [campaign]);
+    expect(await mine()).toEqual([{ name: 'Voss', initiative: 9, kind: 'player' }]);
+    // still no direct write access to the combat for players
+    await as(P1, `update combatants set initiative = 30 where campaign_id = $1`, [campaign]);
+    expect((await mine())[0].initiative).toBe(9);
+  });
+
+  it('the gm can call for initiative; players only read it', async () => {
+    await as(GM, `insert into encounters (campaign_id, init_call) values ($1, true) on conflict (campaign_id) do update set init_call = true`, [campaign]);
+    expect((await as<{ init_call: boolean }>(P2, `select init_call from encounters where campaign_id = $1`, [campaign]))[0].init_call).toBe(true);
+    await fails(as(P2, `update encounters set init_call = false where campaign_id = $1 returning 1`, [campaign]).then((r) => { if (!r.length) throw new Error('row-level security'); }), /row-level security/);
+  });
+});

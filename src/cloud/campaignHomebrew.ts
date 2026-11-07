@@ -23,7 +23,8 @@ export function useCampaignHomebrew(campaignId: string | undefined): { homebrew:
       supabase.from('campaign_homebrew').select('kind, id, item').eq('campaign_id', campaignId).then(({ data }) => alive && setRows((data as Row[]) || []));
     void load();
     const ch = supabase
-      .channel('hb-' + campaignId)
+      // unique name: several parts of the campaign page read the homebrew at once
+      .channel('hb-' + campaignId + '-' + Math.random().toString(36).slice(2, 8))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'campaign_homebrew', filter: `campaign_id=eq.${campaignId}` }, () => void load())
       .subscribe();
     return () => {

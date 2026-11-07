@@ -9,7 +9,7 @@ export interface Combatant {
   initiative: number | null; hp_band: string; conditions: string[]; effects: Effect[]; visible: boolean; sort: number;
 }
 export interface Secrets { combatant_id: string; campaign_id: string; hp_current: number; hp_max: number; hp_temp: number; ac: number | null; stat: MonsterDef | null; attacks: MonsterAction[]; notes: string }
-export interface Encounter { campaign_id: string; active: boolean; round: number; turn: number }
+export interface Encounter { campaign_id: string; active: boolean; round: number; turn: number; init_call?: boolean }
 
 const ok = <T,>(r: { data: T; error: { message: string } | null }) => {
   if (r.error) throw new Error(campaignErrorPt(r.error.message));
@@ -38,7 +38,8 @@ export function useEncounter(campaignId: string, isGm: boolean) {
     };
     void load();
     let ch = supabase
-      .channel('combat-' + campaignId)
+      // unique name: the turn order and the Combat tab can watch the same fight at once
+      .channel('combat-' + campaignId + '-' + Math.random().toString(36).slice(2, 8))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'combatants', filter: `campaign_id=eq.${campaignId}` }, () => void load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'encounters', filter: `campaign_id=eq.${campaignId}` }, () => void load());
     // secrets aren't in the realtime publication: the GM reloads them after own writes
@@ -85,4 +86,19 @@ export async function nextTurn(e: Encounter, list: Combatant[]) {
   const s = nextTurnState(e, list.length);
   if (s.newRound) await Promise.all(list.filter((c) => c.effects.some((x) => x.rounds != null)).map((c) => updateCombatant(c.id, { effects: tickEffects(c.effects) })));
   await setEncounter(e.campaign_id, { round: s.round, turn: s.turn });
+}
+
+/** Player: records the initiative they just rolled (joins the fight if not in it yet). */
+export async function rollMyInitiative(campaignId: string, value: number) {
+  ok(await supabase.rpc('roll_my_initiative', { campaign: campaignId, val: value }));
+}
+
+/** GM: brings every player with a character into the fight, clears their old initiative and asks them to roll. */
+export async function callInitiative(campaignId: string, list: Combatant[], players: { character_id: string; name: string; image?: string }[]) {
+  for (const p of players) {
+    const c = list.find((x) => x.character_id === p.character_id);
+    if (c) await updateCombatant(c.id, { initiative: null });
+    else await addPlayerCombatant(campaignId, p.character_id, p.name, p.image);
+  }
+  await setEncounter(campaignId, { init_call: true });
 }
