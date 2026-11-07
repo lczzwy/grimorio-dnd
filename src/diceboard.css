@@ -79,3 +79,28 @@
 .dice-layer canvas { width: 100% !important; height: 100% !important; display: block; }
 .dice-layer.fading { opacity: 0; filter: blur(4px) brightness(1.9) saturate(0.6); transform: scale(0.965) translateY(4px); }
 @media (prefers-reduced-motion: reduce) { .dice-layer { transition: opacity 0.3s; } .dice-layer.fading { filter: none; transform: none; } }
+
+/* 20 natural: o dado brilha dourado por dentro (no 3D) e um clarão se abre no feltro */
+.dice-layer.crit::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 214, 120, 0.32), rgba(255, 214, 120, 0) 60%);
+  animation: dice-flash 1.1s ease-out both;
+}
+@keyframes dice-flash { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; } }
+
+/* 1 natural: o dado acende vermelho (no 3D), a mesa treme e as bordas escurecem por um instante */
+.dice-layer.fumble { animation: dice-fumble-shake 0.45s cubic-bezier(.36, .07, .19, .97) both; }
+.dice-layer.fumble::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, rgba(90, 0, 0, 0), rgba(90, 0, 0, 0.45));
+  animation: dice-flash 1.2s ease-out both;
+}
+@keyframes dice-fumble-shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-6px); }
+  40%, 60% { transform: translateX(6px); }
+}
+.dice-board-last .mono.crit { color: var(--good); }
+.dice-board-last .mono.fumble { color: var(--bad); }
+@media (prefers-reduced-motion: reduce) { .dice-layer.fumble { animation: none; } }

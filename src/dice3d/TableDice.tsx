@@ -4,8 +4,8 @@ import { Box, ChevronDown, ChevronUp, Volume2, VolumeX } from 'lucide-react';
 import { supabase } from '../cloud/client';
 import { colorFor } from '../cloud/chatLogic';
 import type { RollRow } from '../cloud/rollRow';
-import { diceOfRoll, forcedNotation, inkFor } from './notation';
-import { playDiceSound, unlockAudio } from './sound';
+import { diceOfRoll, droppedFlags, forcedNotation, inkFor } from './notation';
+import { playCritSound, playDiceSound, playFumbleSound, unlockAudio } from './sound';
 import { useReveal } from './reveal';
 
 /* ---------------- preferences (per device) ---------------- */
@@ -108,18 +108,94 @@ function settled(b: DiceBoxLike, maxMs = 7000): Promise<void> {
   return new Promise((resolve) => {
     const t0 = performance.now();
     let calm = 0;
+    // the library prepares textures before it throws (slow on the first roll): only a stop after
+    // the dice were seen flying counts
+    let moved = false;
     const tick = setInterval(() => {
       const dice: Any[] = box.diceList || [];
-      const still = dice.length > 0 && dice.every((d) => d.body && d.body.velocity.length() < 3 && d.body.angularVelocity.length() < 0.1);
+      if (dice.some((d) => d.body && d.body.velocity.length() > 50)) moved = true;
+      const still = moved && dice.length > 0 && dice.every((d) => d.body && d.body.velocity.length() < 3 && d.body.angularVelocity.length() < 0.1);
       calm = still ? calm + 1 : 0;
       const elapsed = performance.now() - t0;
-      if ((calm >= 2 && elapsed > 700) || elapsed > maxMs) {
+      if (calm >= 2 || elapsed > maxMs) {
         clearInterval(tick);
         box.running = false; // stops animateThrow on its next frame
         box.rolling = false;
         resolve();
       }
     }, 100);
+  });
+}
+
+/**
+ * Copies a die's displayed pose onto its physics body and puts the body to sleep. If the library's
+ * loop runs one more frame (a tab coming back from the background resumes it), it copies the body
+ * onto the mesh: with the body matching, the die stays exactly as we left it.
+ */
+function pinBody(d: Any) {
+  const body = d.body;
+  if (!body) return;
+  body.position.set(d.position.x, d.position.y, d.position.z);
+  body.quaternion.set(d.quaternion.x, d.quaternion.y, d.quaternion.z, d.quaternion.w);
+  body.velocity.set(0, 0, 0);
+  body.angularVelocity.set(0, 0, 0);
+  body.mass = 0;
+  body.type = 2; // cannon-es STATIC: gravity no longer moves it
+  body.updateMassProperties?.();
+  body.sleep?.();
+}
+
+/** Makes one die glow from within (natural 20 gold, natural 1 red): a flare that settles to a soft glow. */
+function glowDie(b: DiceBoxLike, index: number, hex: number, ms = 1100): void {
+  const box = b as Any;
+  const d = box.diceList?.[index];
+  if (!d) return;
+  d.material = (Array.isArray(d.material) ? d.material : [d.material]).map((m: Any) => m.clone());
+  const mats = d.material.filter((m: Any) => m.emissive);
+  mats.forEach((m: Any) => m.emissive.setHex(hex));
+  const t0 = performance.now();
+  const step = () => {
+    const k = Math.min(1, (performance.now() - t0) / ms);
+    // quick flare to full, then down to a steady 35%
+    const v = k < 0.25 ? k / 0.25 : 1 - 0.65 * ((k - 0.25) / 0.75);
+    mats.forEach((m: Any) => { m.emissiveIntensity = 0.9 * v; });
+    box.renderer.render(box.scene, box.camera);
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+  setTimeout(() => { mats.forEach((m: Any) => { m.emissiveIntensity = 0.9 * 0.35; }); box.renderer.render(box.scene, box.camera); }, ms + 150);
+}
+
+/** Fades and sinks the discarded dice of an advantage/disadvantage roll (flags in library order). */
+function dimDropped(b: DiceBoxLike, flags: boolean[], ms = 500): Promise<void> {
+  const box = b as Any;
+  const dice: Any[] = (box.diceList || []).filter((_: Any, i: number) => flags[i]);
+  if (!dice.length) return Promise.resolve();
+  const start = dice.map((d) => {
+    // materials are shared between dice: give this die its own copies before changing them
+    d.material = (Array.isArray(d.material) ? d.material : [d.material]).map((m: Any) => { const c = m.clone(); c.transparent = true; return c; });
+    return { d, z: d.position.z, s: d.scale.x };
+  });
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    let finished = false;
+    const apply = (k: number) => {
+      for (const { d, z, s } of start) {
+        for (const m of d.material) m.opacity = 1 - 0.65 * k;
+        d.position.z = z - k * s * 6;
+        d.scale.setScalar(s * (1 - 0.15 * k));
+      }
+      box.renderer.render(box.scene, box.camera);
+    };
+    const finish = () => { if (finished) return; finished = true; apply(1); start.forEach(({ d }) => pinBody(d)); resolve(); };
+    const step = () => {
+      if (finished) return;
+      const k = Math.min(1, (performance.now() - t0) / ms);
+      apply(1 - Math.pow(1 - k, 2));
+      if (k < 1) requestAnimationFrame(step); else finish();
+    };
+    requestAnimationFrame(step);
+    setTimeout(finish, ms + 150);
   });
 }
 
@@ -163,7 +239,10 @@ function faceCamera(b: DiceBoxLike, ms = 420): Promise<void> {
     const finish = () => {
       if (finished) return;
       finished = true;
-      for (const m of moves) m.d.quaternion.copy(m.to);
+      for (const m of moves) {
+        m.d.quaternion.copy(m.to);
+        pinBody(m.d);
+      }
       box.renderer.render(box.scene, cam);
       resolve();
     };
@@ -193,7 +272,7 @@ const TRAY_LAYERS = 3;
 const MAX_QUEUE = 6;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-interface Layer { box: DiceBoxLike | null; busy: boolean }
+interface Layer { box: DiceBoxLike | null; busy: boolean; loading?: Promise<DiceBoxLike | null> }
 
 /**
  * Every roll made at the campaign table is thrown as 3D dice, landing on the numbers that were
@@ -213,12 +292,17 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
   const layers = useRef<Layer[]>(Array.from({ length: count }, () => ({ box: null, busy: false })));
   const queue = useRef<RollRow[]>([]);
   const colors = useRef(new Map<string, string | null>());
+  const names = useRef(new Map<string, string>());
+  const [effect, setEffect] = useState<(null | 'crit' | 'fumble')[]>(() => Array(count).fill(null));
   const [badge, setBadge] = useState<{ row: RollRow; color: string } | null>(null);
   const [visible, setVisible] = useState(false);
   const [fading, setFading] = useState<boolean[]>(() => Array(count).fill(false));
   const [last, setLast] = useState<{ row: RollRow; color: string } | null>(null);
   const layerId = (i: number) => `dice3d-${campaignId}-${variant}-${i}`;
   const setFade = (i: number, v: boolean) => setFading((f) => f.map((x, j) => (j === i ? v : x)));
+  const setFx = (i: number, v: null | 'crit' | 'fumble') => setEffect((f) => f.map((x, j) => (j === i ? v : x)));
+  /** the character's name when the player has one at this table, else the account name */
+  const who = (row: RollRow) => names.current.get(row.user_id) || row.author;
 
   // the chat waits for these dice only while a tray is actually animating
   useEffect(() => {
@@ -227,11 +311,18 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
     return () => useReveal.getState().setActive(false);
   }, [tray, live]);
 
-  // player colours, kept fresh
+  // player colours and character names, kept fresh
   useEffect(() => {
-    const load = () =>
-      supabase.from('campaign_members').select('user_id, color').eq('campaign_id', campaignId)
-        .then(({ data }) => { colors.current = new Map((data || []).map((m: { user_id: string; color: string | null }) => [m.user_id, m.color])); });
+    const load = async () => {
+      const { data } = await supabase.from('campaign_members').select('user_id, color, character_id').eq('campaign_id', campaignId);
+      const rows = (data || []) as { user_id: string; color: string | null; character_id: string | null }[];
+      colors.current = new Map(rows.map((m) => [m.user_id, m.color]));
+      const ids = rows.map((m) => m.character_id).filter((x): x is string => !!x);
+      if (!ids.length) return void (names.current = new Map());
+      const { data: chars } = await supabase.from('characters').select('id, name').in('id', ids);
+      const byId = new Map(((chars || []) as { id: string; name: string }[]).map((c) => [c.id, c.name]));
+      names.current = new Map(rows.filter((m) => m.character_id && byId.get(m.character_id)).map((m) => [m.user_id, byId.get(m.character_id!)!]));
+    };
     void load();
     const ch = supabase
       .channel('dice-colors-' + campaignId + variant)
@@ -295,7 +386,7 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
 
   // a collapsed tray loses its canvases: start fresh when it opens again
   useEffect(() => {
-    if (!live) layers.current.forEach((l) => { l.box = null; l.busy = false; });
+    if (!live) layers.current.forEach((l) => { l.box = null; l.busy = false; l.loading = undefined; });
   }, [live]);
 
   // development only: window.__dice(row) plays a fake roll without a live table
@@ -314,16 +405,28 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
     return () => window.removeEventListener('pointerdown', once);
   }, []);
 
-  async function ensureBox(i: number) {
+  // build the 3D tables while the page is idle, so the first roll of the session is not the slow one
+  useEffect(() => {
+    if (!live) return;
+    const t = setTimeout(() => { layers.current.forEach((_, i) => { void ensureBox(i).catch(() => undefined); }); }, 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live]);
+
+  function ensureBox(i: number): Promise<DiceBoxLike | null> {
     const layer = layers.current[i];
-    if (layer.box) return layer.box;
-    if (!document.getElementById(layerId(i))) return null;
-    const { default: DiceBox } = await import('@3d-dice/dice-box-threejs');
-    const b = new DiceBox('#' + layerId(i), { baseScale: tray ? 62 : 120, strength: tray ? 1.25 : 1.2, sounds: false, shadows: true, light_intensity: 0.85 }) as unknown as DiceBoxLike;
-    await b.initialize();
-    if (b.desk) b.desk.material.opacity = tray ? 0.4 : 0.28; // soft shadows on the felt / over the page
-    layer.box = b;
-    return b;
+    if (layer.box) return Promise.resolve(layer.box);
+    if (layer.loading) return layer.loading; // a preload already under way: share it
+    if (!document.getElementById(layerId(i))) return Promise.resolve(null);
+    layer.loading = (async () => {
+      const { default: DiceBox } = await import('@3d-dice/dice-box-threejs');
+      const b = new DiceBox('#' + layerId(i), { baseScale: tray ? 62 : 120, strength: tray ? 1.25 : 1.2, sounds: false, shadows: true, light_intensity: 0.85 }) as unknown as DiceBoxLike;
+      await b.initialize();
+      if (b.desk) b.desk.material.opacity = tray ? 0.4 : 0.28; // soft shadows on the felt / over the page
+      layer.box = b;
+      return b;
+    })().finally(() => { layer.loading = undefined; });
+    return layer.loading;
   }
 
   /** Starts queued rolls on every free layer. */
@@ -354,6 +457,17 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
       void b.roll(notation).catch(() => undefined);
       await settled(b);
       try { await faceCamera(b); } catch { /* cosmetic only */ }
+      // advantage/disadvantage: the discarded d20 fades and sinks
+      const flags = droppedFlags(diceOfRoll(row.formula, row.rolls, row.dropped));
+      if (flags.some(Boolean)) { try { await dimDropped(b, flags); } catch { /* cosmetic only */ } }
+      // natural 20 / natural 1
+      const fx = row.kind === 'crit' ? 'crit' : row.kind === 'fumble' ? 'fumble' : null;
+      if (fx) {
+        // the natural d20 is the first die of the roll
+        try { glowDie(b, 0, fx === 'crit' ? 0xffc54a : 0xd02818); } catch { /* cosmetic only */ }
+        setFx(i, fx);
+        if (useDicePrefs.getState().sound) (fx === 'crit' ? playCritSound : playFumbleSound)();
+      }
       // the dice have settled: now the chat shows the roll
       done();
       if (tray) {
@@ -364,6 +478,7 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
         await sleep(FADE_MS);
         b.clearDice();
         setFade(i, false);
+        setFx(i, null);
         return;
       }
       setBadge({ row, color });
@@ -372,6 +487,7 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
       await sleep(350);
       b.clearDice();
       setBadge(null);
+      setFx(i, null);
     } catch (e) {
       console.warn('dados 3D:', e);
       done();
@@ -381,7 +497,7 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
   if (!on) return null;
 
   const layerEls = Array.from({ length: count }, (_, i) => (
-    <div key={i} id={layerId(i)} className={'dice-layer' + (fading[i] ? ' fading' : '')} />
+    <div key={i} id={layerId(i)} className={'dice-layer' + (fading[i] ? ' fading' : '') + (effect[i] ? ' ' + effect[i] : '')} />
   ));
 
   if (tray) {
@@ -391,7 +507,7 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
           <span className="dice-board-title">Mesa de dados</span>
           {last && trayOpen && (
             <span className="dice-board-last">
-              <b style={{ color: last.color }}>{last.row.author}</b> <span className="muted">{last.row.label}</span> <b className="mono">{last.row.total}</b>
+              <b style={{ color: last.color }}>{who(last.row)}</b> <span className="muted">rolou {last.row.label}</span> <b className={'mono' + (last.row.kind === 'crit' ? ' crit' : last.row.kind === 'fumble' ? ' fumble' : '')}>{last.row.total}</b>
             </span>
           )}
           <span className="spacer" />
@@ -415,7 +531,7 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
       <div ref={host} className={'dice3d' + (visible ? ' show' : '')} aria-hidden>{layerEls}</div>
       {badge && (
         <div className={'dice3d-badge' + (badge.row.kind === 'crit' ? ' crit' : badge.row.kind === 'fumble' ? ' fumble' : '')} style={{ borderColor: badge.color }}>
-          <span className="who" style={{ color: badge.color }}>{badge.row.author}</span>
+          <span className="who" style={{ color: badge.color }}>{who(badge.row)}</span>
           <span className="what">{badge.row.label}</span>
           <b>{badge.row.total}</b>
         </div>

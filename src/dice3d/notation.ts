@@ -4,7 +4,7 @@ import { parseDice } from '../engine/dice';
 const DRAWABLE = new Set([4, 6, 8, 10, 12, 20, 100]);
 const MAX_DICE = 20;
 
-export interface Die { sides: number; value: number }
+export interface Die { sides: number; value: number; dropped?: boolean }
 
 /**
  * Rebuilds the physical dice of a stored roll, in formula order.
@@ -22,7 +22,7 @@ export function diceOfRoll(formula: string, rolls: number[], dropped?: number[] 
     const count = crit ? t.count * 2 : t.count;
     for (let k = 0; k < count && i < rolls.length; k++) out.push({ sides: t.sides, value: rolls[i++] });
     // the dropped die of advantage/disadvantage belongs to the first d20
-    if (ti === 0 && t.sides === 20 && dropped?.length) for (const v of dropped) out.push({ sides: 20, value: v });
+    if (ti === 0 && t.sides === 20 && dropped?.length) for (const v of dropped) out.push({ sides: 20, value: v, dropped: true });
   });
   return out.filter((d) => DRAWABLE.has(d.sides) && d.value >= 1 && d.value <= d.sides).slice(0, MAX_DICE);
 }
@@ -48,6 +48,23 @@ export function forcedNotation(dice: Die[]): string | null {
   }
   if (!groups.length) return null;
   return groups.map((g) => `${g.values.length}d${g.sides}`).join('+') + '@' + groups.flatMap((g) => g.values).join(',');
+}
+
+/**
+ * Which drawn dice are discarded (advantage/disadvantage), in the order the 3D library creates
+ * them from forcedNotation: a d100 becomes two dice (tens and units).
+ */
+export function droppedFlags(dice: Die[]): boolean[] {
+  const groups: { sides: number; flags: boolean[] }[] = [];
+  const push = (sides: number, flag: boolean) => {
+    const last = groups[groups.length - 1];
+    if (last && last.sides === sides) last.flags.push(flag);
+    else groups.push({ sides, flags: [flag] });
+  };
+  for (const d of dice) {
+    if (d.sides === 100) { push(100, !!d.dropped); push(10, !!d.dropped); } else push(d.sides, !!d.dropped);
+  }
+  return groups.flatMap((g) => g.flags);
 }
 
 /** Dark numbers on light dice, light numbers on dark dice. */

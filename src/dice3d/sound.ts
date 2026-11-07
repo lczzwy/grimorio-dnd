@@ -58,3 +58,39 @@ export function playDiceSound(count: number, volume = 0.6) {
 export function unlockAudio() {
   audio();
 }
+
+/** Natural 20: a short bright chime, two bell-like partials rising. */
+export function playCritSound(volume = 0.35) {
+  const a = audio();
+  if (!a) return;
+  const now = a.currentTime + 0.02;
+  [[880, 0], [1318.5, 0.09], [1760, 0.18]].forEach(([f, dt]) => {
+    const o = a.createOscillator();
+    const g = a.createGain();
+    o.type = 'triangle';
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, now + dt);
+    g.gain.exponentialRampToValueAtTime(volume, now + dt + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dt + 0.9);
+    o.connect(g).connect(a.destination);
+    o.start(now + dt);
+    o.stop(now + dt + 1);
+  });
+}
+
+/** Natural 1: a dull low thud sliding down. */
+export function playFumbleSound(volume = 0.45) {
+  const a = audio();
+  if (!a) return;
+  const now = a.currentTime + 0.02;
+  const o = a.createOscillator();
+  const g = a.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(140, now);
+  o.frequency.exponentialRampToValueAtTime(55, now + 0.5);
+  g.gain.setValueAtTime(volume, now);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+  o.connect(g).connect(a.destination);
+  o.start(now);
+  o.stop(now + 0.65);
+}
