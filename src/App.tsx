@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BookOpen, Users, Hammer, LogIn, UserCircle, Swords } from 'lucide-react';
 import { initAuth, useAuth } from './cloud/auth';
 import { startSync } from './cloud/sync';
+import { initRollPublishing } from './cloud/rolls';
 import { Account } from './pages/Account';
 import { Campaigns } from './pages/Campaigns';
 import { Invite } from './pages/Invite';
@@ -29,7 +30,7 @@ export default function App() {
   }, [ed, top]);
 
   const auth = useAuth();
-  useEffect(() => initAuth(), []);
+  useEffect(() => { initAuth(); initRollPublishing(); }, []);
   const uid = auth.user?.id;
   useEffect(() => (uid ? startSync(uid) : undefined), [uid]);
 

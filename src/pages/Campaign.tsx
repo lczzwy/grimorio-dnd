@@ -5,6 +5,8 @@ import { useCampaign, type Campaign as CampaignT, type Member } from '../cloud/c
 import { go } from '../ui/ui';
 import { SettingsTab } from './campaign/SettingsTab';
 import { TableTab } from './campaign/TableTab';
+import { RollsTab } from './campaign/RollsTab';
+import { useTable } from '../cloud/rolls';
 
 export interface CampaignProps { campaign: CampaignT; members: Member[]; isGm: boolean; uid: string }
 
@@ -19,12 +21,14 @@ export type CampaignTab = (typeof TABS)[number]['k'];
 
 const campaignTabs: Partial<Record<CampaignTab, (p: CampaignProps) => ReactNode>> = {
   mesa: (p) => <TableTab {...p} />,
+  rolagens: (p) => <RollsTab {...p} />,
   ajustes: (p) => <SettingsTab {...p} />,
 };
 
 export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
   const { user, loading: authLoading } = useAuth();
   const { campaign, members, isGm, loading, error } = useCampaign(id);
+  useTable(campaign?.id, isGm);
 
   useEffect(() => {
     if (campaign) document.documentElement.dataset.ed = campaign.edition;

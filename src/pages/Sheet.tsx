@@ -8,6 +8,7 @@ import { armorClass, classSummary, initiative, maxHp, pb, speed, speciesName, pa
 import { fmtMod } from '../engine/dice';
 import { Avatar } from './Roster';
 import { confirmAndDelete } from '../cloud/sync';
+import { useCharacterCampaign, useTable } from '../cloud/rolls';
 import { fileToPortrait } from './Creator';
 import { MainTab } from './sheet/MainTab';
 import { CombatTab, RestModal } from './sheet/CombatTab';
@@ -32,6 +33,8 @@ export function Sheet({ edition, id, character, readOnly }: { edition: Edition; 
   const srd = useSrd(edition);
   const stored = useApp((s) => s.characters.find((x) => x.id === id));
   const c = character ?? stored;
+  const tableCampaign = useCharacterCampaign(readOnly ? undefined : c?.id, c?.cloud);
+  useTable(tableCampaign);
   const update = useApp((s) => s.updateCharacter);
   const roll = useDice((s) => s.roll);
   const flash = useFlash((s) => s.show);
