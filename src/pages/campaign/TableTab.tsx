@@ -96,7 +96,7 @@ export function TableTab({ campaign, members, isGm }: CampaignProps) {
 
       {view && chars[view] && (
         <Modal wide title={chars[view].name} onClose={() => setView(null)}>
-          <Sheet edition={campaign.edition} id={view} character={chars[view]} readOnly />
+          <Sheet edition={campaign.edition} id={view} character={chars[view]} readOnly campaignId={campaign.id} />
         </Modal>
       )}
       {conds && chars[conds] && (

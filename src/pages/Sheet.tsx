@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { ChevronLeft, Download, Trash2, ArrowUpCircle, LayoutGrid, Swords, Sparkles, Backpack, Scroll, Feather, Moon, Coffee, Star } from 'lucide-react';
 import type { Character, Edition, SrdData } from '../data/types';
-import { useSrd } from '../data/srd';
 import { useApp, useDice } from '../store';
 import { go, download, useFlash } from '../ui/ui';
 import { armorClass, classSummary, initiative, maxHp, pb, speed, speciesName, passivePerception, findBackground } from '../engine/rules';
@@ -9,6 +8,7 @@ import { fmtMod } from '../engine/dice';
 import { Avatar } from './Roster';
 import { confirmAndDelete } from '../cloud/sync';
 import { useCharacterCampaign, useTable } from '../cloud/rolls';
+import { useCampaignSrd } from '../cloud/campaignHomebrew';
 import { fileToPortrait } from './Creator';
 import { MainTab } from './sheet/MainTab';
 import { CombatTab, RestModal } from './sheet/CombatTab';
@@ -29,12 +29,13 @@ const TABS = [
 ] as const;
 
 /** `character` + `readOnly` show someone else's sheet (campaign table) without editing it. */
-export function Sheet({ edition, id, character, readOnly }: { edition: Edition; id: string; character?: Character; readOnly?: boolean }) {
-  const srd = useSrd(edition);
+export function Sheet({ edition, id, character, readOnly, campaignId }: { edition: Edition; id: string; character?: Character; readOnly?: boolean; campaignId?: string }) {
   const stored = useApp((s) => s.characters.find((x) => x.id === id));
   const c = character ?? stored;
-  const tableCampaign = useCharacterCampaign(readOnly ? undefined : c?.id, c?.cloud);
-  useTable(tableCampaign);
+  const myCampaign = useCharacterCampaign(readOnly ? undefined : c?.id, c?.cloud);
+  useTable(readOnly ? undefined : myCampaign);
+  // rules = SRD + this browser's homebrew + the campaign's homebrew
+  const srd = useCampaignSrd(campaignId ?? myCampaign, edition);
   const update = useApp((s) => s.updateCharacter);
   const roll = useDice((s) => s.roll);
   const flash = useFlash((s) => s.show);

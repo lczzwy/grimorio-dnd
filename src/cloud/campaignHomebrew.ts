@@ -14,9 +14,10 @@ const toHomebrew = (rows: Row[]): Homebrew => {
 };
 
 /** Homebrew published to a campaign, kept live. */
-export function useCampaignHomebrew(campaignId: string): { homebrew: Homebrew; rows: Row[] } {
+export function useCampaignHomebrew(campaignId: string | undefined): { homebrew: Homebrew; rows: Row[] } {
   const [rows, setRows] = useState<Row[]>([]);
   useEffect(() => {
+    if (!campaignId) return setRows([]);
     let alive = true;
     const load = () =>
       supabase.from('campaign_homebrew').select('kind, id, item').eq('campaign_id', campaignId).then(({ data }) => alive && setRows((data as Row[]) || []));
@@ -44,7 +45,7 @@ export function mergeCampaignHomebrew(base: SrdData, hb: Homebrew): SrdData {
 }
 
 /** SRD of the campaign's edition + this browser's homebrew + the campaign's homebrew. */
-export function useCampaignSrd(campaignId: string, edition: Edition): SrdData | null {
+export function useCampaignSrd(campaignId: string | undefined, edition: Edition): SrdData | null {
   const base = useSrd(edition);
   const { homebrew } = useCampaignHomebrew(campaignId);
   return useMemo(() => (base ? mergeCampaignHomebrew(base, homebrew) : null), [base, homebrew]);
