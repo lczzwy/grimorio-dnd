@@ -77,7 +77,8 @@ export default function App() {
           {auth.user ? <><UserCircle size={15} /> <span className="hidden-mobile">{auth.profile?.display_name || 'Conta'}</span></> : <><LogIn size={15} /> <span className="hidden-mobile">Entrar</span></>}
         </button>
       </header>
-      <ErrorBoundary key={route.join('/')}>{page}</ErrorBoundary>
+      {/* campaign tabs stay mounted: remounting refetched everything from the server on each click */}
+      <ErrorBoundary key={route[0] === 'campanha' ? route.slice(0, 2).join('/') : route.join('/')}>{page}</ErrorBoundary>
       {ed && <DiceTray />}
       <RollToast />
       <FlashHost />

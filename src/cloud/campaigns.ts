@@ -68,12 +68,15 @@ export async function gmApply(characterId: string, campaignId: string, o: { delt
   }));
 }
 
-/** Campaign + members, kept live through realtime. */
+const campaignCache = new Map<string, { campaign: Campaign; members: Member[] }>();
+
+/** Campaign + members, kept live through realtime. Cached so reopening is instant. */
 export function useCampaign(id: string) {
   const uid = useAuth((s) => s.user?.id);
-  const [campaign, setCampaign] = useState<Campaign | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = campaignCache.get(id);
+  const [campaign, setCampaign] = useState<Campaign | null>(cached?.campaign ?? null);
+  const [members, setMembers] = useState<Member[]>(cached?.members ?? []);
+  const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -91,6 +94,7 @@ export function useCampaign(id: string) {
         setCampaign(c);
         const m = await listMembers(id);
         if (alive) setMembers(m);
+        campaignCache.set(id, { campaign: c, members: m });
       } catch (e) {
         if (alive) setError((e as Error).message);
       } finally {
