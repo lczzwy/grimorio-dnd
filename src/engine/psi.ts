@@ -29,7 +29,8 @@ export interface PsiOption { name: string; min: number; max: number; conc: boole
  * "Combustion (1–7 psi; conc., 1 min.)" or "- Ethereal Weapon (1 psi): …".
  */
 export function parsePsiOptions(desc: string): PsiOption[] {
-  const re = /([A-Z][\w’' -]{1,45}?) \((\d+)(?:\s*[–-]\s*(\d+))? psi(?:;\s*([^)]*))?\)/g;
+  // \p{L}: option names may be translated (accents, e.g. "Barreira Telecinética")
+  const re = /(\p{Lu}[\p{L}\d’' -]{1,45}?) \((\d+)(?:\s*[–-]\s*(\d+))? psi(?:;\s*([^)]*))?\)/gu;
   const out: PsiOption[] = [];
   const seen = new Set<string>();
   let m: RegExpExecArray | null;

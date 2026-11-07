@@ -30,6 +30,11 @@ describe('psionics', () => {
     expect(hasPsychicFocus(desc)).toBe(true);
   });
 
+  it('reads Portuguese option names with accents', () => {
+    const desc = ['**Foco Psíquico.** Você…', '**Barreira Telecinética (3 psi; conc., 10 min.).** Como ação…', '**Empurrão (1–7 psi).** Como ação…'].join('\n\n');
+    expect(parsePsiOptions(desc).map((o) => [o.name, o.min, o.max, o.conc])).toEqual([['Barreira Telecinética', 3, 3, true], ['Empurrão', 1, 7, false]]);
+  });
+
   it('psi pool follows mystic level; syncing on level up raises the max', () => {
     const c = newCharacter('2014');
     c.classes = [{ classId: 'hb-mystic', level: 4 }];
