@@ -21,7 +21,7 @@ export function MainTab({ c, srd, upd }: SheetProps) {
   return (
     <>
       <div className="row" style={{ marginBottom: 10 }}>
-        <span className="tiny muted grow">Clique para rolar · bolinha = proficiente</span>
+        <span className="tiny muted grow roll-hint">Clique para rolar · bolinha = proficiente</span>
         <AdvToggle />
         <button className={'btn sm edit-only' + (edit ? ' active' : '')} onClick={() => setEdit(!edit)}><Pencil size={13} /> Editar atributos</button>
       </div>
@@ -48,7 +48,7 @@ export function MainTab({ c, srd, upd }: SheetProps) {
         <div className="col" style={{ gap: 16 }}>
           <div className="panel">
             <div className="panel-title"><h3>Salvaguardas</h3></div>
-            <div className="list">
+            <div className="list saves-list">
               {ABILITIES.map((a: Ability) => {
                 const v = saveMod(c, srd, a);
                 const on = c.saveProfs.includes(a);
@@ -56,7 +56,7 @@ export function MainTab({ c, srd, upd }: SheetProps) {
                   <div key={a} className="li" onClick={() => roll(`${who}: salvaguarda de ${ABILITY_PT[a].name}`, `1d20${fmtMod(v)}`)}>
                     <button className={'pip' + (on ? ' p1' : '')} onClick={(e) => { e.stopPropagation(); upd((d) => (d.saveProfs = on ? d.saveProfs.filter((x) => x !== a) : [...d.saveProfs, a])); }} />
                     <span className="val">{fmtMod(v)}</span>
-                    <span>{ABILITY_PT[a].name}</span>
+                    <span className="sv-name" data-s={ABILITY_PT[a].short}>{ABILITY_PT[a].name}</span>
                     <span />
                   </div>
                 );

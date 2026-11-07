@@ -87,30 +87,33 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
             </button>
           </div>
         </div>
+        <button className={'hero-hp' + (c.hp.current <= max / 3 ? ' low' : '')} onClick={() => pickTab('combat')} title="Pontos de vida">
+          <b>{c.hp.current}<small>/{max}</small></b>{c.hp.temp ? <i>+{c.hp.temp}</i> : null}<span>PV</span>
+        </button>
         <div className="hero-actions row wrap" style={{ justifyContent: 'flex-end' }}>
-          <button className="btn sm" onClick={() => setRest('short')}><Coffee size={15} /> Descanso curto</button>
-          <button className="btn sm" onClick={() => setRest('long')}><Moon size={15} /> Descanso longo</button>
+          <button className="btn sm" onClick={() => setRest('short')}><Coffee size={15} /> <span className="lbl">Descanso curto</span></button>
+          <button className="btn sm" onClick={() => setRest('long')}><Moon size={15} /> <span className="lbl">Descanso longo</span></button>
           {!readOnly && (
             <button className={'btn sm' + (gameMode ? ' active' : '')} onClick={toggleGame} title={gameMode ? 'Mostrar tudo para montar e editar a ficha' : 'Esconder o que não se usa durante a sessão'}>
-              {gameMode ? <><Pencil size={15} /> Editar ficha</> : <><Gamepad2 size={15} /> Modo jogo</>}
+              {gameMode ? <><Pencil size={15} /> <span className="lbl">Editar ficha</span></> : <><Gamepad2 size={15} /> <span className="lbl">Modo jogo</span></>}
             </button>
           )}
-          <button className="btn sm primary edit-only" onClick={() => setLevelUp(true)}><ArrowUpCircle size={15} /> Subir nível</button>
+          <button className="btn sm primary edit-only" onClick={() => setLevelUp(true)}><ArrowUpCircle size={15} /> <span className="lbl">Subir nível</span></button>
           <button className="btn icon sm edit-only" title="Exportar ficha" onClick={() => download(`${c.name || 'personagem'}.json`, c)}><Download size={15} /></button>
           <button className="btn icon sm danger edit-only" title="Excluir" onClick={async () => { if (await confirmAndDelete(c)) go(edition); }}><Trash2 size={15} /></button>
         </div>
       </div>
 
       <div className="vitals">
-        <div className="vital shield" title={ac.breakdown}><div className="v">{ac.value}</div><div className="l">Classe de Armadura</div></div>
-        <div className="vital click" onClick={() => roll(`${c.name}: Iniciativa`, `1d20${fmtMod(init)}`)}><div className="v">{fmtMod(init)}</div><div className="l">Iniciativa</div></div>
-        <div className="vital"><div className="v">{speed(c, srd)}<span style={{ fontSize: 14 }}> ft</span></div><div className="l">Deslocamento</div></div>
-        <div className="vital click" onClick={() => pickTab('combat')}>
+        <div className="vital shield v-ac" title={ac.breakdown}><div className="v">{ac.value}</div><div className="l" data-s="CA">Classe de Armadura</div></div>
+        <div className="vital click v-init" onClick={() => roll(`${c.name}: Iniciativa`, `1d20${fmtMod(init)}`)}><div className="v">{fmtMod(init)}</div><div className="l" data-s="Inic.">Iniciativa</div></div>
+        <div className="vital v-speed"><div className="v">{speed(c, srd)}<span style={{ fontSize: 14 }}> ft</span></div><div className="l" data-s="Desloc.">Deslocamento</div></div>
+        <div className="vital click v-hp" onClick={() => pickTab('combat')}>
           <div className="v" style={{ color: c.hp.current <= max / 3 ? 'var(--bad)' : undefined }}>{c.hp.current}<span style={{ fontSize: 14, color: 'var(--muted)' }}>/{max}</span>{c.hp.temp ? <span style={{ fontSize: 14, color: 'var(--accent-2)' }}> +{c.hp.temp}</span> : null}</div>
           <div className="l">Pontos de Vida</div>
         </div>
-        <div className="vital"><div className="v">{fmtMod(pb(c))}</div><div className="l">Proficiência</div></div>
-        <div className="vital"><div className="v">{passivePerception(c, srd)}</div><div className="l">Percepção Passiva</div></div>
+        <div className="vital v-prof"><div className="v">{fmtMod(pb(c))}</div><div className="l" data-s="Profic.">Proficiência</div></div>
+        <div className="vital v-pp"><div className="v">{passivePerception(c, srd)}</div><div className="l">Percepção Passiva</div></div>
       </div>
 
       <nav className="tabs">
