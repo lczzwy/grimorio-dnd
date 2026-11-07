@@ -15,6 +15,8 @@ import { useDice } from '../../store';
 import { Markdown, Modal, NumInput, useFlash } from '../../ui/ui';
 import { fileToPortrait } from '../Creator';
 import { useParty } from './TableTab';
+import { useBestiary } from '../../cloud/bestiary';
+import type { Creature } from '../../cloud/bestiaryLogic';
 import type { CampaignProps } from '../Campaign';
 
 export function CombatTab({ campaign, members, isGm }: CampaignProps) {
@@ -155,14 +157,24 @@ export function AddEnemy({ campaignId, edition, onClose, onAdded }: { campaignId
   const [visible, setVisible] = useState(true);
   const [image, setImage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [source, setSource] = useState<'mine' | 'srd'>('mine');
+  const { list: mine } = useBestiary(edition);
   useEffect(() => void loadMonsters(edition).then(setMonsters), [edition]);
-  const list = useMemo(() => monsters.filter((m) => !q || m.name.toLowerCase().includes(q.toLowerCase())).slice(0, 80), [monsters, q]);
+  // with nothing in the bestiary yet, start on the SRD list
+  useEffect(() => { if (mine && !mine.length) setSource('srd'); }, [mine]);
+  const list = useMemo(() => {
+    const base: MonsterDef[] = source === 'mine' ? (mine || []) : monsters;
+    return base.filter((m) => !q || m.name.toLowerCase().includes(q.toLowerCase())).slice(0, 80);
+  }, [monsters, mine, source, q]);
 
-  const pick = (m: MonsterDef) => { setSel(m); setName(m.name); setHp(m.hp); setAc(m.ac); };
+  const pick = (m: MonsterDef) => { setSel(m); setName(m.name); setHp(m.hp); setAc(m.ac); setImage((m as Creature).image ?? null); };
   const add = async () => {
     setBusy(true);
     try {
-      for (let i = 1; i <= count; i++) await addEnemy(campaignId, { name: count > 1 ? `${name} ${i}` : name, hp, ac, image, stat: sel, visible });
+      // a bestiary creature carries its picture and private notes: keep them out of the stat block
+      const stat: MonsterDef | null = sel ? { ...(sel as Creature) } : null;
+      if (stat) { delete (stat as Creature).image; delete (stat as Creature).notes; }
+      for (let i = 1; i <= count; i++) await addEnemy(campaignId, { name: count > 1 ? `${name} ${i}` : name, hp, ac, image, stat, visible });
       onAdded();
       onClose();
     } catch (e) {
@@ -178,8 +190,13 @@ export function AddEnemy({ campaignId, edition, onClose, onAdded }: { campaignId
         <div className="col">
           <div className="row" style={{ position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 10, color: 'var(--faint)' }} />
-            <input className="input" style={{ paddingLeft: 32 }} placeholder="Buscar monstro do SRD…" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input className="input" style={{ paddingLeft: 32 }} placeholder={source === 'mine' ? 'Buscar no meu bestiário…' : 'Buscar monstro do SRD…'} value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
+          <div className="seg">
+            <button className={source === 'mine' ? 'on' : ''} onClick={() => setSource('mine')}>Meu bestiário{mine ? ` (${mine.length})` : ''}</button>
+            <button className={source === 'srd' ? 'on' : ''} onClick={() => setSource('srd')}>SRD</button>
+          </div>
+          {source === 'mine' && mine && !mine.length && <div className="tiny muted">Seu bestiário está vazio. Crie criaturas na aba Bestiário.</div>}
           <div className="pick-list" style={{ maxHeight: '45vh', overflow: 'auto' }}>
             {list.map((m) => (
               <div key={m.id} className={'pick-item' + (sel?.id === m.id ? ' sel' : '')} onClick={() => pick(m)}>
@@ -210,7 +227,7 @@ export function AddEnemy({ campaignId, edition, onClose, onAdded }: { campaignId
   );
 }
 
-function MonsterBlock({ m, onAttack }: { m: MonsterDef; onAttack?: (a: MonsterDef['actions'][number]) => void }) {
+export function MonsterBlock({ m, onAttack }: { m: MonsterDef; onAttack?: (a: MonsterDef['actions'][number]) => void }) {
   const line = (k: string, v?: string) => v ? <div className="small"><b>{k}</b> <span className="muted">{v}</span></div> : null;
   return (
     <div className="col" style={{ gap: 6 }}>

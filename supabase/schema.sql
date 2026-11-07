@@ -90,6 +90,17 @@ create table if not exists public.encounters (
   turn int not null default 0
 );
 
+-- bestiário do mestre: criaturas próprias, guardadas na conta e reaproveitadas em qualquer campanha
+create table if not exists public.creatures (
+  id uuid primary key default gen_random_uuid(),
+  owner uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  edition text not null default '2014' check (edition in ('2014', '2024')),
+  name text not null check (char_length(name) between 1 and 120),
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+create index if not exists creatures_owner_idx on public.creatures (owner);
+
 -- o mestre pede iniciativa: cada jogador vê um botão para rolar a sua
 alter table public.encounters add column if not exists init_call boolean not null default false;
 
@@ -324,6 +335,7 @@ alter table public.encounters enable row level security;
 alter table public.combatants enable row level security;
 alter table public.combatant_secrets enable row level security;
 alter table public.chat_messages enable row level security;
+alter table public.creatures enable row level security;
 
 drop policy if exists profiles_select on public.profiles;
 create policy profiles_select on public.profiles for select using (id = auth.uid() or shares_campaign_with(id));
@@ -371,6 +383,9 @@ create policy rolls_update on public.rolls for update using (user_id = auth.uid(
 drop policy if exists rolls_delete on public.rolls;
 create policy rolls_delete on public.rolls for delete using (is_gm(campaign_id));
 
+drop policy if exists creatures_own on public.creatures;
+create policy creatures_own on public.creatures for all using (owner = auth.uid()) with check (owner = auth.uid());
+
 drop policy if exists chat_select on public.chat_messages;
 create policy chat_select on public.chat_messages for select using (is_member(campaign_id));
 drop policy if exists chat_insert on public.chat_messages;
@@ -396,11 +411,11 @@ create policy secrets_all on public.combatant_secrets for all using (is_gm(campa
 grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on
   public.profiles, public.characters, public.campaigns, public.campaign_members, public.campaign_homebrew,
-  public.rolls, public.encounters, public.combatants, public.combatant_secrets, public.chat_messages
+  public.rolls, public.encounters, public.combatants, public.combatant_secrets, public.chat_messages, public.creatures
   to authenticated;
 revoke all on
   public.profiles, public.characters, public.campaigns, public.campaign_members, public.campaign_homebrew,
-  public.rolls, public.encounters, public.combatants, public.combatant_secrets, public.chat_messages
+  public.rolls, public.encounters, public.combatants, public.combatant_secrets, public.chat_messages, public.creatures
   from anon;
 grant execute on function
   public.join_campaign(text), public.set_member_character(uuid, text), public.set_member_color(uuid, text), public.roll_my_initiative(uuid, int), public.new_invite_code(uuid),

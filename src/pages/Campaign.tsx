@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { ScrollText, ChevronLeft, LayoutGrid, Swords, Dices, Hammer, Settings, Crown, MessageSquare } from 'lucide-react';
+import { ScrollText, ChevronLeft, LayoutGrid, Swords, Dices, Hammer, Settings, Crown, MessageSquare, BookOpen } from 'lucide-react';
 import { useAuth } from '../cloud/auth';
 import { useCampaign, type Campaign as CampaignT, type Member } from '../cloud/campaigns';
 import { go } from '../ui/ui';
@@ -10,6 +10,7 @@ import { RollsTab } from './campaign/RollsTab';
 import { CombatTab } from './campaign/CombatTab';
 import { HomebrewTab } from './campaign/HomebrewTab';
 import { ChatPanel } from './campaign/ChatPanel';
+import { BestiaryTab } from './campaign/BestiaryTab';
 import { TableDice } from '../dice3d/TableDice';
 import { useToastQuiet } from '../ui/Dice';
 import { InitiativeBar } from './campaign/InitiativeBar';
@@ -23,6 +24,7 @@ const TABS = [
   { k: 'chat', label: 'Chat', icon: MessageSquare },
   { k: 'combate', label: 'Combate', icon: Swords },
   { k: 'rolagens', label: 'Rolagens', icon: Dices },
+  { k: 'bestiario', label: 'Bestiário', icon: BookOpen },
   { k: 'homebrew', label: 'Homebrew', icon: Hammer },
   { k: 'ajustes', label: 'Ajustes', icon: Settings },
 ] as const;
@@ -35,6 +37,7 @@ const campaignTabs: Partial<Record<CampaignTab, (p: CampaignProps) => ReactNode>
   chat: (p) => <div className="camp-chat-tab"><ChatPanel {...p} /></div>,
   combate: (p) => <CombatTab {...p} />,
   homebrew: (p) => <HomebrewTab {...p} />,
+  bestiario: (p) => <BestiaryTab {...p} />,
   ajustes: (p) => <SettingsTab {...p} />,
 };
 
@@ -72,7 +75,8 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
   if (!user || loading) return <main className="page"><div className="empty">Abrindo a campanha…</div></main>;
   if (error || !campaign) return <main className="page"><div className="panel empty">{error || 'Campanha não encontrada.'} <button className="btn sm" onClick={() => go('campanhas')}>Voltar</button></div></main>;
 
-  const allowed = (k: string) => !(k === 'ficha' && isGm) && !(k === 'chat' && wide);
+  // the bestiary is the GM's private library
+  const allowed = (k: string) => !(k === 'ficha' && isGm) && !(k === 'bestiario' && !isGm) && !(k === 'chat' && wide);
   const current = (TABS.some((t) => t.k === tab) && allowed(tab) ? tab : 'mesa') as CampaignTab;
   const body = campaignTabs[current];
   const props: CampaignProps = { campaign, members, isGm, uid: user.id };

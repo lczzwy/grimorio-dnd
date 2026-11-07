@@ -131,3 +131,25 @@
 .init-val:disabled { opacity: 1; cursor: default; }
 .init-x { background: none; border: 0; padding: 0 2px; color: var(--faint); cursor: pointer; }
 .init-x:hover { color: var(--bad); }
+
+/* ---- Bestiário do mestre ---- */
+.bestiary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.beast-card { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; }
+.beast-card:hover { border-color: var(--line-2); }
+.beast-top { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.beast-av { flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in oklab, var(--accent) 70%, black) center / cover; color: #f0e3c5; font-family: var(--font-display); font-size: 22px; box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--gold); }
+.beast-name { font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.beast-editor { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.beast-preview { position: sticky; top: 0; padding: 12px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 4px; max-height: 70vh; overflow: auto; }
+.beast-scores { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.beast-scores .input { text-align: center; }
+.beast-section { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.beast-row { display: flex; gap: 6px; align-items: flex-start; }
+.beast-action { display: flex; flex-direction: column; gap: 6px; padding: 8px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 4px; }
+@media (max-width: 860px) {
+  .beast-editor { grid-template-columns: 1fr; }
+  .beast-preview { position: static; max-height: none; }
+  .beast-scores { grid-template-columns: repeat(3, 1fr); }
+  .beast-row { flex-direction: column; align-items: stretch; }
+  .beast-row .input { width: 100% !important; }
+}

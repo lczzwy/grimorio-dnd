@@ -267,3 +267,16 @@ describe('initiative from the table', () => {
     await fails(as(P2, `update encounters set init_call = false where campaign_id = $1 returning 1`, [campaign]).then((r) => { if (!r.length) throw new Error('row-level security'); }), /row-level security/);
   });
 });
+
+describe("gm's bestiary", () => {
+  it('each user sees and edits only their own creatures', async () => {
+    await as(GM, `insert into creatures (name, data) values ('Lobo Sombrio', '{"hp": 22}')`);
+    expect((await as<{ name: string }>(GM, `select name from creatures`)).map((r) => r.name)).toEqual(['Lobo Sombrio']);
+    expect(await as(P1, `select * from creatures`)).toEqual([]);
+    await fails(as(P1, `insert into creatures (owner, name, data) values ($1, 'Falso', '{}')`, [GM]), /row-level security/);
+    await as(P1, `update creatures set name = 'Hackeado'`);
+    await as(P1, `delete from creatures`);
+    expect((await as<{ name: string }>(GM, `select name from creatures`)).map((r) => r.name)).toEqual(['Lobo Sombrio']);
+    await fails(as(GM, `insert into creatures (name, data) values ('', '{}')`), /check constraint/);
+  });
+});
