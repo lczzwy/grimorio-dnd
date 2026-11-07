@@ -7,6 +7,7 @@ import { go, download, useFlash } from '../ui/ui';
 import { armorClass, classSummary, initiative, maxHp, pb, speed, speciesName, passivePerception, findBackground } from '../engine/rules';
 import { fmtMod } from '../engine/dice';
 import { Avatar } from './Roster';
+import { confirmAndDelete } from '../cloud/sync';
 import { fileToPortrait } from './Creator';
 import { MainTab } from './sheet/MainTab';
 import { CombatTab, RestModal } from './sheet/CombatTab';
@@ -30,7 +31,6 @@ export function Sheet({ edition, id }: { edition: Edition; id: string }) {
   const srd = useSrd(edition);
   const c = useApp((s) => s.characters.find((x) => x.id === id));
   const update = useApp((s) => s.updateCharacter);
-  const remove = useApp((s) => s.removeCharacter);
   const roll = useDice((s) => s.roll);
   const flash = useFlash((s) => s.show);
   const [tab, setTab] = useState<(typeof TABS)[number]['k']>(() => (sessionStorage.getItem('tab') as never) || 'main');
@@ -74,7 +74,7 @@ export function Sheet({ edition, id }: { edition: Edition; id: string }) {
           <button className="btn sm" onClick={() => setRest('long')}><Moon size={15} /> Descanso longo</button>
           <button className="btn sm primary" onClick={() => setLevelUp(true)}><ArrowUpCircle size={15} /> Subir nível</button>
           <button className="btn icon sm" title="Exportar ficha" onClick={() => download(`${c.name || 'personagem'}.json`, c)}><Download size={15} /></button>
-          <button className="btn icon sm danger" title="Excluir" onClick={() => { if (confirm(`Excluir ${c.name}? Não dá para desfazer.`)) { remove(c.id); go(edition); } }}><Trash2 size={15} /></button>
+          <button className="btn icon sm danger" title="Excluir" onClick={async () => { if (await confirmAndDelete(c)) go(edition); }}><Trash2 size={15} /></button>
         </div>
       </div>
 

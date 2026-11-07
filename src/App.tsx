@@ -1,5 +1,8 @@
 import { useEffect } from 'react';
-import { BookOpen, Users, Hammer } from 'lucide-react';
+import { BookOpen, Users, Hammer, LogIn, UserCircle } from 'lucide-react';
+import { initAuth, useAuth } from './cloud/auth';
+import { startSync } from './cloud/sync';
+import { Account } from './pages/Account';
 import { useRoute, go, FlashHost, D20Icon } from './ui/ui';
 import { DiceTray, RollToast } from './ui/Dice';
 import type { Edition } from './data/types';
@@ -21,8 +24,14 @@ export default function App() {
     else delete document.documentElement.dataset.ed;
   }, [ed]);
 
+  const auth = useAuth();
+  useEffect(() => initAuth(), []);
+  const uid = auth.user?.id;
+  useEffect(() => (uid ? startSync(uid) : undefined), [uid]);
+
   let page;
-  if (!ed) page = <Home />;
+  if (route[0] === 'conta') page = <Account />;
+  else if (!ed) page = <Home />;
   else if (view === 'novo') page = <Creator edition={ed} />;
   else if (view === 'c' && route[2]) page = <Sheet edition={ed} id={route[2]} />;
   else if (view === 'compendio') page = <Compendium edition={ed} section={route[2]} />;
@@ -51,6 +60,9 @@ export default function App() {
             </button>
           </nav>
         )}
+        <button className={'btn sm' + (route[0] === 'conta' ? ' active' : '')} onClick={() => go('conta')} title={auth.user ? 'Sua conta' : 'Entrar'}>
+          {auth.user ? <><UserCircle size={15} /> <span className="hidden-mobile">{auth.profile?.display_name || 'Conta'}</span></> : <><LogIn size={15} /> <span className="hidden-mobile">Entrar</span></>}
+        </button>
       </header>
       <ErrorBoundary key={route.join('/')}>{page}</ErrorBoundary>
       {ed && <DiceTray />}

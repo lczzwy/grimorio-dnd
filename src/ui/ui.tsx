@@ -11,7 +11,7 @@ export function useRoute(): string[] {
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
-  return hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
+  return hash.replace(/^#\/?/, '').split('?')[0].split('/').filter(Boolean).map(decodeURIComponent);
 }
 export const go = (path: string) => {
   window.location.hash = '#/' + path.replace(/^\//, '');

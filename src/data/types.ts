@@ -275,4 +275,5 @@ export interface Character {
   notes: string;
 
   rollLog?: RollEntry[];
+  cloud?: boolean; // synced to the user's account
 }
