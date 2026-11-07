@@ -5,7 +5,7 @@ import { useAuth } from './auth';
 import { campaignErrorPt } from './campaignText';
 
 export interface Campaign { id: string; name: string; edition: Edition; gm: string; invite_code: string; created_at?: string }
-export interface Member { user_id: string; role: 'gm' | 'player'; character_id: string | null; display_name: string }
+export interface Member { user_id: string; role: 'gm' | 'player'; character_id: string | null; display_name: string; color?: string | null }
 
 const check = <T,>(r: { data: T; error: { message: string } | null }): T => {
   if (r.error) throw new Error(campaignErrorPt(r.error.message));
@@ -30,13 +30,17 @@ export async function setMyCharacter(campaignId: string, characterId: string | n
 }
 
 export async function listMembers(campaignId: string): Promise<Member[]> {
-  const rows = check(await supabase.from('campaign_members').select('user_id, role, character_id').eq('campaign_id', campaignId)) as Omit<Member, 'display_name'>[];
+  const rows = check(await supabase.from('campaign_members').select('user_id, role, character_id, color').eq('campaign_id', campaignId)) as Omit<Member, 'display_name'>[];
   const ids = rows.map((r) => r.user_id);
   const profiles = ids.length ? (check(await supabase.from('profiles').select('id, display_name').in('id', ids)) as { id: string; display_name: string }[]) : [];
   const names = new Map(profiles.map((p) => [p.id, p.display_name]));
   return rows
     .map((r) => ({ ...r, display_name: names.get(r.user_id) || 'Jogador' }))
     .sort((a, b) => (a.role === b.role ? a.display_name.localeCompare(b.display_name) : a.role === 'gm' ? -1 : 1));
+}
+
+export async function setMyColor(campaignId: string, color: string | null) {
+  check(await supabase.rpc('set_member_color', { campaign: campaignId, c: color }));
 }
 
 export async function removeMember(campaignId: string, userId: string) {

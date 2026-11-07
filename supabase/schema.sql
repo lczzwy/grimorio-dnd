@@ -69,6 +69,20 @@ create table if not exists public.rolls (
 );
 create index if not exists rolls_campaign_idx on public.rolls (campaign_id, created_at desc);
 
+-- chat da mesa (texto ao vivo para quem está sem microfone)
+create table if not exists public.chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  campaign_id uuid not null references public.campaigns (id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  author text not null default '',
+  body text not null check (char_length(body) between 1 and 1000),
+  created_at timestamptz not null default clock_timestamp()
+);
+create index if not exists chat_campaign_idx on public.chat_messages (campaign_id, created_at desc);
+
+-- cor de cada jogador na mesa (chat e dados)
+alter table public.campaign_members add column if not exists color text check (color ~ '^#[0-9a-f]{6}$');
+
 create table if not exists public.encounters (
   campaign_id uuid primary key references public.campaigns (id) on delete cascade,
   active boolean not null default false,
@@ -218,6 +232,14 @@ begin
   update campaign_members set character_id = ch where campaign_id = campaign and user_id = auth.uid();
 end $$;
 
+create or replace function public.set_member_color(campaign uuid, c text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_member(campaign) then raise exception 'forbidden'; end if;
+  if c is not null and c !~ '^#[0-9a-f]{6}$' then raise exception 'bad_color'; end if;
+  update campaign_members set color = c where campaign_id = campaign and user_id = auth.uid();
+end $$;
+
 create or replace function public.new_invite_code(campaign uuid) returns text
 language plpgsql security definer set search_path = public as $$
 declare code text;
@@ -281,6 +303,7 @@ alter table public.rolls enable row level security;
 alter table public.encounters enable row level security;
 alter table public.combatants enable row level security;
 alter table public.combatant_secrets enable row level security;
+alter table public.chat_messages enable row level security;
 
 drop policy if exists profiles_select on public.profiles;
 create policy profiles_select on public.profiles for select using (id = auth.uid() or shares_campaign_with(id));
@@ -328,6 +351,13 @@ create policy rolls_update on public.rolls for update using (user_id = auth.uid(
 drop policy if exists rolls_delete on public.rolls;
 create policy rolls_delete on public.rolls for delete using (is_gm(campaign_id));
 
+drop policy if exists chat_select on public.chat_messages;
+create policy chat_select on public.chat_messages for select using (is_member(campaign_id));
+drop policy if exists chat_insert on public.chat_messages;
+create policy chat_insert on public.chat_messages for insert with check (is_member(campaign_id) and user_id = auth.uid());
+drop policy if exists chat_delete on public.chat_messages;
+create policy chat_delete on public.chat_messages for delete using (user_id = auth.uid() or is_gm(campaign_id));
+
 drop policy if exists encounters_select on public.encounters;
 create policy encounters_select on public.encounters for select using (is_member(campaign_id));
 drop policy if exists encounters_write on public.encounters;
@@ -346,14 +376,14 @@ create policy secrets_all on public.combatant_secrets for all using (is_gm(campa
 grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on
   public.profiles, public.characters, public.campaigns, public.campaign_members, public.campaign_homebrew,
-  public.rolls, public.encounters, public.combatants, public.combatant_secrets
+  public.rolls, public.encounters, public.combatants, public.combatant_secrets, public.chat_messages
   to authenticated;
 revoke all on
   public.profiles, public.characters, public.campaigns, public.campaign_members, public.campaign_homebrew,
-  public.rolls, public.encounters, public.combatants, public.combatant_secrets
+  public.rolls, public.encounters, public.combatants, public.combatant_secrets, public.chat_messages
   from anon;
 grant execute on function
-  public.join_campaign(text), public.set_member_character(uuid, text), public.new_invite_code(uuid),
+  public.join_campaign(text), public.set_member_character(uuid, text), public.set_member_color(uuid, text), public.new_invite_code(uuid),
   public.gm_apply(text, uuid, int, int, text[], text[], int), public.hp_band(int, int)
   to authenticated;
 
@@ -363,7 +393,7 @@ do $$
 declare t text;
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    foreach t in array array['characters', 'campaign_members', 'campaign_homebrew', 'rolls', 'encounters', 'combatants'] loop
+    foreach t in array array['characters', 'campaign_members', 'campaign_homebrew', 'rolls', 'encounters', 'combatants', 'chat_messages'] loop
       if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
         execute format('alter publication supabase_realtime add table public.%I', t);
       end if;

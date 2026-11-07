@@ -1,5 +1,5 @@
-import { useEffect, type ReactNode } from 'react';
-import { ScrollText, ChevronLeft, LayoutGrid, Swords, Dices, Hammer, Settings, Crown } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { ScrollText, ChevronLeft, LayoutGrid, Swords, Dices, Hammer, Settings, Crown, MessageSquare } from 'lucide-react';
 import { useAuth } from '../cloud/auth';
 import { useCampaign, type Campaign as CampaignT, type Member } from '../cloud/campaigns';
 import { go } from '../ui/ui';
@@ -9,6 +9,7 @@ import { MySheetTab } from './campaign/MySheetTab';
 import { RollsTab } from './campaign/RollsTab';
 import { CombatTab } from './campaign/CombatTab';
 import { HomebrewTab } from './campaign/HomebrewTab';
+import { ChatPanel } from './campaign/ChatPanel';
 import { useTable } from '../cloud/rolls';
 
 export interface CampaignProps { campaign: CampaignT; members: Member[]; isGm: boolean; uid: string }
@@ -16,6 +17,7 @@ export interface CampaignProps { campaign: CampaignT; members: Member[]; isGm: b
 const TABS = [
   { k: 'ficha', label: 'Minha ficha', icon: ScrollText },
   { k: 'mesa', label: 'Mesa', icon: LayoutGrid },
+  { k: 'chat', label: 'Chat', icon: MessageSquare },
   { k: 'combate', label: 'Combate', icon: Swords },
   { k: 'rolagens', label: 'Rolagens', icon: Dices },
   { k: 'homebrew', label: 'Homebrew', icon: Hammer },
@@ -27,14 +29,29 @@ const campaignTabs: Partial<Record<CampaignTab, (p: CampaignProps) => ReactNode>
   mesa: (p) => <TableTab {...p} />,
   ficha: (p) => <MySheetTab {...p} />,
   rolagens: (p) => <RollsTab {...p} />,
+  chat: (p) => <div className="camp-chat-tab"><ChatPanel {...p} /></div>,
   combate: (p) => <CombatTab {...p} />,
   homebrew: (p) => <HomebrewTab {...p} />,
   ajustes: (p) => <SettingsTab {...p} />,
 };
 
+/** PC keeps the chat docked on the right; phones get it as a tab. */
+const WIDE = '(min-width: 1100px)';
+function useWideChat() {
+  const [wide, setWide] = useState(() => matchMedia(WIDE).matches);
+  useEffect(() => {
+    const mq = matchMedia(WIDE);
+    const on = () => setWide(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return wide;
+}
+
 export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
   const { user, loading: authLoading } = useAuth();
   const { campaign, members, isGm, loading, error } = useCampaign(id);
+  const wide = useWideChat();
   useTable(campaign?.id, isGm);
 
   useEffect(() => {
@@ -47,7 +64,8 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
   if (!user || loading) return <main className="page"><div className="empty">Abrindo a campanha…</div></main>;
   if (error || !campaign) return <main className="page"><div className="panel empty">{error || 'Campanha não encontrada.'} <button className="btn sm" onClick={() => go('campanhas')}>Voltar</button></div></main>;
 
-  const current = (TABS.some((t) => t.k === tab) && !(tab === 'ficha' && isGm) ? tab : 'mesa') as CampaignTab;
+  const allowed = (k: string) => !(k === 'ficha' && isGm) && !(k === 'chat' && wide);
+  const current = (TABS.some((t) => t.k === tab) && allowed(tab) ? tab : 'mesa') as CampaignTab;
   const body = campaignTabs[current];
   const props: CampaignProps = { campaign, members, isGm, uid: user.id };
 
@@ -60,13 +78,18 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
         {isGm && <span className="tag gold"><Crown size={12} /> Você é o mestre</span>}
       </div>
       <nav className="tabs">
-        {TABS.filter((t) => t.k !== 'ficha' || !isGm).map((t) => (
+        {TABS.filter((t) => allowed(t.k)).map((t) => (
           <button key={t.k} className={'tab' + (current === t.k ? ' on' : '')} onClick={() => go(`campanha/${id}/${t.k}`)}>
             <t.icon size={17} /> {t.label}
           </button>
         ))}
       </nav>
-      {body ? body(props) : <div className="panel empty">Em construção.</div>}
+      {wide ? (
+        <div className="camp-wrap">
+          <div style={{ minWidth: 0 }}>{body ? body(props) : <div className="panel empty">Em construção.</div>}</div>
+          <aside className="camp-chat"><ChatPanel {...props} /></aside>
+        </div>
+      ) : body ? body(props) : <div className="panel empty">Em construção.</div>}
     </main>
   );
 }

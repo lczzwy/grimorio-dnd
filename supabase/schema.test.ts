@@ -218,3 +218,30 @@ describe('campaign homebrew', () => {
     expect(await as(GM, `select id from campaign_homebrew where campaign_id = $1`, [campaign])).toEqual([]);
   });
 });
+
+describe('chat & player colours', () => {
+  it('members chat; outsiders can neither read nor post; nobody posts as someone else', async () => {
+    await as(P1, `insert into chat_messages (campaign_id, author, body) values ($1, 'Ana', 'oi mesa')`, [campaign]);
+    expect((await as<{ body: string }>(P2, `select body from chat_messages where campaign_id = $1`, [campaign])).map((r) => r.body)).toEqual(['oi mesa']);
+    expect(await as(OUT, `select id from chat_messages`)).toEqual([]);
+    await fails(as(OUT, `insert into chat_messages (campaign_id, body) values ($1, 'intruso')`, [campaign]), /row-level security/);
+    await fails(as(P2, `insert into chat_messages (campaign_id, user_id, body) values ($1, $2, 'fingindo')`, [campaign, P1]), /row-level security/);
+    await fails(as(P1, `insert into chat_messages (campaign_id, body) values ($1, '')`, [campaign]), /check constraint/);
+  });
+
+  it('only the author or the gm deletes a message', async () => {
+    await as(P2, `delete from chat_messages where campaign_id = $1`, [campaign]);
+    expect((await as(P1, `select id from chat_messages where campaign_id = $1`, [campaign])).length).toBe(1);
+    await as(GM, `delete from chat_messages where campaign_id = $1`, [campaign]);
+    expect(await as(P1, `select id from chat_messages where campaign_id = $1`, [campaign])).toEqual([]);
+  });
+
+  it('each member sets only their own colour, in #rrggbb form', async () => {
+    await as(P1, `select set_member_color($1, '#c8423a')`, [campaign]);
+    const rows = await as<{ user_id: string; color: string | null }>(P2, `select user_id, color from campaign_members where campaign_id = $1`, [campaign]);
+    expect(rows.find((r) => r.user_id === P1)?.color).toBe('#c8423a');
+    expect(rows.find((r) => r.user_id === P2)?.color).toBeNull();
+    await fails(as(P1, `select set_member_color($1, 'red; drop table x')`, [campaign]), /bad_color/);
+    await fails(as(OUT, `select set_member_color($1, '#000000')`, [campaign]), /forbidden/);
+  });
+});
