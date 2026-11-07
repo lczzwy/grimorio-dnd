@@ -196,3 +196,6 @@ h1 { text-shadow: 0 2px 0 #000; }
 .vital .v { font-size: 24px; }
 .li .val { font-size: 15px; }
 .tag { font-weight: 600; letter-spacing: .02em; }
+
+/* Modo jogo: esconde o que só serve para montar a ficha */
+.game-mode .edit-only { display: none !important; }

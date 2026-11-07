@@ -130,8 +130,8 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
         {/* HP */}
         <div className={'panel hp-panel ' + fx}>
           <div className="panel-title"><h3>Pontos de Vida</h3><span className="spacer" />
-            <span className="small muted">Máx. bônus</span>
-            <NumInput value={c.hp.maxBonus} onChange={(n) => upd((d) => (d.hp.maxBonus = n))} style={{ width: 54 }} />
+            <span className="small muted edit-only">Máx. bônus</span>
+            <NumInput className="input num edit-only" value={c.hp.maxBonus} onChange={(n) => upd((d) => (d.hp.maxBonus = n))} style={{ width: 54 }} />
           </div>
           <div className="row" style={{ gap: 18, alignItems: 'center' }}>
             <HpRing cur={c.hp.current} max={max} temp={c.hp.temp} />
@@ -289,7 +289,7 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
           ))}
         </div>
 
-        <div className="panel">
+        <div className="panel edit-only">
           <div className="panel-title"><Shield size={15} /><h3>Defesa</h3></div>
           <div className="small muted" style={{ marginBottom: 8 }}>{armorClass(c, srd).breakdown}</div>
           <div className="row wrap">

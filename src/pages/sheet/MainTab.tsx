@@ -23,7 +23,7 @@ export function MainTab({ c, srd, upd }: SheetProps) {
       <div className="row" style={{ marginBottom: 10 }}>
         <span className="tiny muted grow">Clique para rolar · bolinha = proficiente</span>
         <AdvToggle />
-        <button className={'btn sm' + (edit ? ' active' : '')} onClick={() => setEdit(!edit)}><Pencil size={13} /> Editar atributos</button>
+        <button className={'btn sm edit-only' + (edit ? ' active' : '')} onClick={() => setEdit(!edit)}><Pencil size={13} /> Editar atributos</button>
       </div>
       <div className="abilities">
         {ABILITIES.map((a) => (
@@ -71,7 +71,7 @@ export function MainTab({ c, srd, upd }: SheetProps) {
               <div className="row"><span className="grow">Intuição (Sabedoria)</span><b>{passiveInsight(c, srd)}</b></div>
             </div>
           </div>
-          <div className="panel col">
+          <div className="panel col edit-only">
             <div className="panel-title" style={{ marginBottom: 0 }}><h3>Proficiências</h3></div>
             <textarea className="textarea" style={{ minHeight: 80, fontSize: 14 }} value={c.proficienciesText} onChange={(e) => upd((d) => (d.proficienciesText = e.target.value))} placeholder="Armaduras, armas, ferramentas…" />
             <div className="panel-title" style={{ marginBottom: 0 }}><h3>Idiomas</h3></div>

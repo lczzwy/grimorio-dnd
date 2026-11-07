@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, Download, Trash2, ArrowUpCircle, LayoutGrid, Swords, Sparkles, Backpack, Scroll, Feather, Moon, Coffee, Star } from 'lucide-react';
+import { Gamepad2, Pencil, ChevronLeft, Download, Trash2, ArrowUpCircle, LayoutGrid, Swords, Sparkles, Backpack, Scroll, Feather, Moon, Coffee, Star } from 'lucide-react';
 import type { Character, Edition, SrdData } from '../data/types';
 import { useApp, useDice } from '../store';
 import { go, download, useFlash } from '../ui/ui';
@@ -40,6 +40,16 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
   const update = useApp((s) => s.updateCharacter);
   const roll = useDice((s) => s.roll);
   const flash = useFlash((s) => s.show);
+  // "Modo jogo": hides character-building controls during a session (remembered on this device)
+  const [gameMode, setGameMode] = useState(() => {
+    try { const v = localStorage.getItem('game-mode'); return v === null ? !!campaignId : v === '1'; } catch { return false; }
+  });
+  const toggleGame = () => {
+    setGameMode((g) => {
+      try { localStorage.setItem('game-mode', g ? '0' : '1'); } catch { /* private mode */ }
+      return !g;
+    });
+  };
   const [tab, setTab] = useState<(typeof TABS)[number]['k']>(() => (sessionStorage.getItem('tab') as never) || 'main');
   const [rest, setRest] = useState<'short' | 'long' | null>(null);
   const [levelUp, setLevelUp] = useState(false);
@@ -57,7 +67,7 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
   const pickTab = (k: typeof tab) => { setTab(k); try { sessionStorage.setItem('tab', k); } catch { /* private mode */ } };
 
   return (
-    <main className="page" style={readOnly || campaignId ? { padding: 0 } : undefined}>
+    <main className={'page' + (gameMode ? ' game-mode' : '')} style={readOnly || campaignId ? { padding: 0 } : undefined}>
       {readOnly && <div className="tag accent" style={{ marginBottom: 10 }}>Somente leitura · ficha de outro jogador, atualizada ao vivo</div>}
       <div className="sheet-hero">
         <label style={{ cursor: 'pointer' }} title="Trocar retrato">
@@ -66,7 +76,7 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
         </label>
         <div style={{ minWidth: 0 }}>
           {!campaignId && <button className="btn ghost sm" style={{ marginLeft: -6, marginBottom: 2 }} onClick={() => go(edition)}><ChevronLeft size={14} /> Personagens</button>}
-          <input className="name-input" value={c.name} placeholder="Nome do personagem" onChange={(e) => upd((d) => (d.name = e.target.value))} />
+          <input className="name-input" readOnly={gameMode} value={c.name} placeholder="Nome do personagem" onChange={(e) => upd((d) => (d.name = e.target.value))} />
           <div className="row wrap small" style={{ marginTop: 4, paddingLeft: 6 }}>
             <span className="tag accent">{classSummary(c, srd)}</span>
             {c.speciesId && <span className="tag">{speciesName(c.speciesId, srd)}{c.subraceId ? ` · ${srd.species.find((s) => s.id === c.speciesId)?.subraces?.find((s) => s.id === c.subraceId)?.name ?? ''}` : ''}</span>}
@@ -80,9 +90,14 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
         <div className="hero-actions row wrap" style={{ justifyContent: 'flex-end' }}>
           <button className="btn sm" onClick={() => setRest('short')}><Coffee size={15} /> Descanso curto</button>
           <button className="btn sm" onClick={() => setRest('long')}><Moon size={15} /> Descanso longo</button>
-          <button className="btn sm primary" onClick={() => setLevelUp(true)}><ArrowUpCircle size={15} /> Subir nível</button>
-          <button className="btn icon sm" title="Exportar ficha" onClick={() => download(`${c.name || 'personagem'}.json`, c)}><Download size={15} /></button>
-          <button className="btn icon sm danger" title="Excluir" onClick={async () => { if (await confirmAndDelete(c)) go(edition); }}><Trash2 size={15} /></button>
+          {!readOnly && (
+            <button className={'btn sm' + (gameMode ? ' active' : '')} onClick={toggleGame} title={gameMode ? 'Mostrar tudo para montar e editar a ficha' : 'Esconder o que não se usa durante a sessão'}>
+              {gameMode ? <><Pencil size={15} /> Editar ficha</> : <><Gamepad2 size={15} /> Modo jogo</>}
+            </button>
+          )}
+          <button className="btn sm primary edit-only" onClick={() => setLevelUp(true)}><ArrowUpCircle size={15} /> Subir nível</button>
+          <button className="btn icon sm edit-only" title="Exportar ficha" onClick={() => download(`${c.name || 'personagem'}.json`, c)}><Download size={15} /></button>
+          <button className="btn icon sm danger edit-only" title="Excluir" onClick={async () => { if (await confirmAndDelete(c)) go(edition); }}><Trash2 size={15} /></button>
         </div>
       </div>
 
@@ -99,19 +114,19 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
       </div>
 
       <nav className="tabs">
-        {TABS.map((t) => (
+        {TABS.filter((t) => !(gameMode && t.k === 'story')).map((t) => (
           <button key={t.k} className={'tab' + (tab === t.k ? ' on' : '')} onClick={() => pickTab(t.k)}>
             <t.icon size={17} /> {t.label}
           </button>
         ))}
       </nav>
 
-      {tab === 'main' && <MainTab {...props} />}
+      {(tab === 'main' || (tab === 'story' && gameMode)) && <MainTab {...props} />}
       {tab === 'combat' && <CombatTab {...props} />}
       {tab === 'spells' && <SpellsTab {...props} />}
       {tab === 'inv' && <InventoryTab {...props} />}
       {tab === 'feat' && <FeaturesTab {...props} onLevelUp={() => setLevelUp(true)} />}
-      {tab === 'story' && <StoryTab {...props} />}
+      {tab === 'story' && !gameMode && <StoryTab {...props} />}
 
       {rest && <RestModal {...props} kind={rest} onClose={() => setRest(null)} onDone={(m) => { setRest(null); flash(m); }} />}
       {levelUp && <LevelUpModal {...props} onClose={() => setLevelUp(false)} onDone={(m) => { setLevelUp(false); flash(m); }} />}

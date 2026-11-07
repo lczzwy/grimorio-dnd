@@ -23,7 +23,7 @@ export function FeaturesTab({ c, srd, upd, onLevelUp }: SheetProps & { onLevelUp
   return (
     <div className="sheet-grid" style={{ gridTemplateColumns: '340px 1fr' }}>
       <div className="col" style={{ gap: 16 }}>
-        <div className="panel">
+        <div className="panel edit-only">
           <div className="panel-title"><h3>Classes e nível</h3><span className="spacer" /><button className="btn sm primary" onClick={onLevelUp}><ArrowUpCircle size={14} /> Subir</button></div>
           {c.classes.map((e, i) => {
             const subs = srd.subclasses.filter((s) => s.class === e.classId);
@@ -48,7 +48,7 @@ export function FeaturesTab({ c, srd, upd, onLevelUp }: SheetProps & { onLevelUp
           {lvl < 20 && <div className="small faint" style={{ marginTop: 6 }}>Próximo nível: {nextXp.toLocaleString()} XP {c.xp >= nextXp && <span className="tag good">pronto para subir!</span>}</div>}
         </div>
 
-        <div className="panel col">
+        <div className="panel col edit-only">
           <div className="panel-title" style={{ marginBottom: 0 }}><h3>Origem</h3></div>
           <label className="field">{c.edition === '2014' ? 'Raça' : 'Espécie'}
             <select className="select" value={c.speciesId || ''} onChange={(e) => upd((d) => { d.speciesId = e.target.value || undefined; d.subraceId = srd.species.find((s) => s.id === e.target.value)?.subraces?.[0]?.id; d.speciesChoice = []; })}>
