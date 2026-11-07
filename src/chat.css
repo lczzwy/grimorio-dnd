@@ -56,3 +56,12 @@
 .dice3d-badge.fumble b { color: var(--bad); }
 @keyframes dice-badge-in { from { transform: translate(-50%, 14px); } to { transform: translate(-50%, 0); } }
 @media (prefers-reduced-motion: reduce) { .dice3d-badge { animation: none; } }
+
+/* dados rápidos e "digitando…" */
+.chat-typing { min-height: 16px; font-size: 11.5px; font-style: italic; color: var(--muted); padding: 2px 2px 0; }
+.chat-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; padding: 4px 0 6px; }
+.chat-qd { min-width: 0; height: 26px; padding: 0 5px; border: 1px solid var(--line-2); border-radius: 3px; background: var(--panel-2); color: var(--text); font-family: 'Cinzel', serif; font-size: 11.5px; font-weight: 700; cursor: pointer; font-variant-numeric: lining-nums; }
+.chat-qd:hover { border-color: var(--gold); color: var(--gold); }
+.chat-qd:active { transform: translateY(1px); }
+.chat-qd.adv.on { border-color: var(--good); color: var(--good); background: color-mix(in srgb, var(--good) 14%, var(--panel-2)); }
+.chat-qd.dis.on { border-color: var(--bad); color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, var(--panel-2)); }

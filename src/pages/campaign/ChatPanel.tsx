@@ -7,8 +7,13 @@ import { setMyColor } from '../../cloud/campaigns';
 import { useFlash } from '../../ui/ui';
 import { useParty } from './TableTab';
 import type { CampaignProps } from '../Campaign';
-import { DicePrefsButtons } from '../../dice3d/TableDice';
+import { DicePrefsButtons, useDicePrefs } from '../../dice3d/TableDice';
+import { useTyping, typingText } from '../../cloud/typing';
+import { playMessageSound } from '../../dice3d/sound';
 import { useReveal } from '../../dice3d/reveal';
+
+const QUICK_DICE = [4, 6, 8, 10, 12, 20, 100];
+const BASE_TITLE = typeof document !== 'undefined' ? document.title : '';
 
 const time = (iso: string) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
 
@@ -35,6 +40,35 @@ export function ChatPanel({ campaign, members, isGm, uid }: CampaignProps) {
     return { name: m?.display_name || fallback, char: ch?.name, portrait: ch?.portrait, color: colorFor(userId, m?.color), gm: m?.role === 'gm' };
   };
 
+  const myChar = me?.character_id ? chars[me.character_id]?.name : undefined;
+  const { typers, typing, stopped } = useTyping(campaign.id, uid, myChar || me?.display_name || 'Alguém');
+
+  // background tab: count what others say/roll, show it in the tab title and play a soft sound
+  const unread = useRef(0);
+  const seen = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const ids = new Set(feed.map((it) => it.type + it.row.id));
+    if (seen.current === null) { seen.current = ids; return; } // first load: nothing is "new"
+    const fresh = feed.filter((it) => !seen.current!.has(it.type + it.row.id) && it.row.user_id !== uid);
+    seen.current = ids;
+    if (!fresh.length || !document.hidden) return;
+    unread.current += fresh.length;
+    document.title = `(${unread.current}) ${BASE_TITLE}`;
+    if (useDicePrefs.getState().sound) playMessageSound();
+  }, [feed, uid]);
+  useEffect(() => {
+    const back = () => { if (!document.hidden) { unread.current = 0; document.title = BASE_TITLE; } };
+    document.addEventListener('visibilitychange', back);
+    return () => { document.removeEventListener('visibilitychange', back); document.title = BASE_TITLE; };
+  }, []);
+
+  const mode = useDice((s) => s.mode);
+  const setMode = useDice((s) => s.setMode);
+  const quickRoll = (sides: number) => {
+    useDice.getState().roll(`d${sides}`, `1d${sides}`, { charName: myChar });
+    stick.current = true;
+  };
+
   // follow new lines unless the user scrolled up to read history
   useEffect(() => {
     const el = list.current;
@@ -45,8 +79,8 @@ export function ChatPanel({ campaign, members, isGm, uid }: CampaignProps) {
     const input = parseChatInput(text);
     if (input.kind === 'empty') return;
     if (input.kind === 'error') return flash(input.message);
+    stopped();
     if (input.kind === 'roll') {
-      const myChar = me?.character_id ? chars[me.character_id]?.name : undefined;
       useDice.getState().roll(input.label, input.formula, { charName: myChar });
       setText('');
       stick.current = true;
@@ -111,6 +145,15 @@ export function ChatPanel({ campaign, members, isGm, uid }: CampaignProps) {
           return <Line key={it.type + (it.row.id ?? i)} it={it} p={who(it.row.user_id, it.row.author)} compact={compact} canDelete={it.row.user_id === uid || isGm} />;
         })}
       </div>
+      <div className="chat-typing" aria-live="polite">{typingText(typers)}</div>
+      <div className="chat-quick">
+        {QUICK_DICE.map((n) => (
+          <button key={n} type="button" className="chat-qd" title={`Rolar 1d${n}`} onClick={() => quickRoll(n)}>d{n}</button>
+        ))}
+        <span className="spacer" />
+        <button type="button" className={'chat-qd adv' + (mode === 'adv' ? ' on' : '')} title="Vantagem na próxima rolagem de d20" onClick={() => setMode(mode === 'adv' ? 'normal' : 'adv')}>VAN</button>
+        <button type="button" className={'chat-qd dis' + (mode === 'dis' ? ' on' : '')} title="Desvantagem na próxima rolagem de d20" onClick={() => setMode(mode === 'dis' ? 'normal' : 'dis')}>DES</button>
+      </div>
       <form
         className="chat-input"
         onSubmit={(e) => {
@@ -118,7 +161,7 @@ export function ChatPanel({ campaign, members, isGm, uid }: CampaignProps) {
           void submit();
         }}
       >
-        <input className="input" value={text} maxLength={1000} placeholder="Mensagem, ou /r 2d6+3 dano" onChange={(e) => setText(e.target.value)} />
+        <input className="input" value={text} maxLength={1000} placeholder="Mensagem, ou /r 2d6+3 dano" onChange={(e) => { setText(e.target.value); if (e.target.value.trim()) typing(); else stopped(); }} />
         <button className="btn primary icon" disabled={sending || !text.trim()} title="Enviar">
           <Send size={16} />
         </button>

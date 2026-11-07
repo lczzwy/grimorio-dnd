@@ -94,3 +94,22 @@ export function playFumbleSound(volume = 0.45) {
   o.start(now);
   o.stop(now + 0.65);
 }
+
+/** New chat message while the tab is in the background: a soft two-note "pop". */
+export function playMessageSound(volume = 0.18) {
+  const a = audio();
+  if (!a) return;
+  const now = a.currentTime + 0.02;
+  [[660, 0], [990, 0.08]].forEach(([f, dt]) => {
+    const o = a.createOscillator();
+    const g = a.createGain();
+    o.type = 'sine';
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, now + dt);
+    g.gain.exponentialRampToValueAtTime(volume, now + dt + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dt + 0.22);
+    o.connect(g).connect(a.destination);
+    o.start(now + dt);
+    o.stop(now + dt + 0.25);
+  });
+}

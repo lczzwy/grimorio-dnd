@@ -45,7 +45,7 @@ export function DicePrefsButtons() {
   return (
     <>
       <button className={'btn ghost sm icon' + (on ? ' active' : '')} title={on ? 'Dados 3D ligados' : 'Dados 3D desligados'} onClick={toggle}><Box size={15} /></button>
-      <button className="btn ghost sm icon" title={sound ? 'Som dos dados ligado' : 'Som dos dados desligado'} onClick={toggleSound} disabled={!on}>
+      <button className="btn ghost sm icon" title={sound ? 'Sons da mesa ligados (dados e mensagens)' : 'Sons da mesa desligados'} onClick={toggleSound} disabled={!on}>
         {sound ? <Volume2 size={15} /> : <VolumeX size={15} />}
       </button>
     </>
