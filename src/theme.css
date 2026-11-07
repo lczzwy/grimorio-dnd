@@ -240,3 +240,20 @@ h1 { text-shadow: 0 2px 0 #000; }
   .saves-list .sv-name[data-s]::after { content: attr(data-s); font-size: 13px; font-family: var(--font-display); letter-spacing: .12em; color: var(--gold); }
   .roll-hint { visibility: hidden; }
 }
+
+/* ---- Ficha no PC: atributos numa coluna fixa ao lado das abas ---- */
+@media (min-width: 1200px) {
+  .page:has(.sheet-desk) { max-width: 1560px; }
+  .sheet-desk { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .desk-side { position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; padding-right: 4px; scrollbar-width: thin; }
+  .desk-side .roll-hint { display: none; }
+  .desk-side .abilities { grid-template-columns: repeat(3, 1fr); row-gap: 24px; margin-bottom: 26px; }
+  .desk-side .sheet-grid { grid-template-columns: 1fr !important; }
+  .desk-side .list[style] { columns: 1 !important; }
+  .desk-side .saves-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .desk-side .saves-list .li { grid-template-columns: auto auto 1fr; border: 1px solid var(--line-2); border-radius: 999px; padding: 6px 12px; gap: 8px; background: #0a0f1f; }
+  .desk-side .saves-list .li > span:last-child { display: none; }
+  .desk-side .saves-list .sv-name[data-s] { font-size: 0; }
+  .desk-side .saves-list .sv-name[data-s]::after { content: attr(data-s); font-size: 13px; font-family: var(--font-display); letter-spacing: .12em; color: var(--gold); }
+  .desk-main .tabs { margin-top: 0; }
+}

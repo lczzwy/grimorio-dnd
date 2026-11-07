@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Gamepad2, Pencil, ChevronLeft, Download, Trash2, ArrowUpCircle, LayoutGrid, Swords, Sparkles, Backpack, Scroll, Feather, Moon, Coffee, Star } from 'lucide-react';
 import type { Character, Edition, SrdData } from '../data/types';
 import { useApp, useDice } from '../store';
@@ -16,6 +16,19 @@ import { SpellsTab } from './sheet/SpellsTab';
 import { InventoryTab } from './sheet/InventoryTab';
 import { FeaturesTab, LevelUpModal } from './sheet/FeaturesTab';
 import { StoryTab } from './sheet/StoryTab';
+
+/** Wide screens (PC) show attributes in a fixed side column next to the tabs. */
+const WIDE = '(min-width: 1200px)';
+function useWide() {
+  const [wide, setWide] = useState(() => typeof matchMedia !== 'undefined' && matchMedia(WIDE).matches);
+  useEffect(() => {
+    const mq = matchMedia(WIDE);
+    const on = () => setWide(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return wide;
+}
 
 export interface SheetProps { c: Character; srd: SrdData; upd: (fn: (d: Character) => void) => void }
 
@@ -53,6 +66,7 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
   const [tab, setTab] = useState<(typeof TABS)[number]['k']>(() => (sessionStorage.getItem('tab') as never) || 'main');
   const [rest, setRest] = useState<'short' | 'long' | null>(null);
   const [levelUp, setLevelUp] = useState(false);
+  const wide = useWide();
 
   if (!c) return <main className="page"><div className="empty">Personagem não encontrado. <a href={'#/' + edition}>Voltar</a></div></main>;
   if (!srd) return <main className="page"><div className="empty">Abrindo o grimório…</div></main>;
@@ -64,6 +78,8 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
   const init = initiative(c, srd);
   const bg = findBackground(srd, c.backgroundId);
 
+  // on PC the attributes live in the side column, so "Principal" opens Combate
+  const shown: typeof tab = wide && tab === 'main' ? 'combat' : tab;
   const pickTab = (k: typeof tab) => { setTab(k); try { sessionStorage.setItem('tab', k); } catch { /* private mode */ } };
 
   return (
@@ -116,20 +132,25 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
         <div className="vital v-pp"><div className="v">{passivePerception(c, srd)}</div><div className="l">Percepção Passiva</div></div>
       </div>
 
-      <nav className="tabs">
-        {TABS.filter((t) => !(gameMode && t.k === 'story')).map((t) => (
-          <button key={t.k} className={'tab' + (tab === t.k ? ' on' : '')} onClick={() => pickTab(t.k)}>
-            <t.icon size={17} /> {t.label}
-          </button>
-        ))}
-      </nav>
+      <div className={wide ? 'sheet-desk' : undefined}>
+        {wide && <aside className="desk-side"><MainTab {...props} /></aside>}
+        <div className="desk-main">
+          <nav className="tabs">
+            {TABS.filter((t) => !(gameMode && t.k === 'story') && !(wide && t.k === 'main')).map((t) => (
+              <button key={t.k} className={'tab' + (shown === t.k ? ' on' : '')} onClick={() => pickTab(t.k)}>
+                <t.icon size={17} /> {t.label}
+              </button>
+            ))}
+          </nav>
 
-      {(tab === 'main' || (tab === 'story' && gameMode)) && <MainTab {...props} />}
-      {tab === 'combat' && <CombatTab {...props} />}
-      {tab === 'spells' && <SpellsTab {...props} />}
-      {tab === 'inv' && <InventoryTab {...props} />}
-      {tab === 'feat' && <FeaturesTab {...props} onLevelUp={() => setLevelUp(true)} />}
-      {tab === 'story' && !gameMode && <StoryTab {...props} />}
+          {!wide && (shown === 'main' || (shown === 'story' && gameMode)) && <MainTab {...props} />}
+          {shown === 'combat' && <CombatTab {...props} />}
+          {shown === 'spells' && <SpellsTab {...props} />}
+          {shown === 'inv' && <InventoryTab {...props} />}
+          {shown === 'feat' && <FeaturesTab {...props} onLevelUp={() => setLevelUp(true)} />}
+          {shown === 'story' && !gameMode && <StoryTab {...props} />}
+        </div>
+      </div>
 
       {rest && <RestModal {...props} kind={rest} onClose={() => setRest(null)} onDone={(m) => { setRest(null); flash(m); }} />}
       {levelUp && <LevelUpModal {...props} onClose={() => setLevelUp(false)} onDone={(m) => { setLevelUp(false); flash(m); }} />}
