@@ -30,7 +30,11 @@ export function useTableFeed(campaignId: string) {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter }, (p) => add(setMsgs, p.new as ChatRow))
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'chat_messages', filter }, () => void load())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'rolls', filter }, (p) => add(setRolls, p.new as RollRow))
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rolls', filter }, (p) => setRolls((s) => s.map((x) => (x.id === (p.new as RollRow).id ? (p.new as RollRow) : x))))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rolls', filter }, (p) => {
+        // a revealed roll was invisible to players until now, so it may be new to them
+        const row = p.new as RollRow;
+        setRolls((s) => (s.some((x) => x.id === row.id) ? s.map((x) => (x.id === row.id ? row : x)) : [...s, row].sort((a, b) => ((a.created_at || '') < (b.created_at || '') ? -1 : 1)).slice(-LIMIT)));
+      })
       .subscribe((status) => { if (status === 'SUBSCRIBED') void load(); });
     // safety net if the realtime socket drops (phone asleep, bad wifi)
     const onFocus = () => void load();

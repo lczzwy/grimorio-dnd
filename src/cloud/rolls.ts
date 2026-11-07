@@ -24,8 +24,8 @@ export function initRollPublishing() {
 export function useTable(campaignId: string | undefined, isGm = false) {
   useEffect(() => {
     if (!campaignId) return;
-    // the GM rolls hidden by default (monster attacks); players roll in the open
-    useDice.getState().setTable({ campaignId, hidden: isGm, isGm });
+    // everyone rolls in the open; the GM can still hide a single roll from the dice tray
+    useDice.getState().setTable({ campaignId, hidden: false, isGm });
     return () => useDice.getState().setTable(undefined);
   }, [campaignId, isGm]);
 }
