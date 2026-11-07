@@ -1,0 +1,47 @@
+/* ---- Mesa de dados: tabuleiro de madeira com feltro, onde os dados 3D rolam ---- */
+.dice-board { margin-bottom: 16px; }
+.dice-board-head { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 0 2px 8px; }
+.dice-board-title { font-family: var(--font-display); letter-spacing: 0.14em; color: var(--gold); font-size: 14px; white-space: nowrap; }
+.dice-board-last { display: flex; gap: 6px; align-items: baseline; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; }
+.dice-board-last .mono { font-family: 'Cinzel', serif; font-size: 18px; color: var(--gold); }
+
+/* moldura de madeira escura, com cantoneiras de metal na cor de detalhe do tema */
+.dice-board-frame {
+  position: relative;
+  padding: 14px;
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(92deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 9px),
+    linear-gradient(180deg, #4a2f1c, #2b1a0f 55%, #3a2415);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 170, 0.18), inset 0 -2px 0 rgba(0, 0, 0, 0.5), 0 12px 30px rgba(0, 0, 0, 0.55), 0 0 0 1px #120a05;
+}
+.dice-board-frame::before, .dice-board-frame::after {
+  content: ''; position: absolute; width: 26px; height: 26px; pointer-events: none;
+  border: 2px solid var(--gold); opacity: 0.85;
+}
+.dice-board-frame::before { top: 5px; left: 5px; border-right: 0; border-bottom: 0; border-top-left-radius: 4px; }
+.dice-board-frame::after { bottom: 5px; right: 5px; border-left: 0; border-top: 0; border-bottom-right-radius: 4px; }
+
+/* feltro na cor de destaque do tema, com vinheta e um selo apagado no centro */
+.dice-board-felt {
+  position: relative;
+  height: clamp(220px, 34vh, 380px);
+  border-radius: 3px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 45%, transparent 30%, rgba(0, 0, 0, 0.55) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)' opacity='.13'/%3E%3C/svg%3E"),
+    color-mix(in srgb, var(--accent) 55%, #0b0b0b);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.7), inset 0 6px 18px rgba(0, 0, 0, 0.6);
+}
+.dice-board-felt::before {
+  content: ''; position: absolute; inset: 0; margin: auto; width: 140px; height: 140px; pointer-events: none; opacity: 0.1;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none' stroke='white' stroke-width='1.6'%3E%3Ccircle cx='32' cy='32' r='30'/%3E%3Cpath d='M32 8 53 20v24L32 56 11 44V20Z'/%3E%3Cpath d='M32 18 20 40h24Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.dice-board-host { position: absolute; inset: 0; }
+.dice-board-host canvas { width: 100% !important; height: 100% !important; display: block; }
+
+@media (max-width: 760px) {
+  .dice-board-felt { height: 200px; }
+  .dice-board-frame { padding: 10px; }
+}

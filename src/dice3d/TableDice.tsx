@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
-import { Box, Volume2, VolumeX } from 'lucide-react';
+import { Box, ChevronDown, ChevronUp, Volume2, VolumeX } from 'lucide-react';
 import { supabase } from '../cloud/client';
 import { colorFor } from '../cloud/chatLogic';
 import type { RollRow } from '../cloud/rollRow';
 import { diceOfRoll, forcedNotation, inkFor } from './notation';
 import { playDiceSound, unlockAudio } from './sound';
+import { useReveal } from './reveal';
 
 /* ---------------- preferences (per device) ---------------- */
 
@@ -21,12 +22,21 @@ const write = (k: string, v: boolean) => {
   try { localStorage.setItem(k, v ? '1' : '0'); } catch { /* private mode */ }
 };
 
-interface DicePrefs { on: boolean; sound: boolean; toggle: () => void; toggleSound: () => void }
+interface DicePrefs {
+  on: boolean;
+  sound: boolean;
+  trayOpen: boolean;
+  toggle: () => void;
+  toggleSound: () => void;
+  toggleTray: () => void;
+}
 export const useDicePrefs = create<DicePrefs>((set, get) => ({
   on: read('dice3d', true),
   sound: read('dice3d-sound', true),
+  trayOpen: read('dice3d-tray', true),
   toggle: () => { const on = !get().on; write('dice3d', on); set({ on }); },
   toggleSound: () => { const sound = !get().sound; write('dice3d-sound', sound); if (sound) unlockAudio(); set({ sound }); },
+  toggleTray: () => { const trayOpen = !get().trayOpen; write('dice3d-tray', trayOpen); set({ trayOpen }); },
 }));
 
 /** Small switches for the 3D dice and their sound. */
@@ -50,19 +60,26 @@ interface DiceBoxLike {
   roll(notation: string): Promise<unknown>;
   clearDice(): void;
   updateConfig(c: Record<string, unknown>): Promise<void>;
-  setDimensions(): void;
   desk?: { material: { opacity: number } };
 }
 
 const BADGE_MS = 2600;
 const MAX_QUEUE = 4;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Every roll made at the campaign table falls as 3D dice on everyone's screen, landing on the
- * numbers that were actually rolled (the result is decided first, the physics only performs it).
+ * Every roll made at the campaign table is thrown as 3D dice, landing on the numbers that were
+ * actually rolled (the result is decided first, the physics only performs it).
+ * - "tray": inside a framed dice table on the page; dice stay until the next roll, and the chat
+ *   shows the roll only once they settle.
+ * - "overlay": over the whole screen with a result badge (a sheet opened on its own).
  */
-export function TableDice({ campaignId }: { campaignId: string }) {
+export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: string; variant?: 'tray' | 'overlay' }) {
   const on = useDicePrefs((s) => s.on);
+  const trayOpen = useDicePrefs((s) => s.trayOpen);
+  const toggleTray = useDicePrefs((s) => s.toggleTray);
+  const tray = variant === 'tray';
+  const live = on && (!tray || trayOpen);
   const host = useRef<HTMLDivElement>(null);
   const box = useRef<DiceBoxLike | null>(null);
   const queue = useRef<RollRow[]>([]);
@@ -70,6 +87,14 @@ export function TableDice({ campaignId }: { campaignId: string }) {
   const colors = useRef(new Map<string, string | null>());
   const [badge, setBadge] = useState<{ row: RollRow; color: string } | null>(null);
   const [visible, setVisible] = useState(false);
+  const [last, setLast] = useState<{ row: RollRow; color: string } | null>(null);
+
+  // the chat waits for these dice only while a tray is actually animating
+  useEffect(() => {
+    if (!tray || !live) return;
+    useReveal.getState().setActive(true);
+    return () => useReveal.getState().setActive(false);
+  }, [tray, live]);
 
   // player colours, kept fresh
   useEffect(() => {
@@ -78,54 +103,75 @@ export function TableDice({ campaignId }: { campaignId: string }) {
         .then(({ data }) => { colors.current = new Map((data || []).map((m: { user_id: string; color: string | null }) => [m.user_id, m.color])); });
     void load();
     const ch = supabase
-      .channel('dice-colors-' + campaignId)
+      .channel('dice-colors-' + campaignId + variant)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'campaign_members', filter: `campaign_id=eq.${campaignId}` }, () => void load())
       .subscribe();
     return () => void supabase.removeChannel(ch);
-  }, [campaignId]);
+  }, [campaignId, variant]);
+
+  const enqueue = (row: RollRow) => {
+    queue.current.push(row);
+    // a burst of rolls: keep the latest few so the table never lags behind; release the skipped ones
+    while (queue.current.length > MAX_QUEUE) {
+      const skipped = queue.current.shift()!;
+      if (skipped.id) useReveal.getState().reveal(skipped.id);
+    }
+    void pump();
+  };
 
   // new rolls at the table
   useEffect(() => {
-    if (!on) return;
+    if (!live) return;
     const since = Date.now() - 5000;
     const ch = supabase
-      .channel('dice3d-' + campaignId)
+      .channel('dice3d-' + campaignId + variant)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'rolls', filter: `campaign_id=eq.${campaignId}` }, (p) => {
         const row = p.new as RollRow;
         if (row.created_at && Date.parse(row.created_at) < since) return;
-        queue.current.push(row);
-        // a burst of rolls: keep the latest few so the table never lags behind the chat
-        if (queue.current.length > MAX_QUEUE) queue.current.splice(0, queue.current.length - MAX_QUEUE);
-        void pump();
+        enqueue(row);
       })
       .subscribe();
     return () => void supabase.removeChannel(ch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaignId, on]);
+  }, [campaignId, live, variant]);
 
-  // the physics world is sized at creation: after a resize (phone rotated, window dragged) rebuild it
-  // on the next roll instead of stretching the old one, which skews dice size and results
+  // the physics world is sized at creation: when its area changes (window dragged, phone rotated)
+  // rebuild it on the next roll instead of stretching the old one, which skews dice size and results
   useEffect(() => {
-    if (!on) return;
+    if (!live) return;
     let t: ReturnType<typeof setTimeout>;
-    const onResize = () => {
+    let size = '';
+    const measure = () => (host.current ? `${host.current.clientWidth}x${host.current.clientHeight}` : '');
+    size = measure();
+    const rebuild = () => {
       clearTimeout(t);
       t = setTimeout(() => {
+        const now = measure();
+        if (now === size) return;
+        size = now;
         if (busy.current || !box.current) return;
         box.current = null;
         host.current?.replaceChildren();
+        setLast(null);
       }, 250);
     };
-    window.addEventListener('resize', onResize);
-    return () => { clearTimeout(t); window.removeEventListener('resize', onResize); };
-  }, [on]);
+    const ro = new ResizeObserver(rebuild);
+    if (host.current) ro.observe(host.current);
+    window.addEventListener('resize', rebuild);
+    return () => { clearTimeout(t); ro.disconnect(); window.removeEventListener('resize', rebuild); };
+  }, [live]);
+
+  // a collapsed tray loses its canvas: start fresh when it opens again
+  useEffect(() => {
+    if (!live) box.current = null;
+  }, [live]);
 
   // development only: window.__dice(row) plays a fake roll without a live table
   useEffect(() => {
-    if (!import.meta.env.DEV || !on) return;
-    (window as unknown as { __dice?: (r: RollRow) => void }).__dice = (r) => { queue.current.push(r); void pump(); };
+    if (!import.meta.env.DEV || !live) return;
+    (window as unknown as { __dice?: (r: RollRow) => void }).__dice = (r) => { if (r.id) useReveal.getState().hide(r.id); enqueue(r); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [on]);
+  }, [live]);
 
   // unlock audio on the first tap anywhere (browser rule)
   useEffect(() => {
@@ -137,9 +183,9 @@ export function TableDice({ campaignId }: { campaignId: string }) {
   async function ensureBox() {
     if (box.current || !host.current) return box.current;
     const { default: DiceBox } = await import('@3d-dice/dice-box-threejs');
-    const b = new DiceBox('#' + host.current.id, { baseScale: 120, strength: 1.2, sounds: false, shadows: true, light_intensity: 0.85 }) as unknown as DiceBoxLike;
+    const b = new DiceBox('#' + host.current.id, { baseScale: tray ? 95 : 120, strength: tray ? 1 : 1.2, sounds: false, shadows: true, light_intensity: 0.85 }) as unknown as DiceBoxLike;
     await b.initialize();
-    if (b.desk) b.desk.material.opacity = 0.28; // soft shadows over the page instead of a dark felt
+    if (b.desk) b.desk.material.opacity = tray ? 0.45 : 0.28; // soft shadows on the felt / over the page
     box.current = b;
     return b;
   }
@@ -150,33 +196,70 @@ export function TableDice({ campaignId }: { campaignId: string }) {
     try {
       while (queue.current.length) {
         const row = queue.current.shift()!;
+        const done = () => { if (row.id) useReveal.getState().reveal(row.id); };
         const color = colorFor(row.user_id, colors.current.get(row.user_id));
         const notation = forcedNotation(diceOfRoll(row.formula, row.rolls, row.dropped));
-        if (!notation) continue;
-        const b = await ensureBox();
-        if (!b) break;
+        const b = notation ? await ensureBox() : null;
+        if (!notation || !b) { done(); continue; }
         await b.updateConfig({ theme_customColorset: { name: 'p' + color, foreground: inkFor(color), background: color, outline: inkFor(color) === '#ffffff' ? '#000000' : '#ffffff', texture: 'none', material: 'plastic' } });
         b.clearDice();
         setBadge(null);
+        setLast(null);
         setVisible(true);
         if (useDicePrefs.getState().sound) playDiceSound(notation.split('@')[1].split(',').length);
         // never hang the queue if the physics misbehaves
-        await Promise.race([b.roll(notation), new Promise((r) => setTimeout(r, 6000))]);
+        await Promise.race([b.roll(notation), sleep(6000)]);
+        // the dice have settled: now the chat shows the roll
+        done();
+        if (tray) {
+          setLast({ row, color });
+          // dice stay on the table until the next roll, like real ones
+          if (queue.current.length) await sleep(1200);
+          continue;
+        }
         setBadge({ row, color });
-        await new Promise((r) => setTimeout(r, queue.current.length ? 1200 : BADGE_MS));
+        await sleep(queue.current.length ? 1200 : BADGE_MS);
         setVisible(false);
-        await new Promise((r) => setTimeout(r, 350));
+        await sleep(350);
         b.clearDice();
         setBadge(null);
       }
     } catch (e) {
       console.warn('dados 3D:', e);
+      queue.current.forEach((r) => r.id && useReveal.getState().reveal(r.id));
     } finally {
       busy.current = false;
     }
   }
 
   if (!on) return null;
+
+  if (tray) {
+    return (
+      <section className={'dice-board' + (trayOpen ? '' : ' closed')}>
+        <header className="dice-board-head">
+          <span className="dice-board-title">Mesa de dados</span>
+          {last && trayOpen && (
+            <span className="dice-board-last">
+              <b style={{ color: last.color }}>{last.row.author}</b> <span className="muted">{last.row.label}</span> <b className="mono">{last.row.total}</b>
+            </span>
+          )}
+          <span className="spacer" />
+          <button className="btn ghost sm icon" onClick={toggleTray} title={trayOpen ? 'Recolher a mesa' : 'Abrir a mesa'}>
+            {trayOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          </button>
+        </header>
+        {trayOpen && (
+          <div className="dice-board-frame">
+            <div className="dice-board-felt">
+              <div id={'dice3d-' + campaignId} ref={host} className="dice-board-host" aria-hidden />
+            </div>
+          </div>
+        )}
+      </section>
+    );
+  }
+
   return (
     <>
       <div id={'dice3d-' + campaignId} ref={host} className={'dice3d' + (visible ? ' show' : '')} aria-hidden />

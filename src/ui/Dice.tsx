@@ -3,6 +3,10 @@ import { Trash2, X } from 'lucide-react';
 import { useDice } from '../store';
 import { D20Icon } from './ui';
 import { parseDice } from '../engine/dice';
+import { create } from 'zustand';
+
+/** Pages where the dice table and chat already show results turn the roll pop-up off. */
+export const useToastQuiet = create<{ quiet: boolean; setQuiet: (q: boolean) => void }>((set) => ({ quiet: false, setQuiet: (quiet) => set({ quiet }) }));
 
 const DICE = [4, 6, 8, 10, 12, 20, 100];
 
@@ -23,12 +27,13 @@ export function AdvToggle() {
 
 export function RollToast() {
   const { current, dismiss } = useDice();
+  const quiet = useToastQuiet((s) => s.quiet);
   useEffect(() => {
     if (!current) return;
     const t = setTimeout(dismiss, current.kind ? 5200 : 3800);
     return () => clearTimeout(t);
   }, [current, dismiss]);
-  if (!current) return null;
+  if (!current || quiet) return null;
   return (
     <div className={'roll-toast ' + (current.kind || '')} key={current.key} onClick={dismiss}>
       <D20Icon className="d20" />

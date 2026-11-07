@@ -3,6 +3,7 @@ import { supabase } from './client';
 import { useAuth } from './auth';
 import type { RollRow } from './rollRow';
 import type { ChatRow } from './chatLogic';
+import { useReveal } from '../dice3d/reveal';
 
 const LIMIT = 150;
 
@@ -29,7 +30,12 @@ export function useTableFeed(campaignId: string) {
       .channel('feed-' + campaignId)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter }, (p) => add(setMsgs, p.new as ChatRow))
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'chat_messages', filter }, () => void load())
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'rolls', filter }, (p) => add(setRolls, p.new as RollRow))
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'rolls', filter }, (p) => {
+        const row = p.new as RollRow;
+        // with a dice table on screen the roll joins the chat when the dice stop (see TableDice)
+        if (row.id) useReveal.getState().hide(row.id);
+        add(setRolls, row);
+      })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rolls', filter }, (p) => {
         // a revealed roll was invisible to players until now, so it may be new to them
         const row = p.new as RollRow;

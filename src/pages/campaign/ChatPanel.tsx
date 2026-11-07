@@ -8,6 +8,7 @@ import { useFlash } from '../../ui/ui';
 import { useParty } from './TableTab';
 import type { CampaignProps } from '../Campaign';
 import { DicePrefsButtons } from '../../dice3d/TableDice';
+import { useReveal } from '../../dice3d/reveal';
 
 const time = (iso: string) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
 
@@ -16,7 +17,8 @@ interface Person { name: string; char?: string; portrait?: string; color: string
 /** Live table chat: messages and rolls in one timeline. "/r 2d6+3 dano" rolls for everyone. */
 export function ChatPanel({ campaign, members, isGm, uid }: CampaignProps) {
   const { msgs, rolls, addLocal } = useTableFeed(campaign.id);
-  const feed = useMemo(() => mergeFeed(msgs, rolls), [msgs, rolls]);
+  const held = useReveal((s) => s.hidden);
+  const feed = useMemo(() => mergeFeed(msgs, rolls.filter((r) => !r.id || !held[r.id])), [msgs, rolls, held]);
   const chars = useParty(members.map((m) => m.character_id).filter((x): x is string => !!x));
   const flash = useFlash((s) => s.show);
   const [text, setText] = useState('');

@@ -4,6 +4,7 @@ import './index.css'
 import './theme.css'
 import './themes.css'
 import './chat.css'
+import './diceboard.css'
 import { initTheme } from './ui/ThemePicker'
 import App from './App.tsx'
 

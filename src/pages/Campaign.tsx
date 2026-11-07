@@ -11,6 +11,7 @@ import { CombatTab } from './campaign/CombatTab';
 import { HomebrewTab } from './campaign/HomebrewTab';
 import { ChatPanel } from './campaign/ChatPanel';
 import { TableDice } from '../dice3d/TableDice';
+import { useToastQuiet } from '../ui/Dice';
 import { useTable } from '../cloud/rolls';
 
 export interface CampaignProps { campaign: CampaignT; members: Member[]; isGm: boolean; uid: string }
@@ -53,6 +54,11 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
   const { user, loading: authLoading } = useAuth();
   const { campaign, members, isGm, loading, error } = useCampaign(id);
   const wide = useWideChat();
+  // the dice table and the chat show results here; the pop-up stays only on the character sheet tab
+  useEffect(() => {
+    useToastQuiet.getState().setQuiet(tab !== 'ficha');
+    return () => useToastQuiet.getState().setQuiet(false);
+  }, [tab]);
   useTable(campaign?.id, isGm);
 
   useEffect(() => {
@@ -78,7 +84,6 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
         <span className="ed-chip">D&D {campaign.edition}</span>
         {isGm && <span className="tag gold"><Crown size={12} /> Você é o mestre</span>}
       </div>
-      <TableDice campaignId={campaign.id} />
       <nav className="tabs">
         {TABS.filter((t) => allowed(t.k)).map((t) => (
           <button key={t.k} className={'tab' + (current === t.k ? ' on' : '')} onClick={() => go(`campanha/${id}/${t.k}`)}>
@@ -88,10 +93,18 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
       </nav>
       {wide ? (
         <div className="camp-wrap">
-          <div style={{ minWidth: 0 }}>{body ? body(props) : <div className="panel empty">Em construção.</div>}</div>
+          <div style={{ minWidth: 0 }}>
+            <TableDice campaignId={campaign.id} variant="tray" />
+            {body ? body(props) : <div className="panel empty">Em construção.</div>}
+          </div>
           <aside className="camp-chat"><ChatPanel {...props} /></aside>
         </div>
-      ) : body ? body(props) : <div className="panel empty">Em construção.</div>}
+      ) : (
+        <>
+          <TableDice campaignId={campaign.id} variant="tray" />
+          {body ? body(props) : <div className="panel empty">Em construção.</div>}
+        </>
+      )}
     </main>
   );
 }
