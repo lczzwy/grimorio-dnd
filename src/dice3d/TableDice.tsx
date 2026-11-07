@@ -97,15 +97,26 @@ function faceCamera(b: DiceBoxLike, ms = 260): Promise<void> {
   }).filter(Boolean) as { d: Any; from: Any; to: Any }[];
   return new Promise((resolve) => {
     const t0 = performance.now();
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      for (const m of moves) m.d.quaternion.copy(m.to);
+      box.renderer.render(box.scene, cam);
+      resolve();
+    };
     const step = () => {
+      if (finished) return;
       const k = Math.min(1, (performance.now() - t0) / ms);
       const e = 1 - Math.pow(1 - k, 3);
       for (const m of moves) m.d.quaternion.copy(m.from).slerp(m.to, e);
       box.renderer.render(box.scene, cam);
       if (k < 1) requestAnimationFrame(step);
-      else resolve();
+      else finish();
     };
     requestAnimationFrame(step);
+    // a background tab pauses animation frames: land on the final pose anyway
+    setTimeout(finish, ms + 150);
   });
 }
 
@@ -229,7 +240,7 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
   async function ensureBox() {
     if (box.current || !host.current) return box.current;
     const { default: DiceBox } = await import('@3d-dice/dice-box-threejs');
-    const b = new DiceBox('#' + host.current.id, { baseScale: tray ? 95 : 120, strength: tray ? 1 : 1.2, sounds: false, shadows: true, light_intensity: 0.85 }) as unknown as DiceBoxLike;
+    const b = new DiceBox('#' + host.current.id, { baseScale: tray ? 62 : 120, strength: tray ? 1.25 : 1.2, sounds: false, shadows: true, light_intensity: 0.85 }) as unknown as DiceBoxLike;
     await b.initialize();
     if (b.desk) b.desk.material.opacity = tray ? 0.45 : 0.28; // soft shadows on the felt / over the page
     box.current = b;

@@ -25,7 +25,7 @@
 /* feltro na cor de destaque do tema, com vinheta e um selo apagado no centro */
 .dice-board-felt {
   position: relative;
-  height: clamp(220px, 34vh, 380px);
+  height: clamp(260px, 44vh, 480px);
   border-radius: 3px;
   overflow: hidden;
   background:
@@ -42,7 +42,7 @@
 .dice-board-host canvas { width: 100% !important; height: 100% !important; display: block; }
 
 @media (max-width: 760px) {
-  .dice-board-felt { height: 200px; }
+  .dice-board-felt { height: 250px; }
   .dice-board-frame { padding: 10px; }
 }
 
