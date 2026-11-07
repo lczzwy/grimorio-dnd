@@ -6,6 +6,7 @@ import { go } from '../ui/ui';
 import { SettingsTab } from './campaign/SettingsTab';
 import { TableTab } from './campaign/TableTab';
 import { RollsTab } from './campaign/RollsTab';
+import { CombatTab } from './campaign/CombatTab';
 import { useTable } from '../cloud/rolls';
 
 export interface CampaignProps { campaign: CampaignT; members: Member[]; isGm: boolean; uid: string }
@@ -22,6 +23,7 @@ export type CampaignTab = (typeof TABS)[number]['k'];
 const campaignTabs: Partial<Record<CampaignTab, (p: CampaignProps) => ReactNode>> = {
   mesa: (p) => <TableTab {...p} />,
   rolagens: (p) => <RollsTab {...p} />,
+  combate: (p) => <CombatTab {...p} />,
   ajustes: (p) => <SettingsTab {...p} />,
 };
 

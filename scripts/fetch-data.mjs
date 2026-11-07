@@ -4,8 +4,8 @@ import path from 'node:path';
 
 const BASE = 'https://raw.githubusercontent.com/5e-bits/5e-database/main/src';
 const FILES = {
-  '2014': ['Ability-Scores', 'Alignments', 'Backgrounds', 'Classes', 'Conditions', 'Damage-Types', 'Equipment', 'Feats', 'Features', 'Languages', 'Levels', 'Magic-Items', 'Magic-Schools', 'Proficiencies', 'Races', 'Rule-Sections', 'Rules', 'Skills', 'Spells', 'Subclasses', 'Subraces', 'Traits', 'Weapon-Properties'],
-  '2024': ['Ability-Scores', 'Alignments', 'Backgrounds', 'Classes', 'Conditions', 'Damage-Types', 'Equipment', 'Feats', 'Features', 'Languages', 'Levels', 'Magic-Items', 'Magic-Schools', 'Proficiencies', 'Skills', 'Species', 'Spells', 'Subclasses', 'Subspecies', 'Traits', 'Weapon-Mastery-Properties', 'Weapon-Properties'],
+  '2014': ['Ability-Scores', 'Alignments', 'Backgrounds', 'Classes', 'Conditions', 'Damage-Types', 'Equipment', 'Feats', 'Features', 'Languages', 'Levels', 'Magic-Items', 'Magic-Schools', 'Monsters', 'Proficiencies', 'Races', 'Rule-Sections', 'Rules', 'Skills', 'Spells', 'Subclasses', 'Subraces', 'Traits', 'Weapon-Properties'],
+  '2024': ['Ability-Scores', 'Alignments', 'Backgrounds', 'Classes', 'Conditions', 'Damage-Types', 'Equipment', 'Feats', 'Features', 'Languages', 'Levels', 'Magic-Items', 'Magic-Schools', 'Monsters', 'Proficiencies', 'Skills', 'Species', 'Spells', 'Subclasses', 'Subspecies', 'Traits', 'Weapon-Mastery-Properties', 'Weapon-Properties'],
 };
 for (const [ed, names] of Object.entries(FILES)) {
   const dir = path.join('data-raw', ed);

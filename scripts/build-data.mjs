@@ -347,7 +347,43 @@ function build(ed) {
   };
 }
 
+const CR = (n) => (n === 0.125 ? '1/8' : n === 0.25 ? '1/4' : n === 0.5 ? '1/2' : String(n));
+const join = (arr) => (arr || []).map((x) => (typeof x === 'string' ? x : x.name || x.index)).join(', ') || undefined;
+const act = (a) => compact({
+  name: a.name,
+  desc: a.desc || '',
+  toHit: a.attack_bonus,
+  damage: (a.damage || []).find((d) => d.damage_dice)?.damage_dice?.replace(/\s/g, ''),
+  dc: a.dc ? `CD ${a.dc.dc_value} ${a.dc.dc_type?.name ?? ''}`.trim() : undefined,
+});
+function buildMonsters(ed) {
+  return load(ed, 'Monsters').map((m) => compact({
+    id: m.index,
+    name: m.name,
+    size: m.size,
+    type: [m.type, m.subtype].filter(Boolean).join(' '),
+    ac: (m.armor_class || [])[0]?.value ?? 10,
+    hp: m.hit_points,
+    hpDice: m.hit_points_roll || m.hit_dice,
+    speed: Object.entries(m.speed || {}).map(([k, v]) => (k === 'walk' ? v : `${k} ${v}`)).join(', '),
+    scores: { str: m.strength, dex: m.dexterity, con: m.constitution, int: m.intelligence, wis: m.wisdom, cha: m.charisma },
+    cr: CR(m.challenge_rating),
+    xp: m.xp,
+    senses: Object.entries(m.senses || {}).map(([k, v]) => `${k.replace(/_/g, ' ')} ${v}`).join(', '),
+    languages: m.languages,
+    resist: join(m.damage_resistances), immune: join(m.damage_immunities), vulnerable: join(m.damage_vulnerabilities), condImmune: join(m.condition_immunities),
+    traits: (m.special_abilities || []).map((t) => ({ name: t.name, desc: t.desc })),
+    actions: (m.actions || []).map(act),
+    bonus: (m.bonus_actions || []).map(act),
+    reactions: (m.reactions || []).map(act),
+    legendary: (m.legendary_actions || []).map(act),
+  }));
+}
+
 for (const ed of ['2014', '2024']) {
+  const mon = buildMonsters(ed);
+  fs.writeFileSync(path.join(OUT, `monsters-${ed}.json`), JSON.stringify(mon));
+  console.log(ed, 'monsters', mon.length, (fs.statSync(path.join(OUT, `monsters-${ed}.json`)).size / 1024).toFixed(0) + 'KB');
   const data = build(ed);
   const file = path.join(OUT, `srd-${ed}.json`);
   fs.writeFileSync(file, JSON.stringify(data));
