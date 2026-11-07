@@ -27,9 +27,11 @@ const TABS = [
   { k: 'story', label: 'História', icon: Feather },
 ] as const;
 
-export function Sheet({ edition, id }: { edition: Edition; id: string }) {
+/** `character` + `readOnly` show someone else's sheet (campaign table) without editing it. */
+export function Sheet({ edition, id, character, readOnly }: { edition: Edition; id: string; character?: Character; readOnly?: boolean }) {
   const srd = useSrd(edition);
-  const c = useApp((s) => s.characters.find((x) => x.id === id));
+  const stored = useApp((s) => s.characters.find((x) => x.id === id));
+  const c = character ?? stored;
   const update = useApp((s) => s.updateCharacter);
   const roll = useDice((s) => s.roll);
   const flash = useFlash((s) => s.show);
@@ -40,7 +42,7 @@ export function Sheet({ edition, id }: { edition: Edition; id: string }) {
   if (!c) return <main className="page"><div className="empty">Personagem não encontrado. <a href={'#/' + edition}>Voltar</a></div></main>;
   if (!srd) return <main className="page"><div className="empty">Abrindo o grimório…</div></main>;
 
-  const upd = (fn: (d: Character) => void) => update(c.id, fn);
+  const upd = (fn: (d: Character) => void) => (readOnly ? undefined : update(c.id, fn));
   const props: SheetProps = { c, srd, upd };
   const max = maxHp(c, srd);
   const ac = armorClass(c, srd);
@@ -50,7 +52,8 @@ export function Sheet({ edition, id }: { edition: Edition; id: string }) {
   const pickTab = (k: typeof tab) => { setTab(k); try { sessionStorage.setItem('tab', k); } catch { /* private mode */ } };
 
   return (
-    <main className="page">
+    <main className="page" style={readOnly ? { padding: 0 } : undefined}>
+      {readOnly && <div className="tag accent" style={{ marginBottom: 10 }}>Somente leitura · ficha de outro jogador, atualizada ao vivo</div>}
       <div className="sheet-hero">
         <label style={{ cursor: 'pointer' }} title="Trocar retrato">
           <Avatar name={c.name} portrait={c.portrait} size="lg" />

@@ -4,6 +4,7 @@ import { useAuth } from '../cloud/auth';
 import { useCampaign, type Campaign as CampaignT, type Member } from '../cloud/campaigns';
 import { go } from '../ui/ui';
 import { SettingsTab } from './campaign/SettingsTab';
+import { TableTab } from './campaign/TableTab';
 
 export interface CampaignProps { campaign: CampaignT; members: Member[]; isGm: boolean; uid: string }
 
@@ -16,8 +17,8 @@ const TABS = [
 ] as const;
 export type CampaignTab = (typeof TABS)[number]['k'];
 
-/** Tab bodies are registered by later modules so this shell stays small. */
-export const campaignTabs: Partial<Record<CampaignTab, (p: CampaignProps) => ReactNode>> = {
+const campaignTabs: Partial<Record<CampaignTab, (p: CampaignProps) => ReactNode>> = {
+  mesa: (p) => <TableTab {...p} />,
   ajustes: (p) => <SettingsTab {...p} />,
 };
 
