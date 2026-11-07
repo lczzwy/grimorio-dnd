@@ -73,3 +73,9 @@
   .token-hp { opacity: 1; background: linear-gradient(transparent 55%, rgba(0, 0, 0, 0.7) 56%); place-content: end center; padding-bottom: 8px; font-size: 13px; }
   .token-hp small { font-size: 10px; }
 }
+
+/* cada rolagem tem sua camada; depois do resultado o dado "se desfaz em luz" no feltro */
+.dice-layer { position: absolute; inset: 0; transition: opacity 0.65s ease-in, filter 0.65s ease-in, transform 0.65s ease-in; transform-origin: 50% 60%; }
+.dice-layer canvas { width: 100% !important; height: 100% !important; display: block; }
+.dice-layer.fading { opacity: 0; filter: blur(4px) brightness(1.9) saturate(0.6); transform: scale(0.965) translateY(4px); }
+@media (prefers-reduced-motion: reduce) { .dice-layer { transition: opacity 0.3s; } .dice-layer.fading { filter: none; transform: none; } }
