@@ -69,7 +69,61 @@ interface DiceBoxLike {
    Works on the library's three.js objects without importing three (classes come from the meshes). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
-function faceCamera(b: DiceBoxLike, ms = 260): Promise<void> {
+/**
+ * Rotation about the line of sight that turns the number on `group` upright on screen.
+ * The number's "up" is read from the face's texture mapping: the 3D direction in which the
+ * texture's v coordinate grows (the bitangent of the triangle).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function uprightTwist(d: Any, group: Any, orientation: Any, toCam: Any, cam: Any, V: Any, Q: Any): Any {
+  const pos = d.geometry.getAttribute('position');
+  const uv = d.geometry.getAttribute('uv');
+  if (!pos || !uv || !group) return null;
+  const s = group.start;
+  const p = [0, 1, 2].map((k) => new V(pos.getX(s + k), pos.getY(s + k), pos.getZ(s + k)));
+  const t = [0, 1, 2].map((k) => [uv.getX(s + k), uv.getY(s + k)]);
+  const e1 = p[1].clone().sub(p[0]), e2 = p[2].clone().sub(p[0]);
+  const du1 = t[1][0] - t[0][0], dv1 = t[1][1] - t[0][1];
+  const du2 = t[2][0] - t[0][0], dv2 = t[2][1] - t[0][1];
+  const det = du1 * dv2 - du2 * dv1;
+  if (Math.abs(det) < 1e-9) return null;
+  // dP/dv: where the top of the printed number points, in the die's own space
+  const textUp = e2.multiplyScalar(du1).sub(e1.multiplyScalar(du2)).divideScalar(det).applyQuaternion(orientation);
+  const screenUp = new V(0, 1, 0).applyQuaternion(cam.quaternion);
+  const a = textUp.projectOnPlane(toCam).normalize();
+  const b = screenUp.projectOnPlane(toCam).normalize();
+  if (!a.lengthSq() || !b.lengthSq()) return null;
+  const angle = Math.atan2(toCam.dot(new V().crossVectors(a, b)), a.dot(b));
+  return new Q().setFromAxisAngle(toCam, angle);
+}
+
+/**
+ * Resolves when every die is at rest. The library's own "finished" check can miss small dice that
+ * are already still, which would hold the result back for seconds; watching the physics bodies
+ * directly answers the moment they stop. Then the library's loop is halted so it cannot undo the
+ * final upright turn.
+ */
+function settled(b: DiceBoxLike, maxMs = 7000): Promise<void> {
+  const box = b as Any;
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    let calm = 0;
+    const tick = setInterval(() => {
+      const dice: Any[] = box.diceList || [];
+      const still = dice.length > 0 && dice.every((d) => d.body && d.body.velocity.length() < 3 && d.body.angularVelocity.length() < 0.1);
+      calm = still ? calm + 1 : 0;
+      const elapsed = performance.now() - t0;
+      if ((calm >= 2 && elapsed > 700) || elapsed > maxMs) {
+        clearInterval(tick);
+        box.running = false; // stops animateThrow on its next frame
+        box.rolling = false;
+        resolve();
+      }
+    }, 100);
+  });
+}
+
+function faceCamera(b: DiceBoxLike, ms = 420): Promise<void> {
   const box = b as Any;
   const dice: Any[] = box.diceList || [];
   const cam = box.camera;
@@ -82,18 +136,26 @@ function faceCamera(b: DiceBoxLike, ms = 260): Promise<void> {
     // (a d4 is read by the face lying on the table, its top corner pointing up)
     const up = new V(0, 0, d.shape === 'd4' ? -1 : 1);
     let best: Any = null;
+    let bestGroup: Any = null;
     let bestAngle = Infinity;
     d.geometry.groups.forEach((g: Any, i: number) => {
       if (g.materialIndex === 0) return;
       const n = new V(normals[i * 9], normals[i * 9 + 1], normals[i * 9 + 2]).applyQuaternion(d.quaternion);
       const a = n.angleTo(up);
-      if (a < bestAngle) { bestAngle = a; best = n; }
+      if (a < bestAngle) { bestAngle = a; best = n; bestGroup = g; }
     });
     if (!best) return null;
     const toCam = cam.position.clone().sub(d.position).normalize();
     const target = d.shape === 'd4' ? toCam.negate() : toCam;
     const turn = new Q().setFromUnitVectors(best.normalize(), target);
-    return { d, from: d.quaternion.clone(), to: new Q().multiplyQuaternions(turn, d.quaternion) };
+    let to = new Q().multiplyQuaternions(turn, d.quaternion);
+    // then spin around the line of sight so the number stands upright on screen
+    // (a d4 shows its numbers on the corners, so it has no single "up" to align)
+    if (d.shape !== 'd4') {
+      const twist = uprightTwist(d, bestGroup, to, toCam, cam, V, Q);
+      if (twist) to = new Q().multiplyQuaternions(twist, to);
+    }
+    return { d, from: d.quaternion.clone(), to };
   }).filter(Boolean) as { d: Any; from: Any; to: Any }[];
   return new Promise((resolve) => {
     const t0 = performance.now();
@@ -240,6 +302,8 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
   useEffect(() => {
     if (!import.meta.env.DEV || !live) return;
     (window as unknown as { __dice?: (r: RollRow) => void }).__dice = (r) => { if (r.id) useReveal.getState().hide(r.id); enqueue(r); };
+    (window as unknown as { __layers?: Layer[] }).__layers = layers.current;
+    (window as unknown as { __faceCamera?: typeof faceCamera }).__faceCamera = faceCamera;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live]);
 
@@ -286,15 +350,16 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
       setFade(i, false);
       if (!tray) { setBadge(null); setVisible(true); }
       if (useDicePrefs.getState().sound) playDiceSound(notation.split('@')[1].split(',').length);
-      // never hang the table if the physics misbehaves
-      await Promise.race([b.roll(notation), sleep(6000)]);
+      // the roll's own promise can lag behind the dice; whichever says "stopped" first wins
+      void b.roll(notation).catch(() => undefined);
+      await settled(b);
       try { await faceCamera(b); } catch { /* cosmetic only */ }
       // the dice have settled: now the chat shows the roll
       done();
       if (tray) {
         setLast({ row, color });
         // a moment to read the dice, then they dissolve into the felt
-        await sleep(LINGER_MS);
+        await sleep(import.meta.env.DEV ? ((window as unknown as { __linger?: number }).__linger ?? LINGER_MS) : LINGER_MS);
         setFade(i, true);
         await sleep(FADE_MS);
         b.clearDice();
