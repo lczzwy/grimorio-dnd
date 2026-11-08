@@ -1,5 +1,7 @@
 # Grimório: fichas de D&D 5e
 
+**Abrir o site: https://lczzwy.github.io/grimorio-dnd/**
+
 Site de fichas de personagem para usar **durante a sessão**, no PC ou no celular. Suporta as duas edições, cada uma com a sua própria lista de personagens:
 
 - **D&D 2014** (SRD 5.1): bônus de atributo vêm da raça, com sub-raças.
