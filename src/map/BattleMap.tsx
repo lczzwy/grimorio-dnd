@@ -21,13 +21,15 @@ type Gesture =
  *   rectangle moves together once, then the selection clears.
  * - Right click (or a long press) on a token opens its menu.
  */
-export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMenu }: {
+export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMenu, snap = false }: {
   map: BattleMapRow;
   tokens: MapToken[];
   setTokens: (f: (t: MapToken[]) => MapToken[]) => void;
   canMove: (t: MapToken) => boolean;
   onMoved: (moves: { id: string; x: number; y: number }[]) => void;
   onTokenMenu?: (t: MapToken, clientX: number, clientY: number) => void;
+  /** fit dropped tokens to the grid squares */
+  snap?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View | null>(null);
@@ -37,6 +39,16 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
   const [rect, setRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const longPress = useRef<number | undefined>(undefined);
+  // the tokens being dragged and how far (picture px); drawn on top of the list without touching it
+  const [drag, setDrag] = useState<{ ids: Set<string>; dx: number; dy: number } | null>(null);
+  // pointer moves are applied once per frame, not once per event
+  const frame = useRef<number | undefined>(undefined);
+  const pending = useRef<(() => void) | null>(null);
+  const perFrame = (f: () => void) => {
+    pending.current = f;
+    if (frame.current) return;
+    frame.current = requestAnimationFrame(() => { frame.current = undefined; const run = pending.current; pending.current = null; run?.(); });
+  };
 
   /** smallest zoom: the picture covers the whole frame */
   const minZ = () => {
@@ -167,17 +179,16 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
     if (!g) return;
     if (Math.hypot(cur.x - prev.x, cur.y - prev.y) > 3) window.clearTimeout(longPress.current);
     if (g.kind === 'pan') {
-      setView((v) => (v ? settle({ ...v, x: v.x + cur.x - g.x, y: v.y + cur.y - g.y }) : v));
+      const dx = cur.x - g.x, dy = cur.y - g.y;
       g.x = cur.x; g.y = cur.y;
+      setView((v) => (v ? settle({ ...v, x: v.x + dx, y: v.y + dy }) : v));
     } else if (g.kind === 'drag') {
       const p = local(e);
       const m = toMap(p.x, p.y);
       const dx = m.x - g.start.x, dy = m.y - g.start.y;
       if (Math.abs(dx) + Math.abs(dy) > 2) g.moved = true;
-      setTokens((list) => list.map((t) => {
-        const f = g.from.get(t.id);
-        return f ? { ...t, x: f.x + dx, y: f.y + dy } : t;
-      }));
+      const ids = new Set(g.ids);
+      perFrame(() => setDrag({ ids, dx, dy }));
     } else {
       const p = local(e);
       g.x1 = p.x; g.y1 = p.y;
@@ -192,17 +203,24 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
     const g = gesture.current;
     gesture.current = null;
     if (!g) return;
-    if (g.kind === 'drag' && g.moved) {
-      const moves: { id: string; x: number; y: number }[] = [];
-      setTokens((list) => list.map((t) => {
-        if (!g.from.has(t.id)) return t;
-        const s = snapToGrid(t.x, t.y, t.size, map);
-        moves.push({ id: t.id, ...s });
-        return { ...t, ...s };
-      }));
+    if (g.kind === 'drag') {
+      if (frame.current) { cancelAnimationFrame(frame.current); frame.current = undefined; pending.current = null; }
+      setDrag(null);
+      if (!g.moved) return;
+      const p = local(e);
+      const m = toMap(p.x, p.y);
+      const dx = m.x - g.start.x, dy = m.y - g.start.y;
+      const sizes = new Map(tokens.map((t) => [t.id, t.size]));
+      const moves = [...g.from].map(([id, f]) => {
+        const free = { x: Math.round(f.x + dx), y: Math.round(f.y + dy) };
+        return { id, ...(snap ? snapToGrid(free.x, free.y, sizes.get(id) ?? 1, map) : free) };
+      });
+      // show the new place at once; the server confirms a moment later
+      const at = new Map(moves.map((mv) => [mv.id, mv]));
+      setTokens((list) => list.map((t) => (at.has(t.id) ? { ...t, x: at.get(t.id)!.x, y: at.get(t.id)!.y } : t)));
       // a group moves once, then it's back to one token at a time
       setSelected(new Set());
-      queueMicrotask(() => onMoved(moves));
+      onMoved(moves);
     } else if (g.kind === 'select') {
       setRect(null);
       const a = toMap(Math.min(g.x0, g.x1), Math.min(g.y0, g.y1));
@@ -259,14 +277,16 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
           )}
           {tokens.map((t) => {
             const d = t.size * g;
+            const off = drag?.ids.has(t.id) ? drag : null;
+            const tx = t.x + (off?.dx ?? 0), ty = t.y + (off?.dy ?? 0);
             // names keep a readable on-screen size whatever the zoom
             const label = 12 / view.z;
             return (
               <div
                 key={t.id}
                 data-token={t.id}
-                className={'tok tok-' + t.color + (t.hidden ? ' hidden' : '') + (selected.has(t.id) ? ' sel' : '') + (canMove(t) ? ' movable' : '')}
-                style={{ left: t.x - d / 2, top: t.y - d / 2, width: d, height: d, ['--ring' as string]: `${Math.max(1.5, 2 / view.z)}px` }}
+                className={'tok tok-' + t.color + (t.hidden ? ' hidden' : '') + (selected.has(t.id) ? ' sel' : '') + (canMove(t) ? ' movable' : '') + (off ? ' dragging' : '')}
+                style={{ left: tx - d / 2, top: ty - d / 2, width: d, height: d, ['--ring' as string]: `${Math.max(1.5, 2 / view.z)}px` }}
                 title={t.name}
               >
                 <div className="tok-face" style={t.image_url ? { backgroundImage: `url(${t.image_url})` } : undefined}>

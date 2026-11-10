@@ -312,3 +312,6 @@ html[data-tablemode] .dice-tray { right: 336px; bottom: 80px; z-index: 30; }
 .tok-pick { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
 .tok-pick.on { border-color: #4fbf6a; }
 .tok-pick-face { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: #3a2f25 center / cover; font-family: var(--font-display); }
+
+.tok.dragging { z-index: 2; cursor: grabbing; }
+.tok.dragging .tok-face { filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6)); }

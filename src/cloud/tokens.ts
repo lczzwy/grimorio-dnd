@@ -30,10 +30,16 @@ export function useMapTokens(campaignId: string, mapId: string | undefined) {
   useEffect(() => {
     if (!mapId) { setTokens([]); return; }
     let alive = true;
+    let seq = 0;
+    let timer: number | undefined;
     const load = async () => {
+      const mine = ++seq;
       const { data } = await supabase.from('map_tokens').select('*').eq('map_id', mapId).order('created_at');
-      if (alive && data) setTokens(data as MapToken[]);
+      // an answer that started before a newer change is stale: drop it instead of jumping back
+      if (alive && data && mine === seq) setTokens(data as MapToken[]);
     };
+    // one refresh after a burst of changes (it also catches a token the GM just hid from players)
+    const later = () => { seq++; window.clearTimeout(timer); timer = window.setTimeout(() => void load(), 700); };
     void load();
     const ch = supabase
       .channel('tokens-' + mapId + '-' + Math.random().toString(36).slice(2, 8))
@@ -41,11 +47,13 @@ export function useMapTokens(campaignId: string, mapId: string | undefined) {
         const row = (p.new && 'id' in p.new ? p.new : p.old) as Partial<MapToken>;
         if (row.map_id && row.map_id !== mapId) return;
         if (p.eventType === 'DELETE') setTokens((t) => t.filter((x) => x.id !== row.id));
-        else void load();
+        else if (p.eventType === 'UPDATE') setTokens((t) => t.map((x) => (x.id === row.id ? { ...x, ...(row as MapToken) } : x)));
+        later();
       })
       .subscribe();
     return () => {
       alive = false;
+      window.clearTimeout(timer);
       void supabase.removeChannel(ch);
     };
   }, [campaignId, mapId]);

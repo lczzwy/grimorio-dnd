@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Hand, CirclePlus } from 'lucide-react';
+import { Hand, CirclePlus, Magnet } from 'lucide-react';
 import { TableDice } from '../dice3d/TableDice';
 import { useCampaignMaps, type BattleMapRow } from '../cloud/maps';
 import { moveTokens, useMapTokens, type MapToken } from '../cloud/tokens';
@@ -23,6 +23,8 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
   const [tokens, setTokens] = useMapTokens(campaignId, active?.id);
   const [tokenForm, setTokenForm] = useState<{ token?: MapToken } | null>(null);
   const [menu, setMenu] = useState<{ token: MapToken; x: number; y: number } | null>(null);
+  const [snap, setSnap] = useState(() => { try { return localStorage.getItem('map-snap') === '1'; } catch { return false; } });
+  const toggleSnap = () => setSnap((v) => { try { localStorage.setItem('map-snap', v ? '0' : '1'); } catch { /* private mode */ } return !v; });
 
   const chars = useParty(members.map((m) => m.character_id).filter((x): x is string => !!x));
   const party: PartyPick[] = members
@@ -50,6 +52,7 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
               canMove={canMove}
               onMoved={onMoved}
               onTokenMenu={isGm ? (token, x, y) => setMenu({ token, x, y }) : undefined}
+              snap={snap}
             />
             {isGm && editing && <GridEditor map={active!} onChange={setDraft} onClose={() => { setEditing(false); setDraft(null); }} />}
           </>
@@ -58,6 +61,7 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
       {active && (
         <nav className="map-tools" aria-label="Ferramentas do mapa">
           <button className="map-tool on" title="Mão: arraste o mapa e os tokens. Botão direito e arrastar seleciona vários." aria-pressed="true"><Hand size={18} /></button>
+          <button className={'map-tool' + (snap ? ' on' : '')} title={snap ? 'Encaixar na grade: ligado' : 'Encaixar na grade: desligado (token fica onde você soltar)'} aria-pressed={snap} aria-label="Encaixar na grade" onClick={toggleSnap}><Magnet size={18} /></button>
           {isGm && <button className="map-tool" title="Novo token" aria-label="Novo token" onClick={() => setTokenForm({})}><CirclePlus size={18} /></button>}
         </nav>
       )}
