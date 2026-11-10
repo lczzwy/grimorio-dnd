@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { storePortrait } from '../cloud/portraits';
-import { Check, ChevronLeft, ChevronRight, Dices, Sparkles, ImagePlus } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Dices, Sparkles, ImagePlus, Axe, Music, Sun, Leaf, Swords, Hand, Shield, Crosshair, Sword, Flame, Eye, BookOpen, Star, type LucideIcon } from 'lucide-react';
 import type { Ability, Character, Edition, SrdData } from '../data/types';
 import { ABILITIES } from '../data/types';
 import { useSrd } from '../data/srd';
@@ -17,10 +17,16 @@ const STEPS = ['Raça', 'Classe', 'Antecedente', 'Atributos', 'Perícias', 'Deta
 const STANDARD = [15, 14, 13, 12, 10, 8];
 const POINT_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
 
-const CLASS_ICON: Record<string, string> = {
-  barbarian: '🪓', bard: '🎻', cleric: '✨', druid: '🌿', fighter: '⚔️', monk: '👊',
-  paladin: '🛡️', ranger: '🏹', rogue: '🗡️', sorcerer: '🔥', warlock: '👁️', wizard: '📜',
+const CLASS_ICON: Record<string, LucideIcon> = {
+  barbarian: Axe, bard: Music, cleric: Sun, druid: Leaf, fighter: Swords, monk: Hand,
+  paladin: Shield, ranger: Crosshair, rogue: Sword, sorcerer: Flame, warlock: Eye, wizard: BookOpen,
 };
+
+/** Engraved line icon of a class (homebrew classes get a star). */
+function ClassIcon({ id, size }: { id: string; size: number }) {
+  const Ic = CLASS_ICON[id] || Star;
+  return <Ic size={size} strokeWidth={1.5} style={{ verticalAlign: '-3px' }} aria-hidden />;
+}
 
 export async function fileToPortrait(file: File): Promise<string> {
   const img = new Image();
@@ -209,7 +215,7 @@ export function Creator({ edition }: { edition: Edition }) {
               {srd.classes.map((k) => (
                 <button key={k.id} className={'choice' + (c.classes[0]?.classId === k.id ? ' on' : '')} onClick={() => upd((d) => { d.classes = [{ classId: k.id, level: 1 }]; d.skills = {}; })}>
                   {c.classes[0]?.classId === k.id && <Check className="chk" size={18} />}
-                  <div className="ic">{CLASS_ICON[k.id] || '⭐'}</div>
+                  <div className="ic"><ClassIcon id={k.id} size={26} /></div>
                   <div className="ct">{className(k.id, srd)}</div>
                   <div className="cs">d{k.hitDie} · {k.saves.map((a) => ABILITY_PT[a].short).join('/')}{k.custom ? ' · homebrew' : ''}</div>
                 </button>
@@ -225,7 +231,7 @@ export function Creator({ edition }: { edition: Edition }) {
           <div className="panel">
             {!cls ? <div className="empty">Escolha uma classe.</div> : (
               <div className="col">
-                <h2>{CLASS_ICON[cls.id]} {className(cls.id, srd)} <span className="faint small">({cls.name})</span></h2>
+                <h2><ClassIcon id={cls.id} size={20} /> {className(cls.id, srd)} <span className="faint small">({cls.name})</span></h2>
                 <div className="row wrap">
                   <span className="tag accent">Dado de Vida d{cls.hitDie}</span>
                   <span className="tag">Salvaguardas: {cls.saves.map((a) => ABILITY_PT[a].name).join(', ')}</span>

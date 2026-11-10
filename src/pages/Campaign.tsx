@@ -14,6 +14,7 @@ import { BestiaryTab } from './campaign/BestiaryTab';
 import { TableDice } from '../dice3d/TableDice';
 import { useToastQuiet } from '../ui/Dice';
 import { InitiativeBar } from './campaign/InitiativeBar';
+import { FirstSteps } from './campaign/FirstSteps';
 import { useTable } from '../cloud/rolls';
 
 export interface CampaignProps { campaign: CampaignT; members: Member[]; isGm: boolean; uid: string }
@@ -100,6 +101,7 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
   );
   const content = (
     <>
+      <FirstSteps {...props} />
       <TableDice campaignId={campaign.id} variant="tray" />
       <InitiativeBar {...props} />
       {body ? body(props) : <div className="panel empty">Em construção.</div>}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Trash2, X } from 'lucide-react';
+import { Trash2, X, Lock, Eye, Zap, Skull } from 'lucide-react';
 import { useDice } from '../store';
 import { D20Icon } from './ui';
 import { parseDice } from '../engine/dice';
@@ -16,7 +16,7 @@ export function AdvToggle() {
     <span className="adv-toggle" title="Vale para a próxima rolagem de d20">
       {table && (
         <button className={table.hidden ? 'on dis' : ''} onClick={() => setHidden(!table.hidden)} title={table.hidden ? (table.isGm ? 'Rolagens escondidas da mesa' : 'Só você e o mestre veem') : 'A mesa vê suas rolagens'}>
-          {table.hidden ? '🔒 Oculta' : '👁 Mesa'}
+          {table.hidden ? <><Lock size={12} /> Oculta</> : <><Eye size={12} /> Mesa</>}
         </button>
       )}
       <button className={'adv' + (mode === 'adv' ? ' on' : '')} onClick={() => setMode(mode === 'adv' ? 'normal' : 'adv')}>VAN</button>
@@ -44,8 +44,8 @@ export function RollToast() {
           {current.dropped && <span className="faint"> (descartado {current.dropped.join(', ')})</span>}
           {current.mode && current.mode !== 'normal' && <span className={current.mode === 'adv' ? 'tag good' : 'tag bad'} style={{ marginLeft: 6 }}>{current.mode === 'adv' ? 'vantagem' : 'desvantagem'}</span>}
         </div>
-        {current.kind === 'crit' && <div className="tiny" style={{ color: 'var(--gold)', marginTop: 3 }}>⚡ 20 natural!</div>}
-        {current.kind === 'fumble' && <div className="tiny" style={{ color: 'var(--bad)', marginTop: 3 }}>💀 1 natural…</div>}
+        {current.kind === 'crit' && <div className="tiny" style={{ color: 'var(--gold)', marginTop: 3 }}><Zap size={11} style={{ verticalAlign: '-2px' }} /> 20 natural!</div>}
+        {current.kind === 'fumble' && <div className="tiny" style={{ color: 'var(--bad)', marginTop: 3 }}><Skull size={11} style={{ verticalAlign: '-2px' }} /> 1 natural</div>}
       </div>
       <div className="total">{current.total}</div>
     </div>

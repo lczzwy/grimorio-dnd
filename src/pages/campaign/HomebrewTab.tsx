@@ -29,7 +29,7 @@ export function HomebrewTab({ campaign, isGm, uid }: CampaignProps) {
   return (
     <div className="col" style={{ gap: 14 }}>
       <div className="panel row wrap">
-        <div className="grow small muted">Conteúdo publicado aqui vale para todos os membros desta campanha: aparece nas fichas em jogo e nos cards da mesa. Fica só nesta campanha, nunca no site público.</div>
+        <div className="grow small muted">O que você publica aqui vale para todos desta campanha e aparece nas fichas em jogo. Não vai para o site público.</div>
         <button className="btn sm" onClick={async () => { const f = await pickFile('.json'); if (f) try { await publish(JSON.parse(await f.text())); } catch (e) { alert('JSON inválido: ' + (e as Error).message); } }}><Upload size={14} /> Publicar pacote</button>
         <button className="btn sm" onClick={() => setPaste('')}><ClipboardPaste size={14} /> Colar JSON</button>
         <button className="btn sm primary" disabled={!mineCount} onClick={() => publish(mine)} title="Publica o homebrew deste navegador">Publicar meu homebrew ({mineCount})</button>

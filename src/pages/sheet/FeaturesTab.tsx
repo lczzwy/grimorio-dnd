@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronRight, Plus, Trash2, ArrowUpCircle, Dices } from 'lucide-react';
+import { ChevronRight, Plus, Trash2, ArrowUpCircle, Dices, Star } from 'lucide-react';
 import type { Ability, Character, FeatDef } from '../../data/types';
 import { ABILITIES } from '../../data/types';
 import { useDice } from '../../store';
@@ -215,7 +215,7 @@ export function LevelUpModal({ c, srd, upd, onClose, onDone }: SheetProps & { on
       d.hp.current = Math.min(after, d.hp.current + (after - before));
     });
     const asiText = Object.entries(asiPlan).filter(([, n]) => n).map(([a, n]) => `${ABILITY_PT[a as Ability].short} +${n}`).join(', ');
-    onDone(`🎉 ${c.name} agora é nível ${total}! +${after - before} PV${asiText ? ` · ${asiText}` : ''}${hasAsi && asiMode === 'feat' && asiFeat ? ` · talento ${srd.feats.find((f) => f.id === asiFeat)?.name}` : ''}`);
+    onDone(`${c.name} agora é nível ${total}! +${after - before} PV${asiText ? ` · ${asiText}` : ''}${hasAsi && asiMode === 'feat' && asiFeat ? ` · talento ${srd.feats.find((f) => f.id === asiFeat)?.name}` : ''}`);
   };
 
   return (
@@ -268,7 +268,7 @@ export function LevelUpModal({ c, srd, upd, onClose, onDone }: SheetProps & { on
         {!(row?.features || []).length && !subFeatures.length && <div className="small faint">Nenhuma característica nova listada neste nível.</div>}
         {hasAsi && (
           <div className="panel col" style={{ borderColor: 'var(--gold)' }}>
-            <div className="row"><span className="grow" style={{ fontWeight: 700 }}>⭐ Aumento de Atributo</span>
+            <div className="row"><span className="grow" style={{ fontWeight: 700 }}><Star size={14} style={{ verticalAlign: '-2px' }} /> Aumento de Atributo</span>
               <div className="seg">
                 <button className={asiMode === 'plus2' ? 'on' : ''} onClick={() => setAsiMode('plus2')}>+2 em um</button>
                 <button className={asiMode === 'split' ? 'on' : ''} onClick={() => setAsiMode('split')}>+1 em dois</button>

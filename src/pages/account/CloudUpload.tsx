@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CloudUpload as CloudIcon, Check } from 'lucide-react';
+import { CloudUpload as CloudIcon, Check, Cloud } from 'lucide-react';
 import { useApp } from '../../store';
 import { uploadAll } from '../../cloud/sync';
 import { useFlash } from '../../ui/ui';
@@ -14,7 +14,7 @@ export function CloudUpload() {
 
   return (
     <div className="panel col" style={{ marginTop: 16 }}>
-      <h3>☁️ Fichas na nuvem</h3>
+      <h3><Cloud size={17} style={{ verticalAlign: '-2px' }} /> Fichas na nuvem</h3>
       <div className="small muted">{synced} sincronizada(s) com a sua conta · {localOnly.length} só neste navegador</div>
       {localOnly.length > 0 ? (
         <>

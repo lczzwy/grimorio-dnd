@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Heart, HeartCrack, Shield, Plus, Trash2, Skull, Dices, Zap, Minus, Brain } from 'lucide-react';
+import { Heart, HeartCrack, Shield, Plus, Trash2, Skull, Dices, Zap, Minus, Brain, Pencil, Flame, Coffee, Moon } from 'lucide-react';
 import type { CustomAttack } from '../../data/types';
 import { ABILITIES } from '../../data/types';
 import { useDice } from '../../store';
@@ -171,7 +171,7 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
             </div>
           </div>
           {c.deathSaves.success >= 3 && <div className="tag good" style={{ marginTop: 10 }}>Estável</div>}
-          {c.deathSaves.fail >= 3 && <div className="tag bad" style={{ marginTop: 10 }}>Morto… 💀</div>}
+          {c.deathSaves.fail >= 3 && <div className="tag bad" style={{ marginTop: 10 }}><Skull size={12} /> Morto</div>}
         </div>
 
         {/* hit dice */}
@@ -248,12 +248,12 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
                   {a.damage}
                 </button>
                 {a.altDamage && <button className="roll-chip" title="Duas mãos" onClick={() => roll(`${who}: ${a.name} (2 mãos)`, a.altDamage!)}>{a.altDamage}</button>}
-                <button className="btn icon sm ghost" title="Crítico" onClick={() => roll(`${who}: ${a.name} CRÍTICO`, a.damage, { crit: true })}>💥</button>
-                {a.custom && <button className="btn icon sm ghost" onClick={() => setAtkEdit(c.attacks.find((x) => x.uid === a.uid) || null)}>✎</button>}
+                <button className="btn icon sm ghost" title="Crítico" onClick={() => roll(`${who}: ${a.name} CRÍTICO`, a.damage, { crit: true })}><Flame size={14} /></button>
+                {a.custom && <button className="btn icon sm ghost" title="Editar ataque" onClick={() => setAtkEdit(c.attacks.find((x) => x.uid === a.uid) || null)}><Pencil size={13} /></button>}
               </div>
             </div>
           ))}
-          <p className="small faint" style={{ margin: '6px 0 0' }}>⚡ rola o acerto e já rola o dano (no 20 natural, dano crítico automático; Shift+clique rola só o acerto). Armas equipadas no Inventário aparecem aqui sozinhas.</p>
+          <p className="small faint" style={{ margin: '6px 0 0' }}><Zap size={11} style={{ verticalAlign: '-2px' }} /> rola o acerto e o dano juntos (no 20 natural o dano já sai crítico). Shift+clique rola só o acerto. Armas equipadas no Inventário aparecem aqui.</p>
         </div>
 
         {/* resources */}
@@ -401,7 +401,7 @@ export function RestModal({ c, srd, upd, kind, onClose, onDone }: SheetProps & {
   };
 
   return (
-    <Modal title={kind === 'short' ? '☕ Descanso curto' : '🌙 Descanso longo'} onClose={onClose}
+    <Modal title={kind === 'short' ? 'Descanso curto' : 'Descanso longo'} icon={kind === 'short' ? <Coffee size={18} /> : <Moon size={18} />} onClose={onClose}
       footer={<><button className="btn" onClick={onClose}>Cancelar</button><button className="btn primary" onClick={doRest}>Descansar</button></>}>
       {kind === 'short' ? (
         <div className="col">

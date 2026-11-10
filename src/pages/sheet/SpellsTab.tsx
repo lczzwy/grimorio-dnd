@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Search, Trash2, Wand2, Check, Brain } from 'lucide-react';
+import { Plus, Search, Trash2, Wand2, Check, Brain, Dices, BookOpen } from 'lucide-react';
 import type { Character, SpellDef, SrdData } from '../../data/types';
 import { useDice } from '../../store';
 import { ABILITY_PT, SCHOOL_PT, className, spellAttack, spellLimits, spellSaveDc, spellSlots, spellcastingClasses, totalLevel } from '../../engine/rules';
@@ -56,7 +56,7 @@ export function SpellCard({ sp, srd, c, actions }: { sp: SpellDef; srd: SrdData;
       <div className="row wrap">
         {sp.save && <span className="tag">Salvaguarda: {ABILITY_PT[sp.save]?.name || sp.save}</span>}
         {sp.attack && <span className="tag">Ataque {sp.attack === 'melee' ? 'corpo a corpo' : 'à distância'}</span>}
-        {clean && <button className="roll-chip" onClick={() => roll(`${sp.name} (${dice!.kind})`, clean)}>🎲 {dice!.formula} {sp.dmgType || ''}</button>}
+        {clean && <button className="roll-chip" onClick={() => roll(`${sp.name} (${dice!.kind})`, clean)}><Dices size={13} /> {dice!.formula} {sp.dmgType || ''}</button>}
         {actions}
       </div>
     </div>
@@ -243,7 +243,7 @@ export function SpellsTab({ c, srd, upd }: SheetProps) {
         <Modal title={`Conjurar ${cast.name}`} onClose={() => setCast(null)}>
           <div className="col">
             <p className="muted" style={{ margin: 0 }}>Escolha o espaço de magia a gastar:</p>
-            {cast.ritual && <button className="btn" onClick={() => { upd((d) => cast.conc && (d.concentration = cast.id)); flash(`${cast.name} conjurada como ritual (+10 min)`); setCast(null); }}>📿 Como ritual (sem gastar espaço)</button>}
+            {cast.ritual && <button className="btn" onClick={() => { upd((d) => cast.conc && (d.concentration = cast.id)); flash(`${cast.name} conjurada como ritual (+10 min)`); setCast(null); }}><BookOpen size={15} /> Como ritual (sem gastar espaço)</button>}
             <div className="row wrap">
               {slots.map((n, i) => i + 1 >= cast.level && n > 0 && (
                 <button key={i} className="btn" disabled={n - c.slotsUsed[i] <= 0} onClick={() => doCast(cast, i + 1, false)}>{i + 1}º círculo ({n - c.slotsUsed[i]})</button>

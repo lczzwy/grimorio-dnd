@@ -115,7 +115,7 @@ export function CombatTab({ campaign, members, isGm }: CampaignProps) {
                     <span className="tag" style={{ color: BAND_COLOR[hp.band] }}>{BAND_LABEL[hp.band]}{hp.text ? ` · ${hp.text}` : ''}</span>
                     {isGm && secrets[c.id]?.ac != null && <span className="tag">CA {secrets[c.id].ac}</span>}
                     {c.conditions.map((x) => <span key={x} className="cond on" style={{ padding: '2px 8px' }}>{CONDITION_PT[x] || x}</span>)}
-                    {shownEffects.map((e) => <span key={e.id} className={'tag ' + (e.kind === 'buff' ? 'good' : 'bad')}>{e.name}{e.rounds != null ? ` (${e.rounds})` : ''}{!e.visible ? ' 👁‍🗨' : ''}</span>)}
+                    {shownEffects.map((e) => <span key={e.id} className={'tag ' + (e.kind === 'buff' ? 'good' : 'bad')}>{e.name}{e.rounds != null ? ` (${e.rounds})` : ''}{!e.visible && <EyeOff size={11} style={{ marginLeft: 4, verticalAlign: '-1px' }} aria-label="secreto" />}</span>)}
                   </div>
                 </div>
                 <div className="center" style={{ minWidth: 56 }}>

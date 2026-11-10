@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Copy, RefreshCw, UserMinus, LogOut, Trash2, Crown, Cloud } from 'lucide-react';
 import { useApp } from '../../store';
-import { deleteCampaign, regenerateInvite, removeMember, renameCampaign, setMyCharacter } from '../../cloud/campaigns';
+import { deleteCampaign, regenerateInvite, removeMember, renameCampaign } from '../../cloud/campaigns';
+import { bringCharacter } from '../../cloud/campaignCharacter';
 import { inviteLink } from '../../cloud/campaignText';
-import { uploader } from '../../cloud/sync';
 import { classSummary } from '../../engine/rules';
 import { go, useFlash } from '../../ui/ui';
 import type { CampaignProps } from '../Campaign';
@@ -19,14 +19,7 @@ export function SettingsTab({ campaign, members, isGm, uid }: CampaignProps) {
 
   const choose = async (characterId: string | null) => {
     try {
-      if (characterId) {
-        const c = chars.find((x) => x.id === characterId)!;
-        // the campaign reads the online copy: make sure it exists first
-        if (!c.cloud) useApp.getState().updateCharacter(c.id, (d) => (d.cloud = true));
-        uploader.schedule({ ...useApp.getState().characters.find((x) => x.id === characterId)!, cloud: true });
-        await uploader.flush();
-      }
-      await setMyCharacter(campaign.id, characterId);
+      await bringCharacter(campaign.id, characterId);
       flash(characterId ? 'Personagem escolhido!' : 'Personagem removido da campanha');
     } catch (e) {
       alert((e as Error).message);
@@ -49,7 +42,7 @@ export function SettingsTab({ campaign, members, isGm, uid }: CampaignProps) {
                 </button>
               ))}
             </div>
-            <div className="small faint">Ao escolher, a ficha vai para a nuvem e o mestre passa a ver ela ao vivo.</div>
+            <div className="small faint">Ao escolher, o mestre passa a ver sua ficha ao vivo.</div>
           </div>
         )}
         <div className="panel col">

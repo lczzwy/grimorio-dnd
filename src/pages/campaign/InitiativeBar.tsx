@@ -102,7 +102,7 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
           ))}
         </ol>
       ) : (
-        isGm && <div className="tiny muted" style={{ padding: '2px 2px 4px' }}>Clique em <b>Pedir iniciativa</b> para os jogadores rolarem, e em <b>Criatura</b> para colocar inimigos.</div>
+        isGm && <div className="tiny muted" style={{ padding: '2px 2px 4px' }}><b>Pedir iniciativa</b> chama os jogadores para rolar; <b>Criatura</b> coloca inimigos na ordem.</div>
       )}
 
       {adding && <AddEnemy campaignId={campaign.id} edition={campaign.edition} onClose={() => setAdding(false)} onAdded={() => void reloadSecrets()} />}

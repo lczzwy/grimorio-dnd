@@ -87,8 +87,8 @@ export function ItemDetail({ x }: { x: EquipmentDef | MagicItemDef }) {
         {e.cost && <span className="tag">{e.cost}</span>}
         {e.weight != null && <span className="tag">{e.weight} lb</span>}
       </div>
-      {e.weapon && <div className="small">⚔️ <b>{e.weapon.dmg} {e.weapon.type}</b> · {e.weapon.cat} {e.weapon.range}{e.weapon.props?.length ? ' · ' + e.weapon.props.join(', ') : ''}{e.weapon.twoHanded ? ` · 2 mãos ${e.weapon.twoHanded}` : ''}{e.weapon.normal && e.weapon.range === 'Ranged' ? ` · ${e.weapon.normal}/${e.weapon.long} ft` : ''}{e.weapon.mastery ? ` · Maestria: ${e.weapon.mastery}` : ''}</div>}
-      {e.armor && <div className="small">🛡️ <b>CA {e.armor.cat === 'Shield' ? '+' : ''}{e.armor.base}{e.armor.dex ? (e.armor.max ? ` + DES (máx ${e.armor.max})` : ' + DES') : ''}</b> · {e.armor.cat}{e.armor.str ? ` · FOR ${e.armor.str}` : ''}{e.armor.stealth ? ' · desvantagem em Furtividade' : ''}</div>}
+      {e.weapon && <div className="small"><Sword size={12} style={{ verticalAlign: '-2px' }} /> <b>{e.weapon.dmg} {e.weapon.type}</b> · {e.weapon.cat} {e.weapon.range}{e.weapon.props?.length ? ' · ' + e.weapon.props.join(', ') : ''}{e.weapon.twoHanded ? ` · 2 mãos ${e.weapon.twoHanded}` : ''}{e.weapon.normal && e.weapon.range === 'Ranged' ? ` · ${e.weapon.normal}/${e.weapon.long} ft` : ''}{e.weapon.mastery ? ` · Maestria: ${e.weapon.mastery}` : ''}</div>}
+      {e.armor && <div className="small"><Shield size={12} style={{ verticalAlign: '-2px' }} /> <b>CA {e.armor.cat === 'Shield' ? '+' : ''}{e.armor.base}{e.armor.dex ? (e.armor.max ? ` + DES (máx ${e.armor.max})` : ' + DES') : ''}</b> · {e.armor.cat}{e.armor.str ? ` · FOR ${e.armor.str}` : ''}{e.armor.stealth ? ' · desvantagem em Furtividade' : ''}</div>}
       <Markdown text={x.desc} />
     </div>
   );

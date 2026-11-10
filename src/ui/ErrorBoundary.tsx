@@ -26,7 +26,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error?: 
     return (
       <main className="page" style={{ maxWidth: 640 }}>
         <div className="panel col" style={{ marginTop: 40 }}>
-          <h2>Algo deu errado nesta tela 😵</h2>
+          <h2>Algo deu errado nesta tela</h2>
           <p className="muted" style={{ margin: 0 }}>Suas fichas continuam salvas neste navegador. O erro já foi registrado para quem cuida do site. Tente voltar ao início; se continuar, baixe um backup das fichas.</p>
           <pre className="small" style={{ whiteSpace: 'pre-wrap', background: 'var(--bg-2)', padding: 10, borderRadius: 8, color: 'var(--bad)' }}>{this.state.error.message}</pre>
           <div className="row wrap">

@@ -15,7 +15,8 @@ export function Invite({ code }: { code: string }) {
       return;
     }
     joinCampaign(code)
-      .then((id) => go('campanha/' + id + '/ajustes'))
+      // the table itself asks the newcomer to pick a character (FirstSteps)
+      .then((id) => go('campanha/' + id + '/mesa'))
       .catch((e) => setError((e as Error).message));
   }, [user, loading, code]);
 

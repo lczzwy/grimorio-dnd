@@ -7,7 +7,7 @@ import type { CampaignProps } from '../Campaign';
 export function MySheetTab({ campaign, members, uid }: CampaignProps) {
   const me = members.find((m) => m.user_id === uid);
   const has = useApp((s) => s.characters.some((c) => c.id === me?.character_id));
-  if (!me?.character_id) return <div className="panel empty">Você ainda não escolheu um personagem. <button className="btn sm" onClick={() => go(`campanha/${campaign.id}/ajustes`)}>Escolher em Ajustes</button></div>;
+  if (!me?.character_id) return <div className="panel empty">Você ainda não escolheu um personagem. <button className="btn sm" onClick={() => go(`campanha/${campaign.id}/mesa`)}>Escolher na Mesa</button></div>;
   if (!has) return <div className="panel empty">A ficha está sendo baixada da sua conta…</div>;
   return <Sheet edition={campaign.edition} id={me.character_id} campaignId={campaign.id} />;
 }

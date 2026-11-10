@@ -45,7 +45,7 @@ export function TableTab({ campaign, members, isGm, uid }: CampaignProps) {
 
   return (
     <div className="col" style={{ gap: 14 }}>
-      {players.length === 0 && <div className="panel empty">Nenhum jogador ainda. Mande o link de convite (aba Ajustes).</div>}
+      {players.length === 0 && !isGm && <div className="panel empty">Os outros jogadores aparecem aqui quando entrarem.</div>}
       <div className="party-tokens">
         {players.map((m) => {
           const c = m.character_id ? chars[m.character_id] : undefined;
@@ -78,7 +78,7 @@ export function TableTab({ campaign, members, isGm, uid }: CampaignProps) {
           );
         })}
       </div>
-      {isGm && players.some((m) => m.character_id && chars[m.character_id]) && <div className="tiny muted">Clique num personagem para ver a ficha, aplicar dano, cura ou condições.</div>}
+      {isGm && players.some((m) => m.character_id && chars[m.character_id]) && <div className="tiny muted">Clique num personagem para ver a ficha e aplicar dano, cura ou condições.</div>}
 
       {view && chars[view] && (
         <Modal wide title={chars[view].name} onClose={() => setView(null)}>
