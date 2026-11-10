@@ -1,20 +1,42 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Maximize, Minus, Plus } from 'lucide-react';
 import type { BattleMapRow } from '../cloud/maps';
+import { snapToGrid, type MapToken } from '../cloud/tokens';
 
 interface View { x: number; y: number; z: number }
 const MAX_ZOOM = 6; // times the fitted size
+const LONG_PRESS_MS = 550;
+
+type Gesture =
+  | { kind: 'pan'; x: number; y: number }
+  | { kind: 'drag'; ids: string[]; start: { x: number; y: number }; from: Map<string, { x: number; y: number }>; moved: boolean }
+  | { kind: 'select'; x0: number; y0: number; x1: number; y1: number };
 
 /**
- * The battle map under the dice: the GM's square crop, filling the square frame, with its grid on top.
- * Each person zooms in (wheel, pinch or the buttons) and pans around on their own screen, but the
- * picture never leaves the frame and never gets smaller than it: the crop stays where the GM set it.
+ * The battle map under the dice: the GM's square crop, filling the square frame, with its grid
+ * and the tokens on top.
+ * - Left drag on the map pans (once zoomed in); wheel, pinch or the buttons zoom. Each person's
+ *   view is their own, and the picture never leaves the frame.
+ * - Left drag on a token moves it (snapping to the grid); a group picked with a right-drag
+ *   rectangle moves together once, then the selection clears.
+ * - Right click (or a long press) on a token opens its menu.
  */
-export function BattleMap({ map }: { map: BattleMapRow }) {
+export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMenu }: {
+  map: BattleMapRow;
+  tokens: MapToken[];
+  setTokens: (f: (t: MapToken[]) => MapToken[]) => void;
+  canMove: (t: MapToken) => boolean;
+  onMoved: (moves: { id: string; x: number; y: number }[]) => void;
+  onTokenMenu?: (t: MapToken, clientX: number, clientY: number) => void;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View | null>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ d: number; z: number } | null>(null);
+  const gesture = useRef<Gesture | null>(null);
+  const [rect, setRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const longPress = useRef<number | undefined>(undefined);
 
   /** smallest zoom: the picture covers the whole frame */
   const minZ = () => {
@@ -72,15 +94,62 @@ export function BattleMap({ map }: { map: BattleMapRow }) {
     return () => el.removeEventListener('wheel', onWheel);
   }); // re-bound each render so it always uses the current map size
 
+  // Esc drops the selection
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelected(new Set()); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, []);
+
+  /** screen point (relative to the frame) to picture pixels */
+  const toMap = (sx: number, sy: number) => (view ? { x: (sx - view.x) / view.z, y: (sy - view.y) / view.z } : { x: 0, y: 0 });
+  const local = (e: { clientX: number; clientY: number }) => {
+    const r = box.current!.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+
   const onDown = (e: React.PointerEvent) => {
-    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const mouse = e.pointerType === 'mouse';
+    if (mouse && e.button !== 0 && e.button !== 2) return;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    window.clearTimeout(longPress.current);
     if (pointers.current.size === 2) {
+      gesture.current = null;
+      setRect(null);
       const [a, b] = [...pointers.current.values()];
       pinch.current = { d: Math.hypot(a.x - b.x, a.y - b.y), z: view?.z ?? 1 };
+      return;
+    }
+    const p = local(e);
+    const tokenEl = (e.target as HTMLElement).closest<HTMLElement>('[data-token]');
+    const tok = tokenEl ? tokens.find((t) => t.id === tokenEl.dataset.token) : undefined;
+
+    if (mouse && e.button === 2) {
+      // right button: on a token the menu opens (contextmenu event); on the map, a selection box
+      if (!tok) gesture.current = { kind: 'select', x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+      return;
+    }
+    if (tok && canMove(tok)) {
+      const ids = selected.has(tok.id) ? [...selected] : [tok.id];
+      if (!selected.has(tok.id)) setSelected(new Set());
+      const from = new Map(tokens.filter((t) => ids.includes(t.id)).map((t) => [t.id, { x: t.x, y: t.y }]));
+      gesture.current = { kind: 'drag', ids, start: toMap(p.x, p.y), from, moved: false };
+    } else {
+      gesture.current = { kind: 'pan', x: e.clientX, y: e.clientY };
+    }
+    // touch: holding a finger on a token opens its menu
+    if (tok && !mouse && onTokenMenu) {
+      const cx = e.clientX, cy = e.clientY;
+      longPress.current = window.setTimeout(() => {
+        const g = gesture.current;
+        if (g?.kind === 'drag' && g.moved) return;
+        gesture.current = null;
+        onTokenMenu(tok, cx, cy);
+      }, LONG_PRESS_MS);
     }
   };
+
   const onMove = (e: React.PointerEvent) => {
     const prev = pointers.current.get(e.pointerId);
     if (!prev) return;
@@ -94,13 +163,57 @@ export function BattleMap({ map }: { map: BattleMapRow }) {
       zoomAt(target / (view?.z ?? 1), (a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top);
       return;
     }
-    setView((v) => (v ? settle({ ...v, x: v.x + cur.x - prev.x, y: v.y + cur.y - prev.y }) : v));
+    const g = gesture.current;
+    if (!g) return;
+    if (Math.hypot(cur.x - prev.x, cur.y - prev.y) > 3) window.clearTimeout(longPress.current);
+    if (g.kind === 'pan') {
+      setView((v) => (v ? settle({ ...v, x: v.x + cur.x - g.x, y: v.y + cur.y - g.y }) : v));
+      g.x = cur.x; g.y = cur.y;
+    } else if (g.kind === 'drag') {
+      const p = local(e);
+      const m = toMap(p.x, p.y);
+      const dx = m.x - g.start.x, dy = m.y - g.start.y;
+      if (Math.abs(dx) + Math.abs(dy) > 2) g.moved = true;
+      setTokens((list) => list.map((t) => {
+        const f = g.from.get(t.id);
+        return f ? { ...t, x: f.x + dx, y: f.y + dy } : t;
+      }));
+    } else {
+      const p = local(e);
+      g.x1 = p.x; g.y1 = p.y;
+      setRect({ x: Math.min(g.x0, g.x1), y: Math.min(g.y0, g.y1), w: Math.abs(g.x1 - g.x0), h: Math.abs(g.y1 - g.y0) });
+    }
   };
+
   const onUp = (e: React.PointerEvent) => {
     pointers.current.delete(e.pointerId);
+    window.clearTimeout(longPress.current);
     if (pointers.current.size < 2) pinch.current = null;
+    const g = gesture.current;
+    gesture.current = null;
+    if (!g) return;
+    if (g.kind === 'drag' && g.moved) {
+      const moves: { id: string; x: number; y: number }[] = [];
+      setTokens((list) => list.map((t) => {
+        if (!g.from.has(t.id)) return t;
+        const s = snapToGrid(t.x, t.y, t.size, map);
+        moves.push({ id: t.id, ...s });
+        return { ...t, ...s };
+      }));
+      // a group moves once, then it's back to one token at a time
+      setSelected(new Set());
+      queueMicrotask(() => onMoved(moves));
+    } else if (g.kind === 'select') {
+      setRect(null);
+      const a = toMap(Math.min(g.x0, g.x1), Math.min(g.y0, g.y1));
+      const b = toMap(Math.max(g.x0, g.x1), Math.max(g.y0, g.y1));
+      if (Math.abs(g.x1 - g.x0) < 4 && Math.abs(g.y1 - g.y0) < 4) { setSelected(new Set()); return; }
+      setSelected(new Set(tokens.filter((t) => canMove(t) && t.x >= a.x && t.x <= b.x && t.y >= a.y && t.y <= b.y).map((t) => t.id)));
+    }
   };
+
   const onKey = (e: React.KeyboardEvent) => {
+    if (e.target !== e.currentTarget) return;
     const step = 60;
     const moves: Record<string, [number, number]> = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
     if (moves[e.key]) { e.preventDefault(); const [dx, dy] = moves[e.key]; setView((v) => (v ? settle({ ...v, x: v.x + dx, y: v.y + dy }) : v)); }
@@ -116,13 +229,19 @@ export function BattleMap({ map }: { map: BattleMapRow }) {
       ref={box}
       className="bmap"
       tabIndex={0}
-      role="img"
-      aria-label={`Mapa ${map.name}. Arraste para mover, use a roda do mouse ou as setas e + e − para aproximar.`}
+      role="application"
+      aria-label={`Mapa ${map.name}. Arraste para mover o mapa ou um token; botão direito e arrastar seleciona vários tokens.`}
       onPointerDown={onDown}
       onPointerMove={onMove}
       onPointerUp={onUp}
       onPointerCancel={onUp}
       onKeyDown={onKey}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        const el = (e.target as HTMLElement).closest<HTMLElement>('[data-token]');
+        const tok = el && tokens.find((t) => t.id === el.dataset.token);
+        if (tok && onTokenMenu) onTokenMenu(tok, e.clientX, e.clientY);
+      }}
     >
       {view && (
         <div className="bmap-stage" style={{ width: map.width, height: map.height, transform: `translate(${view.x}px, ${view.y}px) scale(${view.z})` }}>
@@ -138,8 +257,29 @@ export function BattleMap({ map }: { map: BattleMapRow }) {
               <rect width="100%" height="100%" fill={`url(#${patId})`} />
             </svg>
           )}
+          {tokens.map((t) => {
+            const d = t.size * g;
+            // names keep a readable on-screen size whatever the zoom
+            const label = 12 / view.z;
+            return (
+              <div
+                key={t.id}
+                data-token={t.id}
+                className={'tok tok-' + t.color + (t.hidden ? ' hidden' : '') + (selected.has(t.id) ? ' sel' : '') + (canMove(t) ? ' movable' : '')}
+                style={{ left: t.x - d / 2, top: t.y - d / 2, width: d, height: d, ['--ring' as string]: `${Math.max(1.5, 2 / view.z)}px` }}
+                title={t.name}
+              >
+                <div className="tok-face" style={t.image_url ? { backgroundImage: `url(${t.image_url})` } : undefined}>
+                  {!t.image_url && <span style={{ fontSize: d * 0.42 }}>{(t.name || '?').trim().charAt(0).toUpperCase()}</span>}
+                </div>
+                {t.name && <span className="tok-name" style={{ fontSize: label }}>{t.name}</span>}
+              </div>
+            );
+          })}
         </div>
       )}
+      {rect && <div className="bmap-select" style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }} />}
+      {selected.size > 0 && <div className="bmap-hint">{selected.size} selecionado{selected.size > 1 ? 's' : ''}: arraste um deles para mover o grupo (Esc cancela)</div>}
       <div className="bmap-zoom" onPointerDown={(e) => e.stopPropagation()}>
         <button className="btn icon sm" aria-label="Aproximar" title="Aproximar" onClick={() => zoomAt(1.25)}><Plus size={14} /></button>
         <button className="btn icon sm" aria-label="Afastar" title="Afastar" onClick={() => zoomAt(0.8)}><Minus size={14} /></button>

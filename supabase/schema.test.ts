@@ -525,3 +525,28 @@ describe('phase 8a: battle map', () => {
     await fails(as(GM, `insert into storage.objects (bucket_id, name) values ('maps', 'not-a-uuid/c.png')`), /row-level security/);
   });
 });
+
+describe('phase 8b: tokens', () => {
+  let map = '';
+  let mine = '';
+  let foe = '';
+  it('the GM places tokens; players see only the visible ones', async () => {
+    [{ id: map }] = await as<{ id: string }>(GM, `insert into campaign_maps (campaign_id, image_url, width, height) values ($1, 'u', 1000, 1000) returning id`, [campaign]);
+    [{ id: mine }] = await as<{ id: string }>(GM, `insert into map_tokens (campaign_id, map_id, name, owner, color) values ($1, $2, 'Voss', $3, 'ally') returning id`, [campaign, map, P1]);
+    [{ id: foe }] = await as<{ id: string }>(GM, `insert into map_tokens (campaign_id, map_id, name, color, hidden) values ($1, $2, 'Goblin', 'enemy', true) returning id`, [campaign, map]);
+    await fails(as(P1, `insert into map_tokens (campaign_id, map_id) values ($1, $2)`, [campaign, map]), /row-level security/);
+    expect((await as(P1, `select name from map_tokens where map_id = $1`, [map])).map((r) => r.name)).toEqual(['Voss']);
+    expect(await as(OUT, `select 1 from map_tokens where map_id = $1`, [map])).toEqual([]);
+  });
+  it('a player moves only their own token; the GM moves any, in groups', async () => {
+    await as(P1, `select move_tokens($1, $2, $3)`, [[mine], [150], [250]]);
+    expect(await as(GM, `select x, y from map_tokens where id = $1`, [mine])).toEqual([{ x: 150, y: 250 }]);
+    await fails(as(P2, `select move_tokens($1, $2, $3)`, [[mine], [1], [1]]), /not_allowed/);
+    await fails(as(P1, `select move_tokens($1, $2, $3)`, [[mine, foe], [1, 1], [1, 1]]), /not_allowed/);
+    expect(await as(GM, `select x from map_tokens where id = $1`, [mine])).toEqual([{ x: 150 }]);
+    await as(GM, `select move_tokens($1, $2, $3)`, [[mine, foe], [10, 20], [30, 40]]);
+    expect(await as(GM, `select name, x, y from map_tokens where map_id = $1 order by name`, [map])).toEqual([{ name: 'Goblin', x: 20, y: 40 }, { name: 'Voss', x: 10, y: 30 }]);
+    const upd = await as(P1, `update map_tokens set size = 4 where id = $1 returning id`, [mine]);
+    expect(upd).toEqual([]);
+  });
+});

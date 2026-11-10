@@ -103,7 +103,7 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
   const content = (
     <>
       <FirstSteps {...props} />
-      <TableBoard campaignId={campaign.id} isGm={isGm} />
+      <TableBoard campaignId={campaign.id} isGm={isGm} uid={props.uid} members={props.members} />
       <InitiativeBar {...props} />
       {body ? body(props) : <div className="panel empty">Em construção.</div>}
     </>
@@ -159,7 +159,7 @@ export function TableMode(props: CampaignProps) {
         ))}
       </header>
       <div className="tm-stage">
-        <TableBoard campaignId={campaign.id} isGm={isGm} />
+        <TableBoard campaignId={campaign.id} isGm={isGm} uid={props.uid} members={props.members} />
         <div className="tm-init"><InitiativeBar {...props} /></div>
         <div className="tm-first"><FirstSteps {...props} /></div>
         {sheet && <FloatWindow id="sheet" title="Minha ficha" icon={<ScrollText size={15} />} onClose={() => setSheet(false)} initial={{ x: 64, y: 56, w: 600 }}><MySheetTab {...props} /></FloatWindow>}

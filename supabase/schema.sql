@@ -739,13 +739,62 @@ begin
   end if;
 end $$;
 
+-- ---------------------------------------------------------------- tokens no mapa (Fase 8b)
+-- Peças redondas sobre um mapa. Posição em pixels da imagem (centro do token); tamanho em quadrados.
+-- O mestre cria, edita, esconde e apaga; quem é "dono" do token (o jogador) só pode movê-lo.
+create table if not exists public.map_tokens (
+  id uuid primary key default gen_random_uuid(),
+  campaign_id uuid not null references public.campaigns (id) on delete cascade,
+  map_id uuid not null references public.campaign_maps (id) on delete cascade,
+  name text not null default '',
+  image_url text,
+  x real not null default 0,
+  y real not null default 0,
+  size int not null default 1 check (size between 1 and 4),
+  color text not null default 'neutral' check (color in ('ally', 'enemy', 'neutral')),
+  hidden boolean not null default false,
+  owner uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists map_tokens_map on public.map_tokens (map_id);
+alter table public.map_tokens enable row level security;
+drop policy if exists tokens_select on public.map_tokens;
+create policy tokens_select on public.map_tokens for select using (is_gm(campaign_id) or (is_member(campaign_id) and not hidden));
+drop policy if exists tokens_insert on public.map_tokens;
+create policy tokens_insert on public.map_tokens for insert with check (is_gm(campaign_id) and exists (select 1 from campaign_maps m where m.id = map_id and m.campaign_id = map_tokens.campaign_id));
+drop policy if exists tokens_update on public.map_tokens;
+create policy tokens_update on public.map_tokens for update using (is_gm(campaign_id)) with check (is_gm(campaign_id));
+drop policy if exists tokens_delete on public.map_tokens;
+create policy tokens_delete on public.map_tokens for delete using (is_gm(campaign_id));
+
+-- move vários tokens de uma vez (um grupo arrastado junto). O mestre move qualquer um;
+-- o jogador só os tokens dele. Se algum não puder, nada se move.
+create or replace function public.move_tokens(ids uuid[], xs real[], ys real[]) returns void
+language plpgsql security definer set search_path = public as $$
+declare n int := coalesce(array_length(ids, 1), 0);
+begin
+  if n = 0 then return; end if;
+  if n > 50 or coalesce(array_length(xs, 1), 0) <> n or coalesce(array_length(ys, 1), 0) <> n then raise exception 'bad_move'; end if;
+  if exists (
+    select 1 from unnest(ids) as i(id)
+    left join map_tokens t on t.id = i.id
+    where t.id is null or not (is_gm(t.campaign_id) or (t.owner = auth.uid() and is_member(t.campaign_id) and not t.hidden))
+  ) then raise exception 'not_allowed'; end if;
+  update map_tokens t set x = v.x, y = v.y
+  from unnest(ids, xs, ys) as v(id, x, y) where t.id = v.id;
+end $$;
+
+grant select, insert, update, delete on public.map_tokens to authenticated;
+revoke all on public.map_tokens from anon;
+grant execute on function public.move_tokens(uuid[], real[], real[]) to authenticated;
+
 -- ---------------------------------------------------------------- tempo real
 
 do $$
 declare t text;
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    foreach t in array array['characters', 'campaign_members', 'campaign_homebrew', 'rolls', 'encounters', 'combatants', 'chat_messages', 'campaign_maps'] loop
+    foreach t in array array['characters', 'campaign_members', 'campaign_homebrew', 'rolls', 'encounters', 'combatants', 'chat_messages', 'campaign_maps', 'map_tokens'] loop
       if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
         execute format('alter publication supabase_realtime add table public.%I', t);
       end if;

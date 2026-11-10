@@ -232,7 +232,7 @@
 html[data-tablemode] .topbar { display: none; }
 html[data-tablemode] .sync-banner { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 40; max-width: 560px; }
 html[data-tablemode] body { overflow: hidden; }
-.tm { position: fixed; inset: 0; z-index: 5; display: grid; grid-template-columns: minmax(0, 1fr) 280px; grid-template-rows: 40px minmax(0, 1fr); background: var(--bg); }
+.tm { position: fixed; inset: 0; z-index: 5; display: grid; grid-template-columns: minmax(0, 1fr) 320px; grid-template-rows: 40px minmax(0, 1fr); background: var(--bg); }
 .tm-bar { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; padding: 0 8px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 92%, black); min-width: 0; }
 .tm-bar .btn.sm { padding: 4px 9px; font-size: 12.5px; }
 .tm-name { font-family: var(--font-display); color: var(--gold); letter-spacing: 0.06em; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32ch; }
@@ -272,7 +272,43 @@ html[data-tablemode] body { overflow: hidden; }
 .fwin-body { flex: 1; min-height: 0; overflow: auto; padding: 10px; }
 .fwin-body .page { max-width: none; }
 /* o botão de dados sai de cima do chat e vai para o canto do mapa */
-html[data-tablemode] .dice-fab { right: 296px; bottom: 16px; z-index: 30; width: 52px; height: 52px; }
-html[data-tablemode] .dice-tray { right: 296px; bottom: 80px; z-index: 30; }
+html[data-tablemode] .dice-fab { right: 336px; bottom: 16px; z-index: 30; width: 52px; height: 52px; }
+html[data-tablemode] .dice-tray { right: 336px; bottom: 80px; z-index: 30; }
 /* no modo mesa a moldura é o palco inteiro (vence a regra da moldura quadrada da página normal) */
 .tm .dice-board.has-map .dice-board-frame { width: 100%; padding: 10px; margin: 0; border-radius: 0; }
+
+/* ---- Tokens: botão redondo com foto e um aro fino na cor do lado ---- */
+.tok { position: absolute; border-radius: 50%; touch-action: none; }
+.tok.movable { cursor: grab; }
+.tok-face { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, #5a4a3a, #1d1712) center / cover; color: #f3e6c8; font-family: var(--font-display); box-shadow: 0 0 0 var(--ring, 2px) var(--tok-c), 0 0 0 calc(var(--ring, 2px) * 2) rgba(0, 0, 0, 0.55), 0 calc(var(--ring, 2px) * 2) calc(var(--ring, 2px) * 5) rgba(0, 0, 0, 0.5); }
+.tok-ally { --tok-c: #4fbf6a; }
+.tok-enemy { --tok-c: #d2463c; }
+.tok-neutral { --tok-c: #c8a86a; }
+.tok.hidden { opacity: 0.45; }
+.tok.hidden .tok-face { outline: 1px dashed #fff; outline-offset: 2px; }
+.tok.sel .tok-face { box-shadow: 0 0 0 var(--ring, 2px) var(--tok-c), 0 0 0 calc(var(--ring, 2px) * 3) #fff, 0 0 18px #fff; }
+.tok-name { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 0.3em; padding: 0.05em 0.5em; border-radius: 1em; white-space: nowrap; pointer-events: none; background: rgba(8, 8, 12, 0.78); color: #f2ead8; font-weight: 600; line-height: 1.4; }
+.bmap-select { position: absolute; z-index: 3; border: 1px dashed #fff; background: rgba(255, 255, 255, 0.12); pointer-events: none; }
+.bmap-hint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 3; padding: 4px 10px; border-radius: 6px; background: rgba(8, 8, 12, 0.8); color: #fff; font-size: 12.5px; pointer-events: none; white-space: nowrap; }
+
+/* barra de ferramentas do mapa: em linha na página normal, coluna à esquerda no modo mesa */
+.map-tools { display: flex; gap: 6px; margin: -8px 0 12px; }
+.tm .map-tools { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); z-index: 6; flex-direction: column; margin: 0; padding: 6px; border-radius: 8px; background: color-mix(in srgb, var(--panel) 90%, transparent); border: 1px solid var(--line); }
+.map-tool { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 6px; border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer; }
+.map-tool:hover { color: var(--text); background: var(--panel-2); }
+.map-tool.on { color: var(--gold); border-color: var(--gold); background: color-mix(in srgb, var(--gold) 12%, transparent); }
+
+/* menu do token */
+.tok-menu { position: fixed; z-index: 60; min-width: 190px; padding: 4px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line-2); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6); }
+.tok-menu-title { padding: 6px 10px 4px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tok-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border: 0; border-radius: 5px; background: none; color: var(--text); font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; }
+.tok-menu button:hover, .tok-menu button:focus-visible { background: var(--panel-2); }
+.tok-menu button.danger { color: var(--bad); }
+
+/* criação de token */
+.tok-edit { display: flex; gap: 16px; align-items: center; }
+.tok-preview { flex: none; width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, #5a4a3a, #1d1712) center / cover; color: #f3e6c8; font-family: var(--font-display); font-size: 34px; box-shadow: 0 0 0 2px var(--tok-c), 0 0 0 4px rgba(0, 0, 0, 0.5); }
+.tok-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--tok-c); }
+.tok-pick { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.tok-pick.on { border-color: #4fbf6a; }
+.tok-pick-face { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: #3a2f25 center / cover; font-family: var(--font-display); }
