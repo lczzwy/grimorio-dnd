@@ -584,7 +584,7 @@ export function TableDice({ campaignId, variant = 'overlay', background, headerE
           )}
           <span className="spacer" />
           {headerExtra}
-          <button className="btn ghost sm icon" onClick={toggleTray} title={trayOpen ? 'Recolher a mesa' : 'Abrir a mesa'}>
+          <button className="btn ghost sm icon dice-board-collapse" onClick={toggleTray} title={trayOpen ? 'Recolher a mesa' : 'Abrir a mesa'}>
             {trayOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </button>
         </header>

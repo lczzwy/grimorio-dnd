@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { ScrollText, ChevronLeft, LayoutGrid, Swords, Dices, Hammer, Settings, Crown, MessageSquare, BookOpen } from 'lucide-react';
+import { ScrollText, ChevronLeft, LayoutGrid, Swords, Dices, Hammer, Settings, Crown, MessageSquare, BookOpen, Users } from 'lucide-react';
+import { FloatWindow } from '../ui/FloatWindow';
 import { useAuth } from '../cloud/auth';
 import { useCampaign, type Campaign as CampaignT, type Member } from '../cloud/campaigns';
 import { go } from '../ui/ui';
@@ -108,6 +109,9 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
     </>
   );
 
+  // PC on the table tab: the whole screen is the table (map + chat), the rest floats on top
+  if (wide && current === 'mesa') return <TableMode {...props} />;
+
   // PC: the chat takes the whole right side from the top, like a virtual tabletop
   if (wide) {
     return (
@@ -124,5 +128,44 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
       {header}
       {content}
     </main>
+  );
+}
+
+/**
+ * "Modo mesa": the site chrome goes away and the map takes every pixel left of the chat.
+ * A thin bar keeps the campaign tabs as icons; the sheet and the party open as floating windows.
+ */
+export function TableMode(props: CampaignProps) {
+  const { campaign, isGm } = props;
+  const [sheet, setSheet] = useState(false);
+  const [party, setParty] = useState(false);
+  useEffect(() => {
+    document.documentElement.dataset.tablemode = '';
+    return () => { delete document.documentElement.dataset.tablemode; };
+  }, []);
+  const tabs = TABS.filter((t) => t.k !== 'mesa' && t.k !== 'chat' && t.k !== 'ficha' && !(t.k === 'bestiario' && !isGm));
+  return (
+    <div className="tm">
+      <header className="tm-bar">
+        <button className="btn ghost sm icon" title="Voltar às campanhas" aria-label="Voltar às campanhas" onClick={() => go('campanhas')}><ChevronLeft size={16} /></button>
+        <b className="tm-name" title={campaign.name}>{campaign.name}</b>
+        {isGm && <Crown size={13} className="tm-crown" aria-label="Você é o mestre" />}
+        <span className="tm-sep" />
+        {!isGm && <button className={'btn sm' + (sheet ? ' active' : '')} onClick={() => setSheet((v) => !v)}><ScrollText size={14} /> Ficha</button>}
+        <button className={'btn sm' + (party ? ' active' : '')} onClick={() => setParty((v) => !v)}><Users size={14} /> Grupo</button>
+        <span className="spacer" />
+        {tabs.map((t) => (
+          <button key={t.k} className="btn ghost sm icon" title={t.label} aria-label={t.label} onClick={() => go(`campanha/${campaign.id}/${t.k}`)}><t.icon size={16} /></button>
+        ))}
+      </header>
+      <div className="tm-stage">
+        <TableBoard campaignId={campaign.id} isGm={isGm} />
+        <div className="tm-init"><InitiativeBar {...props} /></div>
+        <div className="tm-first"><FirstSteps {...props} /></div>
+        {sheet && <FloatWindow id="sheet" title="Minha ficha" icon={<ScrollText size={15} />} onClose={() => setSheet(false)} initial={{ x: 64, y: 56, w: 600 }}><MySheetTab {...props} /></FloatWindow>}
+        {party && <FloatWindow id="party" title="Grupo" icon={<Users size={15} />} onClose={() => setParty(false)} initial={{ x: 120, y: 90, w: 520, h: 420 }}><TableTab {...props} /></FloatWindow>}
+      </div>
+      <aside className="tm-chat"><ChatPanel {...props} /></aside>
+    </div>
   );
 }
