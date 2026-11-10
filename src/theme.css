@@ -257,3 +257,9 @@ h1 { text-shadow: 0 2px 0 #000; }
   .desk-side .saves-list .sv-name[data-s]::after { content: attr(data-s); font-size: 13px; font-family: var(--font-display); letter-spacing: .12em; color: var(--gold); }
   .desk-main .tabs { margin-top: 0; }
 }
+
+/* ---- entrar com Discord ---- */
+.btn.discord { background: #5865f2; border-color: #4752c4; color: #fff; justify-content: center; gap: 8px; }
+.btn.discord:hover { background: #4752c4; border-color: #3c45a5; color: #fff; }
+.or-line { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+.or-line::before, .or-line::after { content: ''; flex: 1; border-top: 1px solid var(--line); }

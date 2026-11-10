@@ -389,3 +389,18 @@ describe('phase 2: each one only touches what is theirs', () => {
     expect(await inFight()).toEqual(before);
   });
 });
+
+describe('phase 3: profile names from Discord', () => {
+  const profileOf = async (id: string) => (await db.query<{ display_name: string }>(`select display_name from profiles where id = $1`, [id])).rows[0]?.display_name;
+  it('uses the Discord display name, then the username, then the e-mail', async () => {
+    const a = '00000000-0000-0000-0000-0000000000d1';
+    const b = '00000000-0000-0000-0000-0000000000d2';
+    const c = '00000000-0000-0000-0000-0000000000d3';
+    await db.query(`insert into auth.users (id, email, raw_user_meta_data) values ($1, 'lucas@discord.test', $2)`, [a, JSON.stringify({ full_name: 'lucas_rpg#0', name: 'lucas_rpg#0', custom_claims: { global_name: 'Lucas' } })]);
+    await db.query(`insert into auth.users (id, email, raw_user_meta_data) values ($1, 'bia@discord.test', $2)`, [b, JSON.stringify({ full_name: 'bia_dm#0' })]);
+    await db.query(`insert into auth.users (id, email, raw_user_meta_data) values ($1, 'caio@mail.test', '{}')`, [c]);
+    expect(await profileOf(a)).toBe('Lucas');
+    expect(await profileOf(b)).toBe('bia_dm');
+    expect(await profileOf(c)).toBe('caio');
+  });
+});

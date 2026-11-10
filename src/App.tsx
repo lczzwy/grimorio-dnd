@@ -4,7 +4,7 @@ import { BookOpen, Users, Hammer, LogIn, UserCircle, Swords, HelpCircle } from '
 import { initAuth, useAuth } from './cloud/auth';
 import { startSync } from './cloud/sync';
 import { initRollPublishing } from './cloud/rolls';
-import { Account } from './pages/Account';
+import { Account, NewPassword } from './pages/Account';
 import { Onboarding, useOnboarding } from './ui/Onboarding';
 import { Campaigns } from './pages/Campaigns';
 import { Invite } from './pages/Invite';
@@ -37,7 +37,8 @@ export default function App() {
   useEffect(() => (uid ? startSync(uid) : undefined), [uid]);
 
   let page;
-  if (route[0] === 'conta') page = <Account />;
+  if (route[0] === 'conta' && route[1] === 'nova-senha') page = <NewPassword />;
+  else if (route[0] === 'conta') page = <Account />;
   else if (route[0] === 'campanhas') page = <Campaigns />;
   else if (route[0] === 'convite' && route[1]) page = <Invite code={route[1]} />;
   else if (route[0] === 'campanha' && route[1]) page = <Campaign id={route[1]} tab={route[2]} />;

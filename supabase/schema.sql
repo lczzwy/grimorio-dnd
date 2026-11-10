@@ -185,8 +185,13 @@ $$;
 create or replace function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
+  -- nome do cadastro por e-mail; ou, entrando pelo Discord, o nome de exibição e depois o usuário (sem o "#0")
   insert into profiles (id, display_name)
-  values (new.id, coalesce(nullif(new.raw_user_meta_data ->> 'display_name', ''), split_part(coalesce(new.email, ''), '@', 1)))
+  values (new.id, coalesce(
+    nullif(new.raw_user_meta_data ->> 'display_name', ''),
+    nullif(new.raw_user_meta_data -> 'custom_claims' ->> 'global_name', ''),
+    nullif(regexp_replace(coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name', ''), '#0$', ''), ''),
+    split_part(coalesce(new.email, ''), '@', 1)))
   on conflict (id) do nothing;
   return new;
 end $$;
