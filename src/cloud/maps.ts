@@ -31,14 +31,20 @@ export function useCampaignMaps(campaignId: string) {
     void load();
     const ch = supabase
       .channel('maps-' + campaignId + '-' + Math.random().toString(36).slice(2, 8))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'campaign_maps', filter: `campaign_id=eq.${campaignId}` }, () => void load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'campaign_maps', filter: `campaign_id=eq.${campaignId}` }, (p) => { if (p.eventType !== 'DELETE') void load(); })
+      // deletions carry only the id (see useMapTokens), so they are heard without the filter
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'campaign_maps' }, (p) => {
+        const id = (p.old as { id?: string }).id;
+        if (id) setMaps((m) => m.filter((x) => x.id !== id));
+      })
       .subscribe();
     return () => {
       alive = false;
       void supabase.removeChannel(ch);
     };
   }, [campaignId]);
-  return { maps, active: maps.find((m) => m.active) ?? null };
+  const drop = (id: string) => setMaps((m) => m.filter((x) => x.id !== id));
+  return { maps, active: maps.find((m) => m.active) ?? null, drop };
 }
 
 /** GM only: uploads an already-cropped square picture and creates the map row (not on the table yet). */

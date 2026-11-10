@@ -6,18 +6,18 @@ import { MapCropper, type CroppedMap } from './MapCropper';
 import { addMap, deleteMap, setActiveMap, updateMap, type BattleMapRow } from '../cloud/maps';
 
 /** GM button on the dice table header: opens the map library. */
-export function MapsButton({ campaignId, maps, active, onEditGrid }: { campaignId: string; maps: BattleMapRow[]; active: BattleMapRow | null; onEditGrid: () => void }) {
+export function MapsButton({ campaignId, maps, active, onEditGrid, onDeleted }: { campaignId: string; maps: BattleMapRow[]; active: BattleMapRow | null; onEditGrid: () => void; onDeleted: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       {active && <button className="btn ghost sm" onClick={onEditGrid} title="Ajustar a grade do mapa"><Grid3x3 size={15} /> <span className="hidden-mobile">Grade</span></button>}
       <button className="btn ghost sm" onClick={() => setOpen(true)} title="Mapas da campanha"><MapIcon size={15} /> <span className="hidden-mobile">Mapas</span></button>
-      {open && <MapLibrary campaignId={campaignId} maps={maps} onClose={() => setOpen(false)} />}
+      {open && <MapLibrary campaignId={campaignId} maps={maps} onClose={() => setOpen(false)} onDeleted={onDeleted} />}
     </>
   );
 }
 
-function MapLibrary({ campaignId, maps, onClose }: { campaignId: string; maps: BattleMapRow[]; onClose: () => void }) {
+function MapLibrary({ campaignId, maps, onClose, onDeleted }: { campaignId: string; maps: BattleMapRow[]; onClose: () => void; onDeleted: (id: string) => void }) {
   const flash = useFlash((s) => s.show);
   const [busy, setBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
@@ -60,7 +60,7 @@ function MapLibrary({ campaignId, maps, onClose }: { campaignId: string; maps: B
                 {m.active && <span className="tag gold"><Check size={12} /> Na mesa</span>}
                 <span className="spacer" />
                 <button className="btn icon sm ghost danger" title="Apagar mapa" aria-label={`Apagar ${m.name}`} onClick={async () => {
-                  if (await confirmBox(`Apagar o mapa "${m.name}"? A imagem também é apagada.`, { danger: true, ok: 'Apagar' })) deleteMap(m).catch(showError);
+                  if (await confirmBox(`Apagar o mapa "${m.name}"? A imagem também é apagada.`, { danger: true, ok: 'Apagar' })) deleteMap(m).then(() => onDeleted(m.id)).catch(showError);
                 }}><Trash2 size={14} /></button>
               </div>
             </div>

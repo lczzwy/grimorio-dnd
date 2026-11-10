@@ -104,7 +104,7 @@ export function TokenEditor({ map, token, party, onClose }: { map: BattleMapRow;
 }
 
 /** The small menu that opens on a token (right click, or a long press on a phone). */
-export function TokenMenu({ token, x, y, onEdit, onClose }: { token: MapToken; x: number; y: number; onEdit: () => void; onClose: () => void }) {
+export function TokenMenu({ token, x, y, onEdit, onClose, onDeleted }: { token: MapToken; x: number; y: number; onEdit: () => void; onClose: () => void; onDeleted: (id: string) => void }) {
   const el = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const away = (e: PointerEvent) => { if (!el.current?.contains(e.target as Node)) onClose(); };
@@ -125,7 +125,7 @@ export function TokenMenu({ token, x, y, onEdit, onClose }: { token: MapToken; x
       </button>
       <button role="menuitem" className="danger" onClick={async () => {
         onClose();
-        if (await confirmBox(`Excluir o token ${token.name || ''} do mapa?`.replace('  ', ' '), { danger: true, ok: 'Excluir' })) deleteToken(token.id).catch(showError);
+        if (await confirmBox(`Excluir o token ${token.name || ''} do mapa?`.replace('  ', ' '), { danger: true, ok: 'Excluir' })) deleteToken(token.id).then(() => onDeleted(token.id)).catch(showError);
       }}><Trash2 size={14} /> Excluir</button>
     </div>
   );

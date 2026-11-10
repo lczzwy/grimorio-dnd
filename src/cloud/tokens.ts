@@ -44,11 +44,17 @@ export function useMapTokens(campaignId: string, mapId: string | undefined) {
     const ch = supabase
       .channel('tokens-' + mapId + '-' + Math.random().toString(36).slice(2, 8))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'map_tokens', filter: `campaign_id=eq.${campaignId}` }, (p) => {
-        const row = (p.new && 'id' in p.new ? p.new : p.old) as Partial<MapToken>;
+        if (p.eventType === 'DELETE') return; // handled below
+        const row = p.new as Partial<MapToken>;
         if (row.map_id && row.map_id !== mapId) return;
-        if (p.eventType === 'DELETE') setTokens((t) => t.filter((x) => x.id !== row.id));
-        else if (p.eventType === 'UPDATE') setTokens((t) => t.map((x) => (x.id === row.id ? { ...x, ...(row as MapToken) } : x)));
+        if (p.eventType === 'UPDATE') setTokens((t) => t.map((x) => (x.id === row.id ? { ...x, ...(row as MapToken) } : x)));
         later();
+      })
+      // a deleted row comes with its id only, so a filtered listener never hears it: listen to all
+      // deletions and drop the ones that are on this map
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'map_tokens' }, (p) => {
+        const id = (p.old as { id?: string }).id;
+        if (id) setTokens((t) => t.filter((x) => x.id !== id));
       })
       .subscribe();
     return () => {

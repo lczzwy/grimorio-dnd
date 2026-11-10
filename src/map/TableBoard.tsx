@@ -15,7 +15,7 @@ import { TokenEditor, TokenMenu, type PartyPick } from './TokenTools';
  * the 3D dice falling on top, so everyone sees the map and the rolls on the same screen.
  */
 export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: string; isGm: boolean; uid: string; members: Member[] }) {
-  const { maps, active } = useCampaignMaps(campaignId);
+  const { maps, active, drop } = useCampaignMaps(campaignId);
   const [editing, setEditing] = useState(false);
   // the GM's grid tweaks show here at once, before the server echoes them back
   const [draft, setDraft] = useState<BattleMapRow | null>(null);
@@ -42,7 +42,7 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
         campaignId={campaignId}
         variant="tray"
         title={active ? active.name : 'Mesa de dados'}
-        headerExtra={isGm && <MapsButton campaignId={campaignId} maps={maps} active={active} onEditGrid={() => setEditing((v) => !v)} />}
+        headerExtra={isGm && <MapsButton campaignId={campaignId} maps={maps} active={active} onEditGrid={() => setEditing((v) => !v)} onDeleted={drop} />}
         background={shown && (
           <>
             <BattleMap
@@ -65,7 +65,7 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
           {isGm && <button className="map-tool" title="Novo token" aria-label="Novo token" onClick={() => setTokenForm({})}><CirclePlus size={18} /></button>}
         </nav>
       )}
-      {menu && <TokenMenu token={menu.token} x={menu.x} y={menu.y} onClose={() => setMenu(null)} onEdit={() => setTokenForm({ token: menu.token })} />}
+      {menu && <TokenMenu token={menu.token} x={menu.x} y={menu.y} onClose={() => setMenu(null)} onEdit={() => setTokenForm({ token: menu.token })} onDeleted={(id) => setTokens((t) => t.filter((x) => x.id !== id))} />}
       {tokenForm && active && <TokenEditor map={active} token={tokenForm.token} party={party} onClose={() => setTokenForm(null)} />}
     </>
   );
