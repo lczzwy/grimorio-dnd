@@ -497,3 +497,31 @@ describe('phase 5: a table that lasts', () => {
     expect(n).toBeLessThanOrEqual(1000);
   });
 });
+
+describe('phase 8a: battle map', () => {
+  const img = 'https://x/maps/a.png';
+  it('only the GM adds maps; members see them; outsiders do not', async () => {
+    const [m] = await as<{ id: string }>(GM, `insert into campaign_maps (campaign_id, name, image_url, width, height) values ($1, 'Cripta', $2, 1400, 1000) returning id`, [campaign, img]);
+    expect(m.id).toBeTruthy();
+    await fails(as(P1, `insert into campaign_maps (campaign_id, image_url, width, height) values ($1, $2, 10, 10)`, [campaign, img]), /row-level security/);
+    expect(await as(P1, `select name from campaign_maps where campaign_id = $1`, [campaign])).toEqual([{ name: 'Cripta' }]);
+    expect(await as(OUT, `select 1 from campaign_maps where campaign_id = $1`, [campaign])).toEqual([]);
+    const upd = await as(P1, `update campaign_maps set grid_size = 20 where campaign_id = $1 returning id`, [campaign]);
+    expect(upd).toEqual([]);
+  });
+  it('one active map at a time, switched only by the GM', async () => {
+    const [b] = await as<{ id: string }>(GM, `insert into campaign_maps (campaign_id, name, image_url, width, height) values ($1, 'Floresta', $2, 800, 600) returning id`, [campaign, img]);
+    const [a] = await as<{ id: string }>(GM, `select id from campaign_maps where campaign_id = $1 and name = 'Cripta'`, [campaign]);
+    await as(GM, `select set_active_map($1, $2)`, [campaign, a.id]);
+    await as(GM, `select set_active_map($1, $2)`, [campaign, b.id]);
+    expect(await as(P1, `select name from campaign_maps where campaign_id = $1 and active`, [campaign])).toEqual([{ name: 'Floresta' }]);
+    await fails(as(P1, `select set_active_map($1, $2)`, [campaign, a.id]), /not_gm/);
+    await as(GM, `select set_active_map($1, null)`, [campaign]);
+    expect(await as(P1, `select 1 from campaign_maps where campaign_id = $1 and active`, [campaign])).toEqual([]);
+  });
+  it('map images: only the GM of that campaign writes in its folder', async () => {
+    await as(GM, `insert into storage.objects (bucket_id, name) values ('maps', $1)`, [`${campaign}/a.png`]);
+    await fails(as(P1, `insert into storage.objects (bucket_id, name) values ('maps', $1)`, [`${campaign}/b.png`]), /row-level security/);
+    await fails(as(GM, `insert into storage.objects (bucket_id, name) values ('maps', 'not-a-uuid/c.png')`), /row-level security/);
+  });
+});

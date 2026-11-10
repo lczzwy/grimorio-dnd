@@ -667,13 +667,85 @@ begin
   end if;
 end $$;
 
+-- ---------------------------------------------------------------- mapa tático (Fase 8)
+-- Cada campanha guarda vários mapas; no máximo um fica ativo e aparece na mesa de todos.
+-- A grade é guardada em pixels da imagem original: tamanho da célula e deslocamento.
+create table if not exists public.campaign_maps (
+  id uuid primary key default gen_random_uuid(),
+  campaign_id uuid not null references public.campaigns (id) on delete cascade,
+  name text not null default 'Mapa',
+  image_url text not null,
+  width int not null check (width > 0),
+  height int not null check (height > 0),
+  grid_size real not null default 70 check (grid_size >= 8),
+  grid_x real not null default 0,
+  grid_y real not null default 0,
+  show_grid boolean not null default true,
+  active boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists campaign_maps_one_active on public.campaign_maps (campaign_id) where active;
+create index if not exists campaign_maps_campaign on public.campaign_maps (campaign_id);
+alter table public.campaign_maps enable row level security;
+drop policy if exists maps_select on public.campaign_maps;
+create policy maps_select on public.campaign_maps for select using (is_member(campaign_id));
+drop policy if exists maps_insert on public.campaign_maps;
+create policy maps_insert on public.campaign_maps for insert with check (is_gm(campaign_id) and not active);
+drop policy if exists maps_update on public.campaign_maps;
+create policy maps_update on public.campaign_maps for update using (is_gm(campaign_id)) with check (is_gm(campaign_id));
+drop policy if exists maps_delete on public.campaign_maps;
+create policy maps_delete on public.campaign_maps for delete using (is_gm(campaign_id));
+
+-- troca o mapa ativo de uma vez (null tira o mapa da mesa e volta o feltro)
+create or replace function public.set_active_map(campaign uuid, map uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_gm(campaign) then raise exception 'not_gm'; end if;
+  if map is not null and not exists (select 1 from campaign_maps where id = map and campaign_id = campaign) then
+    raise exception 'map_not_found';
+  end if;
+  update campaign_maps set active = false where campaign_id = campaign and active and id is distinct from map;
+  if map is not null then update campaign_maps set active = true where id = map; end if;
+end $$;
+
+-- pasta de imagens de mapa: <id da campanha>/arquivo; só o mestre daquela campanha escreve
+create or replace function public.is_gm_folder(folder text) returns boolean
+language plpgsql stable security definer set search_path = public as $$
+begin
+  return is_gm(folder::uuid);
+exception when others then
+  return false;
+end $$;
+
+grant select, insert, update, delete on public.campaign_maps to authenticated;
+revoke all on public.campaign_maps from anon;
+grant execute on function public.set_active_map(uuid, uuid), public.is_gm_folder(text) to authenticated;
+
+do $$
+begin
+  if exists (select 1 from information_schema.schemata where schema_name = 'storage') then
+    insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+    values ('maps', 'maps', true, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+    on conflict (id) do update set public = true, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+    execute 'drop policy if exists maps_obj_insert on storage.objects';
+    execute $p$create policy maps_obj_insert on storage.objects for insert to authenticated
+      with check (bucket_id = 'maps' and public.is_gm_folder((storage.foldername(name))[1]))$p$;
+    execute 'drop policy if exists maps_obj_select on storage.objects';
+    execute $p$create policy maps_obj_select on storage.objects for select to authenticated
+      using (bucket_id = 'maps' and public.is_gm_folder((storage.foldername(name))[1]))$p$;
+    execute 'drop policy if exists maps_obj_delete on storage.objects';
+    execute $p$create policy maps_obj_delete on storage.objects for delete to authenticated
+      using (bucket_id = 'maps' and public.is_gm_folder((storage.foldername(name))[1]))$p$;
+  end if;
+end $$;
+
 -- ---------------------------------------------------------------- tempo real
 
 do $$
 declare t text;
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    foreach t in array array['characters', 'campaign_members', 'campaign_homebrew', 'rolls', 'encounters', 'combatants', 'chat_messages'] loop
+    foreach t in array array['characters', 'campaign_members', 'campaign_homebrew', 'rolls', 'encounters', 'combatants', 'chat_messages', 'campaign_maps'] loop
       if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
         execute format('alter publication supabase_realtime add table public.%I', t);
       end if;

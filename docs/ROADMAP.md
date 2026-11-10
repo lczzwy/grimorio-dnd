@@ -86,6 +86,7 @@ Regras para todas as fases:
 
 ## Fase 8 · Mapa tático (confirmado)
 **Objetivo:** tabuleiro estilo Roll20/Tabletop, tudo em tempo real. Dividido em etapas que podem ser testadas uma a uma:
+- **Decisão de layout (10/11/2026):** o mapa ativo **é** a mesa: ocupa o lugar do feltro e os dados 3D caem por cima dele, para todos verem mapa e rolagem na mesma tela. Sem mapa ativo, volta o feltro.
 - **8a. Mapa e grade:** o mestre envia a imagem do mapa (Storage), ajusta a grade (tamanho da célula, deslocamento) e escolhe o mapa ativo da campanha; todos veem, com zoom e arrastar.
 - **8b. Tokens:** tokens dos personagens e das criaturas do combate. Cada jogador arrasta o seu, o mestre arrasta qualquer um; o movimento sincroniza ao vivo e encaixa na grade. Tokens ocultos aparecem só para o mestre.
 - **8c. Régua:** medir distância em quadrados e metros (1,5 m por quadrado), visível para todos enquanto alguém mede.

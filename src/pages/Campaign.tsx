@@ -11,7 +11,7 @@ import { CombatTab } from './campaign/CombatTab';
 import { HomebrewTab } from './campaign/HomebrewTab';
 import { ChatPanel } from './campaign/ChatPanel';
 import { BestiaryTab } from './campaign/BestiaryTab';
-import { TableDice } from '../dice3d/TableDice';
+import { TableBoard } from '../map/TableBoard';
 import { useToastQuiet } from '../ui/Dice';
 import { InitiativeBar } from './campaign/InitiativeBar';
 import { FirstSteps } from './campaign/FirstSteps';
@@ -102,7 +102,7 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
   const content = (
     <>
       <FirstSteps {...props} />
-      <TableDice campaignId={campaign.id} variant="tray" />
+      <TableBoard campaignId={campaign.id} isGm={isGm} />
       <InitiativeBar {...props} />
       {body ? body(props) : <div className="panel empty">Em construção.</div>}
     </>

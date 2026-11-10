@@ -91,11 +91,11 @@ export default function App() {
       </header>
       <SyncBanner />
       {/* campaign tabs stay mounted: remounting refetched everything from the server on each click */}
-      <main id="conteudo" tabIndex={-1} style={{ outline: 'none' }}>
+      <div id="conteudo" tabIndex={-1} style={{ outline: 'none' }}>
         <ErrorBoundary key={route[0] === 'campanha' ? route.slice(0, 2).join('/') : route.join('/')}>
           <Suspense fallback={<div className="empty" role="status">Carregando…</div>}>{page}</Suspense>
         </ErrorBoundary>
-      </main>
+      </div>
       {(ed || route[0] === 'campanha') && <DiceTray />}
       <RollToast />
       <FlashHost />

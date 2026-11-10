@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { create } from 'zustand';
 import { Box, ChevronDown, ChevronUp, Volume2, VolumeX } from 'lucide-react';
 import { supabase } from '../cloud/client';
@@ -311,7 +311,14 @@ interface Layer { box: DiceBoxLike | null; busy: boolean; loading?: Promise<Dice
  *   shows each roll the moment its dice settle, and the dice dissolve a moment later.
  * - "overlay": over the whole screen with a result badge (a sheet opened on its own).
  */
-export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: string; variant?: 'tray' | 'overlay' }) {
+export function TableDice({ campaignId, variant = 'overlay', background, headerExtra, title = 'Mesa de dados' }: {
+  campaignId: string;
+  variant?: 'tray' | 'overlay';
+  /** drawn under the dice in the tray (the battle map); the felt shows when there is none */
+  background?: ReactNode;
+  headerExtra?: ReactNode;
+  title?: string;
+}) {
   const on = useDicePrefs((s) => s.on);
   const trayOpen = useDicePrefs((s) => s.trayOpen);
   const toggleTray = useDicePrefs((s) => s.toggleTray);
@@ -556,7 +563,7 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
     }
   }
 
-  if (!on) return null;
+  if (!on && !(tray && background)) return null;
 
   const layerEls = Array.from({ length: count }, (_, i) => (
     <div key={i} className={'dice-layer-wrap' + (fading[i] ? ' fading' : '')}>
@@ -569,21 +576,23 @@ export function TableDice({ campaignId, variant = 'overlay' }: { campaignId: str
     return (
       <section className={'dice-board' + (trayOpen ? '' : ' closed')}>
         <header className="dice-board-head">
-          <span className="dice-board-title">Mesa de dados</span>
+          <span className="dice-board-title">{title}</span>
           {last && trayOpen && (
             <span className="dice-board-last">
               <b style={{ color: last.color }}>{who(last.row)}</b> <span className="muted">rolou {last.row.label}</span> <b className={'mono' + (last.row.kind === 'crit' ? ' crit' : last.row.kind === 'fumble' ? ' fumble' : '')}>{last.row.total}</b>
             </span>
           )}
           <span className="spacer" />
+          {headerExtra}
           <button className="btn ghost sm icon" onClick={toggleTray} title={trayOpen ? 'Recolher a mesa' : 'Abrir a mesa'}>
             {trayOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </button>
         </header>
         {trayOpen && (
           <div className="dice-board-frame">
-            <div className="dice-board-felt">
-              <div ref={host} className="dice-board-host" aria-hidden>{layerEls}</div>
+            <div className={'dice-board-felt' + (background ? ' has-map' : '')}>
+              {background}
+              {on && <div ref={host} className="dice-board-host" aria-hidden>{layerEls}</div>}
             </div>
           </div>
         )}
