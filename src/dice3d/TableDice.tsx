@@ -574,7 +574,7 @@ export function TableDice({ campaignId, variant = 'overlay', background, headerE
 
   if (tray) {
     return (
-      <section className={'dice-board' + (trayOpen ? '' : ' closed')}>
+      <section className={'dice-board' + (trayOpen ? '' : ' closed') + (background ? ' has-map' : '')}>
         <header className="dice-board-head">
           <span className="dice-board-title">{title}</span>
           {last && trayOpen && (

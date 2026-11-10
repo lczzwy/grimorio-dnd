@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { supabase } from './client';
 
 export const MAP_BUCKET = 'maps';
-const MAX_SIDE = 4096;
 const MAX_BYTES = 5 * 1024 * 1024;
 
 export interface BattleMapRow {
@@ -42,41 +41,16 @@ export function useCampaignMaps(campaignId: string) {
   return { maps, active: maps.find((m) => m.active) ?? null };
 }
 
-/** Shrinks big pictures (longest side 4096 px) and re-encodes them so they fit the 5 MB limit. */
-async function prepareImage(file: File): Promise<{ blob: Blob; width: number; height: number }> {
-  const bmp = await createImageBitmap(file);
-  let scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
-  const tryEncode = async (q: number) => {
-    const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    c.getContext('2d')!.drawImage(bmp, 0, 0, w, h);
-    const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/webp', q));
-    if (!blob) throw new Error('Não consegui ler essa imagem.');
-    return { blob, width: w, height: h };
-  };
-  if (scale === 1 && file.size <= MAX_BYTES && /^image\/(png|jpeg|webp)$/.test(file.type)) {
-    return { blob: file, width: bmp.width, height: bmp.height };
-  }
-  let out = await tryEncode(0.86);
-  while (out.blob.size > MAX_BYTES && scale > 0.3) {
-    scale *= 0.8;
-    out = await tryEncode(0.8);
-  }
-  return out;
-}
-
-/** GM only: uploads a picture and creates the map row (not active yet). */
-export async function addMap(campaignId: string, file: File, name: string): Promise<BattleMapRow> {
-  const { blob, width, height } = await prepareImage(file);
-  const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/jpeg' ? 'jpg' : 'webp';
-  const path = `${campaignId}/${crypto.randomUUID()}.${ext}`;
-  const up = await supabase.storage.from(MAP_BUCKET).upload(path, blob, { contentType: blob.type, cacheControl: '31536000', upsert: false });
+/** GM only: uploads an already-cropped square picture and creates the map row (not on the table yet). */
+export async function addMap(campaignId: string, blob: Blob, size: number, name: string): Promise<BattleMapRow> {
+  if (blob.size > MAX_BYTES) throw new Error('Imagem grande demais, mesmo depois de reduzida. Tente uma com até 5 MB.');
+  const path = `${campaignId}/${crypto.randomUUID()}.webp`;
+  const up = await supabase.storage.from(MAP_BUCKET).upload(path, blob, { contentType: blob.type || 'image/webp', cacheControl: '31536000', upsert: false });
   if (up.error) throw new Error(mapErrorPt(up.error.message));
   const image_url = supabase.storage.from(MAP_BUCKET).getPublicUrl(path).data.publicUrl;
-  // a sensible first grid: about 20 squares across the long side
-  const grid_size = Math.max(24, Math.round(Math.max(width, height) / 20));
-  const { data, error } = await supabase.from('campaign_maps').insert({ campaign_id: campaignId, name, image_url, width, height, grid_size }).select().single();
+  // a sensible first grid: 20 squares across
+  const grid_size = Math.max(16, Math.round((size / 20) * 2) / 2);
+  const { data, error } = await supabase.from('campaign_maps').insert({ campaign_id: campaignId, name, image_url, width: size, height: size, grid_size }).select().single();
   if (error) throw new Error(mapErrorPt(error.message));
   return data as BattleMapRow;
 }

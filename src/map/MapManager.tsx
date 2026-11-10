@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Map as MapIcon, Upload, Trash2, Grid3x3, Eye, EyeOff, Check } from 'lucide-react';
 import { Modal, useFlash } from '../ui/ui';
 import { confirmBox, showError } from '../ui/dialogs';
+import { MapCropper, type CroppedMap } from './MapCropper';
 import { addMap, deleteMap, setActiveMap, updateMap, type BattleMapRow } from '../cloud/maps';
 
 /** GM button on the dice table header: opens the map library. */
@@ -21,27 +22,30 @@ function MapLibrary({ campaignId, maps, onClose }: { campaignId: string; maps: B
   const [busy, setBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
 
-  const upload = async (f: File) => {
+  const [picked, setPicked] = useState<File | null>(null);
+  const upload = async (r: CroppedMap) => {
     setBusy(true);
     try {
-      const m = await addMap(campaignId, f, f.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'Mapa');
-      await setActiveMap(campaignId, m.id);
-      flash('Mapa na mesa');
+      const m = await addMap(campaignId, r.blob, r.size, r.name);
+      if (r.putOnTable) await setActiveMap(campaignId, m.id);
+      flash(r.putOnTable ? 'Mapa na mesa' : 'Mapa guardado');
+      setPicked(null);
     } catch (e) {
       showError(e);
     } finally {
       setBusy(false);
     }
   };
+  if (picked) return <MapCropper file={picked} busy={busy} onCancel={() => setPicked(null)} onDone={(r) => void upload(r)} />;
 
   return (
     <Modal title="Mapas da campanha" icon={<MapIcon size={18} />} onClose={onClose} wide footer={
       <>
-        <input ref={file} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void upload(f); }} />
-        <button className="btn primary" disabled={busy} onClick={() => file.current?.click()}><Upload size={15} /> {busy ? 'Enviando…' : 'Enviar mapa'}</button>
+        <input ref={file} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) setPicked(f); }} />
+        <button className="btn primary" disabled={busy} onClick={() => file.current?.click()}><Upload size={15} /> Enviar mapa</button>
       </>
     }>
-      <p className="muted m0" style={{ marginBottom: 12 }}>O mapa ativo aparece no lugar do feltro, para todos da mesa, e os dados caem por cima dele. Imagens grandes são reduzidas para até 4096 px.</p>
+      <p className="muted m0" style={{ marginBottom: 12 }}>O mapa ativo aparece no lugar do feltro, para todos da mesa, e os dados caem por cima dele. Ao enviar, você recorta o quadrado que vai aparecer.</p>
       {maps.length === 0 && <div className="empty">Nenhum mapa ainda. Envie uma imagem (png, jpg ou webp).</div>}
       <div className="map-list">
         {maps.map((m) => (
