@@ -35,14 +35,21 @@ O site já envia o e-mail de redefinição; o Supabase cuida do envio.
 - ele **só manda e-mail para quem faz parte da equipe do projeto** no Supabase (o seu e-mail funciona, o dos seus amigos não);
 - e manda **poucos e-mails por hora**.
 
-Para os amigos receberem o link, é preciso um serviço de e-mail próprio (SMTP). O **Resend** é grátis até 3.000 e-mails por mês:
-1. Crie uma conta em [resend.com](https://resend.com) e gere uma **API Key**.
-2. No Resend, use o remetente de teste `onboarding@resend.dev`. Para mandar de um endereço próprio, é preciso ter um domínio, que pode ficar para depois.
+Para os amigos receberem o link, é preciso um servidor de e-mail próprio (SMTP).
+
+### Opção recomendada: o seu Gmail (grátis, sem domínio, até ~500 e-mails por dia)
+1. Na sua conta Google, ative a **Verificação em duas etapas** ([myaccount.google.com/security](https://myaccount.google.com/security)). Sem ela, a opção do passo 2 não aparece.
+2. Abra [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), dê o nome `Grimório` e clique em **Criar**. O Google mostra uma **senha de app** de 16 letras: copie. Ela serve só para isso e pode ser apagada quando quiser.
 3. No Supabase: **Authentication** → **Emails** → **SMTP Settings** → ligue **Enable Custom SMTP** e preencha:
-   - **Host:** `smtp.resend.com` · **Port:** `465`
-   - **Username:** `resend` · **Password:** a API Key do Resend
-   - **Sender email:** `onboarding@resend.dev` · **Sender name:** `Grimório`
-4. Clique em **Save**.
+   - **Sender email:** o seu Gmail (ex.: `arthurlucas2003@gmail.com`) · **Sender name:** `Grimório`
+   - **Host:** `smtp.gmail.com` · **Port:** `465`
+   - **Username:** o mesmo Gmail · **Password:** a senha de app de 16 letras (sem espaços)
+4. Clique em **Save** e teste o "Esqueci minha senha" de novo.
+
+### Por que o Resend com `onboarding@resend.dev` não serve
+O remetente de teste do Resend **só envia para o e-mail com que você criou a conta no Resend**. Para qualquer outro endereço, ele recusa, e o site mostra "Error sending recovery email". Para usar o Resend com os amigos, é preciso **verificar um domínio próprio** no Resend (Domains → Add Domain) e usar um remetente desse domínio.
+
+> Dica: o Gmail ignora pontos no endereço, mas o Supabase não. `arthur.lucas2003@gmail.com` e `arthurlucas2003@gmail.com` são contas diferentes para o site. Digite o e-mail exatamente como foi cadastrado.
 
 Enquanto isso não for feito, o login com Discord (parte 3) resolve a recuperação para os amigos: quem entra pelo Discord não precisa de senha.
 

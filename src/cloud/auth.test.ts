@@ -16,6 +16,7 @@ describe('auth messages', () => {
     expect(authErrorPt('New password should be different from the old password.')).toBe('A nova senha precisa ser diferente da atual.');
     expect(authErrorPt('Identity is already linked to another user')).toMatch(/Discord já está ligado/);
     expect(authErrorPt('Manual linking is disabled')).toMatch(/Manual linking/);
+    expect(authErrorPt('Error sending recovery email')).toMatch(/servidor de e-mail recusou/);
     expect(authErrorPt('Unsupported provider: provider is not enabled')).toMatch(/Discord ainda não foi ativado/);
   });
 

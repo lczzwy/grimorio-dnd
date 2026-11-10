@@ -8,6 +8,7 @@ export function authErrorPt(message: string): string {
   if (m.includes('invalid format') || m.includes('invalid email')) return 'E-mail inválido.';
   if (m.includes('failed to fetch') || m.includes('network')) return 'Sem conexão com o servidor. Verifique a internet e tente de novo.';
   if (m.includes('rate limit')) return 'Muitas tentativas seguidas. Espere um pouco e tente de novo.';
+  if (m.includes('error sending')) return 'O servidor de e-mail recusou o envio. Confira o SMTP no Supabase (veja docs/CONFIGURAR-LOGIN.md) ou entre com o Discord.';
   if (m.includes('different from the old')) return 'A nova senha precisa ser diferente da atual.';
   if (m.includes('identity_already_exists') || m.includes('already linked')) return 'Esse Discord já está ligado a outra conta do Grimório.';
   if (m.includes('manual linking')) return 'Conectar o Discord a uma conta existente ainda não foi ativado. Peça ao dono do site para ligar "Manual linking" no Supabase.';
