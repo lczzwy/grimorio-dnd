@@ -88,9 +88,9 @@ export async function nextTurn(e: Encounter, list: Combatant[]) {
   await setEncounter(e.campaign_id, { round: s.round, turn: s.turn });
 }
 
-/** Player: records the initiative they just rolled (joins the fight if not in it yet). */
-export async function rollMyInitiative(campaignId: string, value: number) {
-  ok(await supabase.rpc('roll_my_initiative', { campaign: campaignId, val: value }));
+/** Player: records the initiative from the d20 roll the server just made for them (joins the fight if needed). */
+export async function rollMyInitiative(campaignId: string, rollId: string) {
+  ok(await supabase.rpc('roll_my_initiative', { campaign: campaignId, roll: rollId }));
 }
 
 /** GM: brings every player with a character into the fight, clears their old initiative and asks them to roll. */

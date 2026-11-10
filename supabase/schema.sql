@@ -254,13 +254,112 @@ begin
   update campaign_members set color = c where campaign_id = campaign and user_id = auth.uid();
 end $$;
 
--- jogador grava a própria iniciativa (entra no combate se ainda não estiver)
-create or replace function public.roll_my_initiative(campaign uuid, val int) returns void
+-- ---- dados sorteados no servidor: ninguém manda um resultado pronto, ninguém edita depois ----
+-- Fórmulas como "1d20+5", "2d6+1d4-1". Vantagem/desvantagem valem quando a fórmula começa com 1d20;
+-- crítico dobra todos os dados. Devolve a linha gravada em rolls (que o tempo real espalha para a mesa).
+create or replace function public.roll_dice(
+  campaign uuid, formula text, label text default '', mode text default 'normal', crit boolean default false, hidden boolean default false
+) returns public.rolls
 language plpgsql security definer set search_path = public as $$
-declare ch text; nm text; img text;
+#variable_conflict use_variable
+declare
+  f text := lower(regexp_replace(coalesce(formula, ''), '\s+', '', 'g'));
+  m text[];
+  rebuilt text := '';
+  n_terms int := 0;
+  n_dice int := 0;
+  sgn int;
+  cnt int;
+  sides int;
+  times int;
+  mods int := 0;
+  kept int[] := '{}';
+  dropped_v int[] := null;
+  tot int := 0;
+  is_first boolean := true;
+  single_d20 boolean := false;
+  a int; b int; v int; keep int;
+  nat int := null;
+  knd text := null;
+  who text;
+  r public.rolls;
 begin
   if not is_member(campaign) then raise exception 'forbidden'; end if;
-  if val is null or val < -10 or val > 60 then raise exception 'bad_value'; end if;
+  if mode is null or mode not in ('normal', 'adv', 'dis') then mode := 'normal'; end if;
+  if f = '' or length(f) > 100 then raise exception 'bad_formula'; end if;
+
+  for m in select regexp_matches(f, '(([+-]?)([0-9]*)d([0-9]+)|([+-]?)([0-9]+))', 'g') loop
+    rebuilt := rebuilt || m[1];
+    n_terms := n_terms + 1;
+    if n_terms > 30 then raise exception 'bad_formula'; end if;
+    if m[4] is not null then
+      sgn := case when m[2] = '-' then -1 else 1 end;
+      if length(m[3]) > 3 or length(m[4]) > 4 then raise exception 'bad_formula'; end if;
+      cnt := coalesce(nullif(m[3], ''), '1')::int;
+      sides := m[4]::int;
+      if cnt < 1 or cnt > 100 or sides < 1 or sides > 1000 then raise exception 'bad_formula'; end if;
+      if is_first and sides = 20 and cnt = 1 then single_d20 := true; end if;
+      times := cnt * case when crit then 2 else 1 end;
+      n_dice := n_dice + times;
+      if n_dice > 200 then raise exception 'bad_formula'; end if;
+      if is_first and single_d20 and mode <> 'normal' then
+        a := floor(random() * 20)::int + 1;
+        b := floor(random() * 20)::int + 1;
+        keep := case when mode = 'adv' then greatest(a, b) else least(a, b) end;
+        dropped_v := array[case when keep = a then b else a end];
+        kept := kept || keep;
+        tot := tot + sgn * keep;
+        nat := keep;
+      else
+        for i in 1..times loop
+          v := floor(random() * sides)::int + 1;
+          kept := kept || v;
+          tot := tot + sgn * v;
+          if is_first and single_d20 then nat := v; end if;
+        end loop;
+      end if;
+      is_first := false;
+    else
+      if length(m[6]) > 4 then raise exception 'bad_formula'; end if;
+      mods := mods + (case when m[5] = '-' then -1 else 1 end) * m[6]::int;
+    end if;
+  end loop;
+  if rebuilt <> f or n_dice = 0 then raise exception 'bad_formula'; end if;
+  tot := tot + mods;
+
+  if single_d20 and nat is not null then
+    knd := case when nat = 20 then 'crit' when nat = 1 then 'fumble' when mode <> 'normal' then mode else null end;
+  end if;
+  select display_name into who from profiles where id = auth.uid();
+
+  insert into rolls (campaign_id, user_id, author, label, formula, rolls, dropped, total, kind, hidden)
+  values (campaign, auth.uid(), coalesce(who, ''), left(coalesce(label, ''), 200), f, kept, dropped_v, tot, knd, coalesce(hidden, false))
+  returning * into r;
+  return r;
+end $$;
+
+-- revelar uma rolagem oculta: só quem rolou ou o mestre, e só muda o "oculto"
+create or replace function public.reveal_roll(roll uuid) returns void
+language plpgsql security definer set search_path = public as $$
+#variable_conflict use_variable
+begin
+  update rolls set hidden = false where id = roll and (user_id = auth.uid() or is_gm(campaign_id));
+  if not found then raise exception 'forbidden'; end if;
+end $$;
+
+-- jogador grava a própria iniciativa a partir de uma rolagem de d20 que o servidor fez para ele
+-- (entra no combate se ainda não estiver); a versão antiga, que aceitava um número, foi removida
+drop function if exists public.roll_my_initiative(uuid, int);
+create or replace function public.roll_my_initiative(campaign uuid, roll uuid) returns void
+language plpgsql security definer set search_path = public as $$
+#variable_conflict use_variable
+declare ch text; nm text; img text; val int;
+begin
+  if not is_member(campaign) then raise exception 'forbidden'; end if;
+  select r.total into val from rolls r
+  where r.id = roll and r.campaign_id = campaign and r.user_id = auth.uid()
+    and r.formula ~ '^1d20([+-][0-9]{1,2})?$' and r.created_at > clock_timestamp() - interval '10 minutes';
+  if val is null then raise exception 'bad_roll'; end if;
   select character_id into ch from campaign_members where campaign_id = campaign and user_id = auth.uid();
   if ch is null then raise exception 'no_character'; end if;
   update combatants set initiative = val where campaign_id = campaign and character_id = ch;
@@ -376,10 +475,9 @@ create policy homebrew_delete on public.campaign_homebrew for delete using (upda
 
 drop policy if exists rolls_select on public.rolls;
 create policy rolls_select on public.rolls for select using (is_member(campaign_id) and (not hidden or user_id = auth.uid() or is_gm(campaign_id)));
+-- rolagens só nascem por roll_dice() e só mudam por reveal_roll(): sem insert/update direto
 drop policy if exists rolls_insert on public.rolls;
-create policy rolls_insert on public.rolls for insert with check (is_member(campaign_id) and user_id = auth.uid());
 drop policy if exists rolls_update on public.rolls;
-create policy rolls_update on public.rolls for update using (user_id = auth.uid() or is_gm(campaign_id)) with check (is_member(campaign_id));
 drop policy if exists rolls_delete on public.rolls;
 create policy rolls_delete on public.rolls for delete using (is_gm(campaign_id));
 
@@ -417,8 +515,10 @@ revoke all on
   public.profiles, public.characters, public.campaigns, public.campaign_members, public.campaign_homebrew,
   public.rolls, public.encounters, public.combatants, public.combatant_secrets, public.chat_messages, public.creatures
   from anon;
+revoke insert, update on public.rolls from authenticated;
 grant execute on function
-  public.join_campaign(text), public.set_member_character(uuid, text), public.set_member_color(uuid, text), public.roll_my_initiative(uuid, int), public.new_invite_code(uuid),
+  public.join_campaign(text), public.set_member_character(uuid, text), public.set_member_color(uuid, text), public.roll_my_initiative(uuid, uuid), public.new_invite_code(uuid),
+  public.roll_dice(uuid, text, text, text, boolean, boolean), public.reveal_roll(uuid),
   public.gm_apply(text, uuid, int, int, text[], text[], int), public.hp_band(int, int)
   to authenticated;
 

@@ -146,25 +146,81 @@ describe('characters', () => {
   });
 });
 
-describe('rolls', () => {
-  it('members see public rolls; hidden ones only the author and the gm', async () => {
-    await as(P1, `insert into rolls (campaign_id, user_id, author, label, formula, rolls, total) values ($1, $2, 'Voss', 'Ataque', '1d20+5', '{12}', 17)`, [campaign, P1]);
-    await as(P1, `insert into rolls (campaign_id, user_id, author, label, formula, rolls, total, hidden) values ($1, $2, 'Voss', 'Segredo', '1d20', '{3}', 3, true)`, [campaign, P1]);
-    await as(GM, `insert into rolls (campaign_id, user_id, author, label, formula, rolls, total, hidden) values ($1, $2, 'Mestre', 'Goblin', '1d20+4', '{19}', 23, true)`, [campaign, GM]);
-    const labels = async (u: string) => (await as<{ label: string }>(u, `select label from rolls where campaign_id = $1 order by label`, [campaign])).map((r) => r.label);
-    expect(await labels(P2)).toEqual(['Ataque']);
-    expect(await labels(P1)).toEqual(['Ataque', 'Segredo']);
-    expect(await labels(GM)).toEqual(['Ataque', 'Goblin', 'Segredo']);
-    expect(await labels(OUT)).toEqual([]);
+describe('rolls (drawn by the server)', () => {
+  type Roll = { id: string; user_id: string; author: string; label: string; formula: string; rolls: number[]; dropped: number[] | null; total: number; kind: string | null; hidden: boolean };
+  const roll = async (u: string, formula: string, o: { label?: string; mode?: string; crit?: boolean; hidden?: boolean } = {}) =>
+    (await as<Roll>(u, `select * from roll_dice($1, $2, $3, $4, $5, $6)`, [campaign, formula, o.label ?? 'Teste', o.mode ?? 'normal', o.crit ?? false, o.hidden ?? false]))[0];
+
+  it('draws in range, adds the modifier and signs with the real profile name', async () => {
+    for (let i = 0; i < 30; i++) {
+      const r = await roll(P1, '2d6+3');
+      expect(r.rolls).toHaveLength(2);
+      for (const v of r.rolls) expect(v >= 1 && v <= 6).toBe(true);
+      expect(r.total).toBe(r.rolls[0] + r.rolls[1] + 3);
+      expect(r.user_id).toBe(P1);
+      expect(r.author).toBe('Ana');
+    }
+    const spaced = await roll(P1, ' 1D20 + 2 ');
+    expect(spaced.formula).toBe('1d20+2');
+    expect(spaced.total).toBe(spaced.rolls[0] + 2);
+    const neg = await roll(P1, '1d20-1d4-2');
+    expect(neg.total).toBe(neg.rolls[0] - neg.rolls[1] - 2);
   });
 
-  it('cannot post as someone else or into a campaign you are not in', async () => {
-    await fails(as(P2, `insert into rolls (campaign_id, user_id, author, label, formula, rolls, total) values ($1, $2, 'x', 'x', '1d20', '{1}', 1)`, [campaign, P1]), /row-level security/);
-    await fails(as(OUT, `insert into rolls (campaign_id, user_id, author, label, formula, rolls, total) values ($1, $2, 'x', 'x', '1d20', '{1}', 1)`, [campaign, OUT]), /row-level security/);
+  it('advantage keeps the higher d20, disadvantage the lower; natural 20/1 are marked', async () => {
+    for (let i = 0; i < 20; i++) {
+      const a = await roll(P1, '1d20+5', { mode: 'adv' });
+      expect(a.dropped).toHaveLength(1);
+      expect(a.rolls[0]).toBeGreaterThanOrEqual(a.dropped![0]);
+      expect(a.total).toBe(a.rolls[0] + 5);
+      expect(a.kind).toBe(a.rolls[0] === 20 ? 'crit' : a.rolls[0] === 1 ? 'fumble' : 'adv');
+      const d = await roll(P1, '1d20', { mode: 'dis' });
+      expect(d.rolls[0]).toBeLessThanOrEqual(d.dropped![0]);
+    }
+    // advantage only applies to a roll that starts with a single d20
+    expect((await roll(P1, '2d6', { mode: 'adv' })).dropped).toBeNull();
+  });
+
+  it('a critical doubles every die', async () => {
+    const r = await roll(P1, '1d8+1d6+3', { crit: true });
+    expect(r.rolls).toHaveLength(4);
+    expect(r.total).toBe(r.rolls.reduce((a, b) => a + b, 0) + 3);
+  });
+
+  it('rejects garbage, huge rolls and outsiders', async () => {
+    await fails(roll(P1, 'banana'), /bad_formula/);
+    await fails(roll(P1, '5'), /bad_formula/);
+    await fails(roll(P1, '1d20;drop table rolls'), /bad_formula/);
+    await fails(roll(P1, '101d6'), /bad_formula/);
+    await fails(roll(P1, '1d1001'), /bad_formula/);
+    await fails(roll(OUT, '1d20'), /forbidden/);
+  });
+
+  it('nobody can write a roll straight into the table or change it afterwards', async () => {
+    await fails(as(P1, `insert into rolls (campaign_id, user_id, label, formula, rolls, total) values ($1, $2, 'x', '1d20', '{20}', 20)`, [campaign, P1]), /permission denied/);
+    const r = await roll(P1, '1d20');
+    await fails(as(P1, `update rolls set total = 99 where id = $1`, [r.id]), /permission denied/);
+    await fails(as(GM, `update rolls set total = 99 where id = $1`, [r.id]), /permission denied/);
+    expect((await as<{ total: number }>(GM, `select total from rolls where id = $1`, [r.id]))[0].total).toBe(r.total);
+  });
+
+  it('hidden rolls: only the author and the gm see them; only they can reveal', async () => {
+    const mine = await roll(P1, '1d20', { label: 'Segredo', hidden: true });
+    const gm = await roll(GM, '1d20+4', { label: 'Goblin', hidden: true });
+    const seen = async (u: string, id: string) => (await as(u, `select id from rolls where id = $1`, [id])).length === 1;
+    expect(await seen(P2, mine.id)).toBe(false);
+    expect(await seen(P1, mine.id)).toBe(true);
+    expect(await seen(GM, mine.id)).toBe(true);
+    expect(await seen(P1, gm.id)).toBe(false);
+    await fails(as(P2, `select reveal_roll($1)`, [mine.id]), /forbidden/);
+    await as(P1, `select reveal_roll($1)`, [mine.id]);
+    expect(await seen(P2, mine.id)).toBe(true);
+    await as(GM, `select reveal_roll($1)`, [gm.id]);
+    expect(await seen(P2, gm.id)).toBe(true);
   });
 
   it('keeps only the newest 200 rolls per campaign', async () => {
-    for (let i = 0; i < 205; i++) await as(P1, `insert into rolls (campaign_id, user_id, author, label, formula, rolls, total) values ($1, $2, 'Voss', $3, '1d4', '{1}', 1)`, [campaign, P1, 'r' + i]);
+    for (let i = 0; i < 205; i++) await roll(P1, '1d4', { label: 'r' + i });
     const [{ n }] = await as<{ n: number }>(GM, `select count(*)::int as n from rolls where campaign_id = $1`, [campaign]);
     expect(n).toBe(200);
   });
@@ -247,18 +303,24 @@ describe('chat & player colours', () => {
 });
 
 describe('initiative from the table', () => {
-  it('a player records only their own initiative, joining the fight if needed', async () => {
-    await fails(as(OUT, `select roll_my_initiative($1, 15)`, [campaign]), /forbidden/);
-    await fails(as(P1, `select roll_my_initiative($1, 99)`, [campaign]), /bad_value/);
-    await as(P1, `select roll_my_initiative($1, 17)`, [campaign]);
+  it('a player records initiative only from a d20 roll the server made for them', async () => {
+    const r = (await as<{ id: string; total: number }>(P1, `select id, total from roll_dice($1, '1d20+4', 'Iniciativa', 'normal', false, false)`, [campaign]))[0];
+    await fails(as(OUT, `select roll_my_initiative($1, $2)`, [campaign, r.id]), /forbidden/);
+    await fails(as(P2, `select roll_my_initiative($1, $2)`, [campaign, r.id]), /bad_roll/); // someone else's roll
+    const dmg = (await as<{ id: string }>(P1, `select id from roll_dice($1, '2d6', 'Dano', 'normal', false, false)`, [campaign]))[0];
+    await fails(as(P1, `select roll_my_initiative($1, $2)`, [campaign, dmg.id]), /bad_roll/); // not an initiative roll
+    await as(P1, `select roll_my_initiative($1, $2)`, [campaign, r.id]);
     const mine = () => as<{ name: string; initiative: number; kind: string }>(GM, `select name, initiative, kind from combatants where campaign_id = $1 and character_id = 'voss'`, [campaign]);
-    expect(await mine()).toEqual([{ name: 'Voss', initiative: 17, kind: 'player' }]);
+    expect(await mine()).toEqual([{ name: 'Voss', initiative: r.total, kind: 'player' }]);
     // rolling again updates the same entry instead of adding another
-    await as(P1, `select roll_my_initiative($1, 9)`, [campaign]);
-    expect(await mine()).toEqual([{ name: 'Voss', initiative: 9, kind: 'player' }]);
+    const again = (await as<{ id: string; total: number }>(P1, `select id, total from roll_dice($1, '1d20+4', 'Iniciativa', 'normal', false, false)`, [campaign]))[0];
+    await as(P1, `select roll_my_initiative($1, $2)`, [campaign, again.id]);
+    expect(await mine()).toEqual([{ name: 'Voss', initiative: again.total, kind: 'player' }]);
+    // the old "send a number" version is gone
+    await fails(as(P1, `select roll_my_initiative($1, 30)`, [campaign]), /function|does not exist|invalid input/);
     // still no direct write access to the combat for players
     await as(P1, `update combatants set initiative = 30 where campaign_id = $1`, [campaign]);
-    expect((await mine())[0].initiative).toBe(9);
+    expect((await mine())[0].initiative).toBe(again.total);
   });
 
   it('the gm can call for initiative; players only read it', async () => {

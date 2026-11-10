@@ -1,22 +1,44 @@
 import { useEffect, useState } from 'react';
-import { onTableRoll, useDice } from '../store';
+import { setServerRoller, useDice, type ServerRoll } from '../store';
 import { supabase } from './client';
 import { useAuth } from './auth';
 import { useFlash } from '../ui/ui';
-import { toRollRow, type RollRow } from './rollRow';
+import type { RollRow } from './rollRow';
 
 let wired = false;
-/** Sends every roll made at an active campaign table to its feed. Call once at startup. */
+/** Plain-language reason for a failed roll. */
+export function rollErrorPt(message: string) {
+  if (/bad_formula/.test(message)) return 'Fórmula de dados inválida.';
+  if (/forbidden/.test(message)) return 'Você não faz parte desta mesa.';
+  return 'A rolagem não chegou à mesa. Confira a internet e tente de novo.';
+}
+
+/**
+ * At a campaign table the dice are drawn by the server (roll_dice): the site sends only the formula,
+ * the database draws, records and spreads the roll. Call once at startup.
+ */
 export function initRollPublishing() {
   if (wired) return;
   wired = true;
-  onTableRoll((entry, table) => {
-    const { user, profile } = useAuth.getState();
-    if (!user) return;
-    void supabase.from('rolls').insert(toRollRow(entry, table.campaignId, user.id, profile?.display_name || 'Jogador', table.hidden)).then(({ error }) => {
-      // surface the reason instead of failing silently
-      if (error) useFlash.getState().show('A rolagem não chegou à mesa: ' + error.message);
+  setServerRoller(async (table, req) => {
+    if (!useAuth.getState().user) {
+      useFlash.getState().show('Entre na sua conta para rolar na mesa.');
+      throw new Error('not_authenticated');
+    }
+    const { data, error } = await supabase.rpc('roll_dice', {
+      campaign: table.campaignId,
+      formula: req.formula,
+      label: req.label,
+      mode: req.mode,
+      crit: req.crit,
+      hidden: table.hidden,
     });
+    if (error || !data) {
+      const msg = error?.message || 'roll_failed';
+      useFlash.getState().show(rollErrorPt(msg));
+      throw new Error(msg);
+    }
+    return data as ServerRoll;
   });
 }
 
@@ -69,6 +91,6 @@ export function useRollFeed(campaignId: string) {
 }
 
 export async function revealRoll(id: string) {
-  const { error } = await supabase.from('rolls').update({ hidden: false }).eq('id', id);
+  const { error } = await supabase.rpc('reveal_roll', { roll: id });
   if (error) throw new Error(error.message);
 }

@@ -45,9 +45,10 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
   const flash = useFlash((s) => s.show);
   const concName = c.concentration ? srd.spells.find((s) => s.id === c.concentration)?.name ?? c.concentration : '';
   const conSave = saveMod(c, srd, 'con');
-  const rollConcentration = () => {
+  const rollConcentration = async () => {
     if (!concCheck) return;
-    const r = roll(`${who}: concentração em ${concName} (CD ${concCheck.dc})`, `1d20${fmtMod(conSave)}`);
+    const r = await roll(`${who}: concentração em ${concName} (CD ${concCheck.dc})`, `1d20${fmtMod(conSave)}`);
+    if (!r) return;
     if (r.total < concCheck.dc) {
       upd((d) => (d.concentration = undefined));
       setTimeout(() => flash(`Falhou (${r.total} vs CD ${concCheck.dc}): concentração em ${concName} perdida.`), 900);
@@ -95,8 +96,9 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
 
   const fullAttack = (a: AttackLine, attackOnly = false) => sharedFullAttack(who, a, attackOnly);
 
-  const deathSave = () => {
-    const r = roll(`${who}: salvaguarda contra a morte`, '1d20');
+  const deathSave = async () => {
+    const r = await roll(`${who}: salvaguarda contra a morte`, '1d20');
+    if (!r) return;
     const n = r.rolls[0];
     upd((d) => {
       if (n === 20) { d.hp.current = 1; d.deathSaves = { success: 0, fail: 0 }; return; }
@@ -184,8 +186,9 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
                     onClick={() => upd((d) => (d.hitDiceUsed[h.die] = i < h.total - h.used ? h.used + 1 : Math.max(0, h.used - 1)))} />
                 ))}
               </div>
-              <button className="btn sm" disabled={h.used >= h.total} onClick={() => {
-                const r = roll(`${who}: Dado de Vida`, `1${h.die}${fmtMod(m.con)}`);
+              <button className="btn sm" disabled={h.used >= h.total} onClick={async () => {
+                const r = await roll(`${who}: Dado de Vida`, `1${h.die}${fmtMod(m.con)}`);
+                if (!r) return;
                 const gain = Math.max(0, r.total);
                 upd((d) => { d.hitDiceUsed[h.die] = (d.hitDiceUsed[h.die] || 0) + 1; d.hp.current = Math.min(max, d.hp.current + gain); });
               }}>Gastar</button>
@@ -363,10 +366,14 @@ export function RestModal({ c, srd, upd, kind, onClose, onDone }: SheetProps & {
   const hd = hitDice(c, srd);
   const recovering = c.resources.filter((r) => r.used > 0 && (kind === 'long' ? r.reset !== 'none' : r.reset === 'short'));
 
-  const doRest = () => {
+  const doRest = async () => {
     if (kind === 'short') {
       let healed = 0;
-      for (const [die, n] of Object.entries(spend)) for (let i = 0; i < n; i++) healed += Math.max(0, roll(`${c.name}: Dado de Vida`, `1${die}${fmtMod(con)}`).total);
+      for (const [die, n] of Object.entries(spend)) for (let i = 0; i < n; i++) {
+        const r = await roll(`${c.name}: Dado de Vida`, `1${die}${fmtMod(con)}`);
+        if (!r) return; // keep the dice unspent if the table could not roll
+        healed += Math.max(0, r.total);
+      }
       upd((d) => {
         for (const [die, n] of Object.entries(spend)) d.hitDiceUsed[die] = (d.hitDiceUsed[die] || 0) + n;
         d.hp.current = Math.min(max, d.hp.current + healed);

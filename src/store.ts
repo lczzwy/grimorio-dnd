@@ -107,7 +107,8 @@ interface DiceState {
   current?: ActiveRoll;
   mode: RollMode;
   setMode: (m: RollMode) => void;
-  roll: (label: string, formula: string, opts?: { mode?: RollMode; crit?: boolean; charName?: string }) => ActiveRoll;
+  /** Rolls dice. At a campaign table the server draws the numbers (null if it could not be reached). */
+  roll: (label: string, formula: string, opts?: { mode?: RollMode; crit?: boolean; charName?: string }) => Promise<ActiveRoll | null>;
   dismiss: () => void;
   clear: () => void;
   /** Campaign that receives this page's rolls (set by the sheet / campaign pages). */
@@ -116,12 +117,13 @@ interface DiceState {
   setHidden: (hidden: boolean) => void;
 }
 
-type RollListener = (e: ActiveRoll, table: NonNullable<DiceState['table']>) => void;
-const rollListeners = new Set<RollListener>();
-/** Called for every roll made while a campaign table is active. */
-export function onTableRoll(fn: RollListener) {
-  rollListeners.add(fn);
-  return () => rollListeners.delete(fn);
+/** A roll as the server drew it (a row of the campaign's rolls table). */
+export interface ServerRoll { id: string; formula: string; rolls: number[]; dropped: number[] | null; total: number; kind: string | null }
+export type ServerRoller = (table: NonNullable<DiceState['table']>, req: { label: string; formula: string; mode: RollMode; crit: boolean }) => Promise<ServerRoll>;
+let serverRoller: ServerRoller | null = null;
+/** At a campaign table, dice are drawn by the server so nobody can send a made-up result. */
+export function setServerRoller(fn: ServerRoller) {
+  serverRoller = fn;
 }
 
 let rollKey = 0;
@@ -129,27 +131,52 @@ export const useDice = create<DiceState>((set, get) => ({
   log: [],
   mode: 'normal',
   setMode: (m) => set({ mode: m }),
-  roll: (label, formula, opts = {}) => {
+  roll: async (label, formula, opts = {}) => {
     const mode = opts.mode ?? get().mode;
-    const r = rollFormula(formula, { mode, crit: opts.crit });
-    const kind = r.natural === 20 ? 'crit' : r.natural === 1 ? 'fumble' : undefined;
-    const entry: ActiveRoll = {
-      id: uid(),
-      key: ++rollKey,
-      label,
-      formula,
-      rolls: r.rolls,
-      dropped: r.dropped,
-      total: r.total,
-      kind,
-      at: Date.now(),
-      mode: r.natural != null ? mode : 'normal',
-      charName: opts.charName,
-    };
     // advantage toggle is one-shot, like tapping the button before a roll at the table
-    set((s) => ({ current: entry, log: [entry, ...s.log].slice(0, 80), mode: 'normal' }));
+    set({ mode: 'normal' });
     const table = get().table;
-    if (table) rollListeners.forEach((fn) => fn(entry, table));
+    let entry: ActiveRoll;
+    if (table) {
+      // at a table only the server may draw: never fall back to a browser roll there
+      if (!serverRoller) return null;
+      let row: ServerRoll;
+      try {
+        row = await serverRoller(table, { label, formula, mode, crit: !!opts.crit });
+      } catch {
+        return null; // the roller already told the player why
+      }
+      entry = {
+        id: row.id,
+        key: ++rollKey,
+        label,
+        formula: row.formula,
+        rolls: row.rolls,
+        dropped: row.dropped ?? undefined,
+        total: row.total,
+        kind: row.kind === 'crit' || row.kind === 'fumble' ? row.kind : undefined,
+        at: Date.now(),
+        mode: row.dropped?.length ? mode : 'normal',
+        charName: opts.charName,
+      };
+    } else {
+      // a sheet used on its own: nobody to cheat, the browser draws
+      const r = rollFormula(formula, { mode, crit: opts.crit });
+      entry = {
+        id: uid(),
+        key: ++rollKey,
+        label,
+        formula,
+        rolls: r.rolls,
+        dropped: r.dropped,
+        total: r.total,
+        kind: r.natural === 20 ? 'crit' : r.natural === 1 ? 'fumble' : undefined,
+        at: Date.now(),
+        mode: r.natural != null ? mode : 'normal',
+        charName: opts.charName,
+      };
+    }
+    set((s) => ({ current: entry, log: [entry, ...s.log].slice(0, 80) }));
     return entry;
   },
   setTable: (t) => set({ table: t }),

@@ -17,10 +17,10 @@ const ABILITIES: [Ability, string][] = [['str', 'FOR'], ['dex', 'DES'], ['con', 
 const SIZES = ['Miúdo', 'Pequeno', 'Médio', 'Grande', 'Enorme', 'Imenso'];
 
 /** Rolls an attack the way the combat tracker does: to-hit, then damage (doubled dice on a 20). */
-export function rollCreatureAttack(roll: ReturnType<typeof useDice.getState>['roll'], who: string, a: MonsterAction) {
+export async function rollCreatureAttack(roll: ReturnType<typeof useDice.getState>['roll'], who: string, a: MonsterAction) {
   if (a.toHit != null) {
-    const r = roll(`${who}: ${a.name} (ataque)`, `1d20${fmtMod(a.toHit)}`);
-    if (a.damage && r.rolls[0] !== 1) setTimeout(() => roll(`${who}: ${a.name} (dano${r.rolls[0] === 20 ? ' CRÍTICO' : ''})`, a.damage!, { crit: r.rolls[0] === 20 }), 1300);
+    const r = await roll(`${who}: ${a.name} (ataque)`, `1d20${fmtMod(a.toHit)}`);
+    if (r && a.damage && r.rolls[0] !== 1) setTimeout(() => roll(`${who}: ${a.name} (dano${r.rolls[0] === 20 ? ' CRÍTICO' : ''})`, a.damage!, { crit: r.rolls[0] === 20 }), 1300);
   } else if (a.damage) roll(`${who}: ${a.name}`, a.damage);
 }
 

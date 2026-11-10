@@ -3,10 +3,10 @@ import { fmtMod } from '../../engine/dice';
 import { useDice } from '../../store';
 
 /** Attack roll, then damage: natural 20 doubles the dice, natural 1 skips damage. */
-export function fullAttack(who: string, a: AttackLine, attackOnly = false) {
+export async function fullAttack(who: string, a: AttackLine, attackOnly = false) {
   const roll = useDice.getState().roll;
-  const r = roll(`${who}: ${a.name} (ataque)`, `1d20${fmtMod(a.toHit)}`);
-  if (attackOnly) return;
+  const r = await roll(`${who}: ${a.name} (ataque)`, `1d20${fmtMod(a.toHit)}`);
+  if (!r || attackOnly) return;
   const nat = r.rolls[0];
   if (nat === 1) return;
   const crit = nat === 20;

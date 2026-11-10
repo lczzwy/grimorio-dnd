@@ -44,11 +44,11 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
     try { await p; } catch (e) { flash((e as Error).message); } finally { setBusy(false); }
   };
 
-  const rollMine = () => {
+  const rollMine = async () => {
     if (!myChar || !srd) return;
     const mod = initiative(myChar, srd);
-    const r = roll('Iniciativa', `1d20${fmtMod(mod)}`, { charName: myChar.name });
-    void safe(rollMyInitiative(campaign.id, r.total));
+    const r = await roll('Iniciativa', `1d20${fmtMod(mod)}`, { charName: myChar.name });
+    if (r) void safe(rollMyInitiative(campaign.id, r.id));
   };
 
   const ask = () => safe(callInitiative(campaign.id, list, players.map((m) => ({ character_id: m.character_id!, name: party[m.character_id!]?.name || m.display_name, image: party[m.character_id!]?.portrait }))));

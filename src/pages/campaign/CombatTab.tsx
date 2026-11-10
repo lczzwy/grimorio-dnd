@@ -37,8 +37,8 @@ export function CombatTab({ campaign, members, isGm }: CampaignProps) {
   const rollMonsterInit = async () => {
     for (const c of list.filter((x) => x.kind !== 'player')) {
       const dex = secrets[c.id]?.stat?.scores.dex ?? 10;
-      const r = roll(`${c.name}: iniciativa`, `1d20${fmtMod(abilityMod(dex))}`);
-      await updateCombatant(c.id, { initiative: r.total });
+      const r = await roll(`${c.name}: iniciativa`, `1d20${fmtMod(abilityMod(dex))}`);
+      if (r) await updateCombatant(c.id, { initiative: r.total });
     }
     flash('Iniciativa dos inimigos rolada');
   };
@@ -255,11 +255,10 @@ function EnemyDetail({ c, s, conditionIds, onClose, onSaved }: { c: Combatant; s
   const [fx, setFx] = useState<Effect>({ id: '', name: '', kind: 'debuff', rounds: undefined, visible: true });
   const [notes, setNotes] = useState(s?.notes ?? '');
   const safe = (p: Promise<unknown>) => p.then(onSaved).catch((e) => alert((e as Error).message));
-  const attack = (a: MonsterDef['actions'][number]) => {
-    // monster rolls go to the feed hidden (the GM's table default), revealable later
+  const attack = async (a: MonsterDef['actions'][number]) => {
     if (a.toHit != null) {
-      const r = roll(`${c.name}: ${a.name} (ataque)`, `1d20${fmtMod(a.toHit)}`);
-      if (a.damage && r.rolls[0] !== 1) setTimeout(() => roll(`${c.name}: ${a.name} (dano${r.rolls[0] === 20 ? ' CRÍTICO' : ''})`, a.damage!, { crit: r.rolls[0] === 20 }), 1300);
+      const r = await roll(`${c.name}: ${a.name} (ataque)`, `1d20${fmtMod(a.toHit)}`);
+      if (r && a.damage && r.rolls[0] !== 1) setTimeout(() => roll(`${c.name}: ${a.name} (dano${r.rolls[0] === 20 ? ' CRÍTICO' : ''})`, a.damage!, { crit: r.rolls[0] === 20 }), 1300);
     } else if (a.damage) roll(`${c.name}: ${a.name}`, a.damage);
   };
   return (

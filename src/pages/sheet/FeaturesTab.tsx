@@ -242,7 +242,7 @@ export function LevelUpModal({ c, srd, upd, onClose, onDone }: SheetProps & { on
           </div>
           {hpMode === 'roll' && (
             <div className="row" style={{ marginTop: 10 }}>
-              <button className="btn" onClick={() => setRolled(roll(`${c.name}: PV do nível ${total}`, `1d${cls.hitDie}`).total)}><Dices size={15} /> Rolar d{cls.hitDie}</button>
+              <button className="btn" onClick={async () => { const r = await roll(`${c.name}: PV do nível ${total}`, `1d${cls.hitDie}`); if (r) setRolled(r.total); }}><Dices size={15} /> Rolar d{cls.hitDie}</button>
               {rolled != null && <b>Resultado: {rolled}</b>}
             </div>
           )}
