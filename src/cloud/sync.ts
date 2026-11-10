@@ -5,6 +5,7 @@ import { normalizeCharacter, uid } from '../engine/character';
 import { useApp } from '../store';
 import { supabase } from './client';
 import { mergeCharacter, Uploader } from './merge';
+import { migratePortraits } from './portraits';
 
 let currentUser: string | null = null;
 /** id@updatedAt of copies written by the sync itself, so they are not sent back up. */
@@ -136,6 +137,8 @@ export function startSync(userId: string): () => void {
       }
       // edits made on this device while offline: send them now (on top of the version they started from)
       for (const c of useApp.getState().characters) if (c.cloud && c.syncedAt != null && c.updatedAt > c.syncedAt) uploader.schedule(c);
+      // old pictures saved inside the sheets go to Storage (the sheets get lighter)
+      void migratePortraits();
       // deleted on another device: keep it here as a local-only sheet
       useApp.setState((s) => ({ characters: s.characters.map((c) => (c.cloud && !remoteIds.has(c.id) ? { ...c, cloud: false } : c)) }));
     });

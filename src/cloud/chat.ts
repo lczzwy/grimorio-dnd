@@ -64,7 +64,7 @@ export async function sendChat(campaignId: string, body: string): Promise<ChatRo
     .insert({ campaign_id: campaignId, user_id: user.id, author: profile?.display_name || 'Jogador', body })
     .select()
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(/too_fast/.test(error.message) ? 'muitas mensagens seguidas, espere uns segundos' : error.message);
   return data as ChatRow;
 }
 

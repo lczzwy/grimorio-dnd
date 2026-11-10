@@ -3,6 +3,7 @@ import type { Edition } from '../data/types';
 import { supabase } from './client';
 import { campaignErrorPt } from './campaignText';
 import { normalizeCreature, type Creature } from './bestiaryLogic';
+import { isStoredPortrait, storePortrait } from './portraits';
 
 interface Row { id: string; edition: Edition; name: string; data: unknown; updated_at: string }
 
@@ -18,7 +19,14 @@ export function useBestiary(edition: Edition) {
   const [list, setList] = useState<Creature[] | null>(null);
   const load = useCallback(async () => {
     const rows = ok(await supabase.from('creatures').select('id, edition, name, data, updated_at').eq('edition', edition).order('name')) as Row[];
-    setList(rows.map(toCreature));
+    const list = rows.map(toCreature);
+    setList(list);
+    // move pictures still saved inside the creature to Storage, one time
+    for (const c of list) {
+      if (!c.image?.startsWith('data:image/')) continue;
+      const url = await storePortrait(c.image);
+      if (isStoredPortrait(url)) await saveCreature({ ...c, image: url }, edition).catch(() => undefined);
+    }
   }, [edition]);
   useEffect(() => {
     void load().catch(() => setList([]));

@@ -19,6 +19,7 @@ import { Sheet } from './pages/Sheet';
 import { Compendium } from './pages/Compendium';
 import { HomebrewPage } from './pages/Homebrew';
 import { ErrorBoundary } from './ui/ErrorBoundary';
+import { initErrorLog } from './cloud/errorLog';
 import { FirstLoginUpload, SyncBanner } from './ui/SyncNotices';
 
 export default function App() {
@@ -33,7 +34,7 @@ export default function App() {
   }, [ed, top]);
 
   const auth = useAuth();
-  useEffect(() => { initAuth(); initRollPublishing(); }, []);
+  useEffect(() => { initAuth(); initRollPublishing(); initErrorLog(); }, []);
   const uid = auth.user?.id;
   useEffect(() => (uid ? startSync(uid) : undefined), [uid]);
 

@@ -14,6 +14,16 @@ do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated; end if;
   if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon; end if;
 end $$;
+-- a minimal stand-in for Supabase Storage (buckets + objects with RLS)
+create schema if not exists storage;
+create table if not exists storage.buckets (id text primary key, name text, public boolean default false, file_size_limit bigint, allowed_mime_types text[]);
+create table if not exists storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text, owner uuid default auth.uid());
+alter table storage.objects enable row level security;
+create or replace function storage.foldername(name text) returns text[] language sql immutable as
+  $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
+grant usage on schema storage to authenticated, anon;
+grant select, insert, update, delete on storage.objects to authenticated, anon;
+grant select on storage.buckets to authenticated, anon;
 `;
 
 const GM = '00000000-0000-0000-0000-00000000000a';
@@ -433,5 +443,57 @@ describe('phase 4: saving a sheet checks the version', () => {
   it("nobody saves over someone else's sheet, even with the same id", async () => {
     await fails(save(P2, 'novo', 1, 99), /not_owner/);
     await fails(save(OUT, 'novo', 1, 99), /not_owner/);
+  });
+});
+
+describe('phase 5: a table that lasts', () => {
+  /** Runs `sql` as a visitor who is not signed in. */
+  const anon = async <T = Record<string, unknown>>(sql: string, params: unknown[] = []) => {
+    await db.exec(`set role anon; select set_config('request.jwt.claim.sub', '', false);`);
+    try { return (await db.query<T>(sql, params)).rows; } finally { await db.exec(`reset role;`); }
+  };
+
+  it('keep-alive: anyone can ping the database', async () => {
+    expect((await anon<{ ok: boolean }>(`select ping() as ok`))[0].ok).toBe(true);
+  });
+
+  it('chat: more than 5 messages in 3 seconds from the same person is refused', async () => {
+    for (let i = 0; i < 5; i++) await as(GM, `insert into chat_messages (campaign_id, body) values ($1, $2)`, [campaign, 'msg ' + i]);
+    await fails(as(GM, `insert into chat_messages (campaign_id, body) values ($1, 'spam')`, [campaign]), /too_fast/);
+  });
+
+  it('chat: only the newest 500 messages per campaign are kept', async () => {
+    await db.query(`insert into chat_messages (campaign_id, user_id, body, created_at)
+      select $1, $2, 'velha ' || g, clock_timestamp() - (g || ' seconds')::interval from generate_series(1, 520) g`, [campaign, GM]);
+    await db.query(`insert into chat_messages (campaign_id, user_id, body) values ($1, $2, 'nova')`, [campaign, GM]);
+    const [{ n }] = await as<{ n: number }>(GM, `select count(*)::int as n from chat_messages where campaign_id = $1`, [campaign]);
+    expect(n).toBe(500);
+    expect((await as(GM, `select 1 from chat_messages where campaign_id = $1 and body = 'nova'`, [campaign])).length).toBe(1);
+  });
+
+  it('photos: a public bucket where each person writes only in their own folder', async () => {
+    const [b] = (await db.query<{ public: boolean; file_size_limit: number }>(`select public, file_size_limit from storage.buckets where id = 'portraits'`)).rows;
+    expect(b.public).toBe(true);
+    expect(Number(b.file_size_limit)).toBeLessThanOrEqual(1024 * 1024);
+    await as(P1, `insert into storage.objects (bucket_id, name) values ('portraits', $1)`, [P1 + '/voss.jpg']);
+    await fails(as(P1, `insert into storage.objects (bucket_id, name) values ('portraits', $1)`, [GM + '/falsa.jpg']), /row-level security/);
+    await fails(anon(`insert into storage.objects (bucket_id, name) values ('portraits', 'x/y.jpg')`), /row-level security/);
+    await as(GM, `delete from storage.objects where name = $1`, [P1 + '/voss.jpg']); // not GM's file: nothing happens
+    expect((await db.query(`select 1 from storage.objects where name = $1`, [P1 + '/voss.jpg'])).rows.length).toBe(1);
+    await as(P1, `delete from storage.objects where name = $1`, [P1 + '/voss.jpg']);
+    expect((await db.query(`select 1 from storage.objects where name = $1`, [P1 + '/voss.jpg'])).rows.length).toBe(0);
+  });
+
+  it('error log: anyone can report, nobody can read it from the site, and it stays small', async () => {
+    await as(P1, `insert into client_errors (message, url) values ('Quebrou a ficha', '#/2014/c/voss')`);
+    await anon(`insert into client_errors (message) values ('Erro sem login')`);
+    await fails(as(P1, `select * from client_errors`), /permission denied/);
+    await fails(as(GM, `select * from client_errors`), /permission denied/);
+    const [r] = (await db.query<{ user_id: string }>(`select user_id from client_errors where message = 'Quebrou a ficha'`)).rows;
+    expect(r.user_id).toBe(P1);
+    await fails(as(P1, `insert into client_errors (message) values ($1)`, ['x'.repeat(3000)]), /check constraint/);
+    await db.query(`insert into client_errors (message) select 'e' || g from generate_series(1, 1010) g`);
+    const [{ n }] = (await db.query<{ n: number }>(`select count(*)::int as n from client_errors`)).rows;
+    expect(n).toBeLessThanOrEqual(1000);
   });
 });

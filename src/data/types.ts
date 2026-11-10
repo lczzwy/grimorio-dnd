@@ -215,7 +215,7 @@ export interface Character {
   edition: Edition;
   name: string;
   player?: string;
-  portrait?: string; // data url
+  portrait?: string; // Storage address (signed in) or data: URL (only on this device)
   color?: string;
   createdAt: number;
   updatedAt: number;

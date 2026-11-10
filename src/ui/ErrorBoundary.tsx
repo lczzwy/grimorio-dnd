@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import { reportError } from '../cloud/errorLog';
 
 /** Shows a recoverable error screen instead of a blank page, with a way to back up saved data. */
 export class ErrorBoundary extends Component<{ children: ReactNode }, { error?: Error }> {
@@ -6,6 +7,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error?: 
 
   static getDerivedStateFromError(error: Error) {
     return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    reportError(error);
   }
 
   backup = () => {
@@ -22,7 +27,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error?: 
       <main className="page" style={{ maxWidth: 640 }}>
         <div className="panel col" style={{ marginTop: 40 }}>
           <h2>Algo deu errado nesta tela 😵</h2>
-          <p className="muted" style={{ margin: 0 }}>Suas fichas continuam salvas neste navegador. Tente voltar ao início; se o erro persistir, baixe um backup e mande a mensagem abaixo para quem cuida do site.</p>
+          <p className="muted" style={{ margin: 0 }}>Suas fichas continuam salvas neste navegador. O erro já foi registrado para quem cuida do site. Tente voltar ao início; se continuar, baixe um backup das fichas.</p>
           <pre className="small" style={{ whiteSpace: 'pre-wrap', background: 'var(--bg-2)', padding: 10, borderRadius: 8, color: 'var(--bad)' }}>{this.state.error.message}</pre>
           <div className="row wrap">
             <button className="btn primary" onClick={() => { this.setState({ error: undefined }); window.location.hash = '#/'; }}>Voltar ao início</button>

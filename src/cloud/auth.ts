@@ -14,6 +14,8 @@ interface AuthState {
   notice?: string;
   /** whether "Entrar com Discord" is switched on in Supabase (unknown until checked) */
   discordEnabled?: boolean;
+  /** the server did not answer (offline, or the free project is paused) */
+  serverDown?: boolean;
 }
 
 export const useAuth = create<AuthState>(() => ({ user: null, profile: null, loading: true }));
@@ -39,11 +41,22 @@ export function initAuth() {
     go('conta');
   }
   supabase.auth.getSession().then(({ data }) => loadProfile(data.session?.user ?? null));
-  // public settings: only offer Discord once it is enabled (otherwise the button opens an error page)
-  fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_KEY } })
-    .then((r) => r.json())
-    .then((j: { external?: Record<string, boolean> }) => useAuth.setState({ discordEnabled: !!j.external?.discord }))
-    .catch(() => undefined);
+  // public settings: only offer Discord once it is enabled (otherwise the button opens an error page).
+  // The same call tells whether the server answers at all; while it does not, check again every minute.
+  const check = () =>
+    fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_KEY } })
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then((j: { external?: Record<string, boolean> }) => useAuth.setState({ discordEnabled: !!j.external?.discord, serverDown: false }))
+      .catch(() => {
+        // the device itself is offline: that is not the server's fault
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+        useAuth.setState({ serverDown: true });
+        setTimeout(check, 60000);
+      });
+  void check();
   supabase.auth.onAuthStateChange((event, session) => {
     const prev = useAuth.getState().user?.id;
     if (prev !== session?.user?.id || event === 'USER_UPDATED') loadProfile(session?.user ?? null);

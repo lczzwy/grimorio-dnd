@@ -33,6 +33,9 @@ describe('bestiary logic', () => {
 
   it('keeps a valid picture and a blank creature is usable as is', () => {
     expect(normalizeCreature({ name: 'X', image: 'data:image/jpeg;base64,AAA' }).image).toBe('data:image/jpeg;base64,AAA');
+    const stored = 'https://lnvrptqcjcmvsmeprkfk.supabase.co/storage/v1/object/public/portraits/u/lobo.jpg';
+    expect(normalizeCreature({ name: 'X', image: stored }).image).toBe(stored);
+    expect(normalizeCreature({ name: 'X', image: 'https://evil.example.com/x.jpg' }).image).toBeNull();
     const b = normalizeCreature(blankCreature());
     expect(b.actions[0].damage).toBe('1d6+2');
   });

@@ -95,6 +95,17 @@ create table if not exists public.encounters (
   turn int not null default 0
 );
 
+-- erros que aconteceram na tela de alguém (só inserção; leitura só pelo painel do Supabase)
+create table if not exists public.client_errors (
+  id bigserial primary key,
+  user_id uuid default auth.uid() references auth.users (id) on delete set null,
+  message text not null check (char_length(message) between 1 and 2000),
+  stack text check (stack is null or char_length(stack) <= 8000),
+  url text check (url is null or char_length(url) <= 500),
+  agent text check (agent is null or char_length(agent) <= 300),
+  created_at timestamptz not null default now()
+);
+
 -- bestiário do mestre: criaturas próprias, guardadas na conta e reaproveitadas em qualquer campanha
 create table if not exists public.creatures (
   id uuid primary key default gen_random_uuid(),
@@ -238,6 +249,42 @@ begin
 end $$;
 drop trigger if exists on_chat_insert on public.chat_messages;
 create trigger on_chat_insert before insert on public.chat_messages for each row execute function public.chat_author();
+
+-- chat: no máximo 5 mensagens a cada 3 segundos por pessoa (contra spam); inserções do próprio servidor passam
+create or replace function public.chat_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is not null and (
+    select count(*) from chat_messages where user_id = auth.uid() and created_at > clock_timestamp() - interval '3 seconds'
+  ) >= 5 then
+    raise exception 'too_fast';
+  end if;
+  return new;
+end $$;
+drop trigger if exists on_chat_guard on public.chat_messages;
+create trigger on_chat_guard before insert on public.chat_messages for each row execute function public.chat_guard();
+
+-- chat: guarda só as 500 mensagens mais novas de cada campanha
+create or replace function public.trim_chat() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from chat_messages where campaign_id = new.campaign_id and id in (
+    select id from chat_messages where campaign_id = new.campaign_id order by created_at desc offset 500
+  );
+  return null;
+end $$;
+drop trigger if exists on_chat_trim on public.chat_messages;
+create trigger on_chat_trim after insert on public.chat_messages for each row execute function public.trim_chat();
+
+-- registro de erros: guarda só os 1000 mais novos
+create or replace function public.trim_client_errors() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from client_errors where id <= new.id - 1000;
+  return null;
+end $$;
+drop trigger if exists on_client_error on public.client_errors;
+create trigger on_client_error after insert on public.client_errors for each row execute function public.trim_client_errors();
 
 -- quem sai da campanha (ou troca de personagem) sai também da ordem de combate
 create or replace function public.member_left_fight() returns trigger
@@ -413,6 +460,10 @@ begin
   return code;
 end $$;
 
+-- keep-alive: o GitHub Actions chama isto toda semana para o projeto grátis não ser pausado
+create or replace function public.ping() returns boolean
+language sql stable as $$ select true $$;
+
 -- salvar a ficha com checagem de versão: só grava em cima da versão que o aparelho viu por último.
 -- Se alguém mudou no meio do caminho (dano do mestre, outro aparelho), devolve a cópia do servidor
 -- para o site juntar as duas, em vez de apagar a mudança do outro.
@@ -493,6 +544,7 @@ alter table public.combatants enable row level security;
 alter table public.combatant_secrets enable row level security;
 alter table public.chat_messages enable row level security;
 alter table public.creatures enable row level security;
+alter table public.client_errors enable row level security;
 
 drop policy if exists profiles_select on public.profiles;
 create policy profiles_select on public.profiles for select using (id = auth.uid() or shares_campaign_with(id));
@@ -539,6 +591,9 @@ drop policy if exists rolls_update on public.rolls;
 drop policy if exists rolls_delete on public.rolls;
 create policy rolls_delete on public.rolls for delete using (is_gm(campaign_id));
 
+drop policy if exists errors_insert on public.client_errors;
+create policy errors_insert on public.client_errors for insert to anon, authenticated with check (user_id is null or user_id = auth.uid());
+
 drop policy if exists creatures_own on public.creatures;
 create policy creatures_own on public.creatures for all using (owner = auth.uid()) with check (owner = auth.uid());
 
@@ -579,6 +634,38 @@ grant execute on function
   public.roll_dice(uuid, text, text, text, boolean, boolean), public.reveal_roll(uuid), public.save_character(text, text, text, jsonb, int),
   public.gm_apply(text, uuid, int, int, text[], text[], int), public.hp_band(int, int)
   to authenticated;
+
+grant execute on function public.ping() to anon, authenticated;
+-- registro de erros: só inserir (ninguém lê pelo site)
+revoke all on public.client_errors from anon, authenticated;
+grant insert on public.client_errors to anon, authenticated;
+grant usage on sequence public.client_errors_id_seq to anon, authenticated;
+
+-- ---------------------------------------------------------------- fotos (Supabase Storage)
+-- Balde público "portraits": qualquer um vê uma foto pelo endereço; cada pessoa só envia, troca e
+-- apaga arquivos dentro da própria pasta (<id do usuário>/...). Fotos até 1 MB, só jpeg/png/webp.
+do $$
+begin
+  if exists (select 1 from information_schema.schemata where schema_name = 'storage') then
+    insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+    values ('portraits', 'portraits', true, 1048576, array['image/jpeg', 'image/png', 'image/webp'])
+    on conflict (id) do update set public = true, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+    execute 'drop policy if exists portraits_select on storage.objects';
+    execute $p$create policy portraits_select on storage.objects for select to authenticated
+      using (bucket_id = 'portraits' and (storage.foldername(name))[1] = auth.uid()::text)$p$;
+    execute 'drop policy if exists portraits_insert on storage.objects';
+    execute $p$create policy portraits_insert on storage.objects for insert to authenticated
+      with check (bucket_id = 'portraits' and (storage.foldername(name))[1] = auth.uid()::text)$p$;
+    execute 'drop policy if exists portraits_update on storage.objects';
+    execute $p$create policy portraits_update on storage.objects for update to authenticated
+      using (bucket_id = 'portraits' and (storage.foldername(name))[1] = auth.uid()::text)
+      with check (bucket_id = 'portraits' and (storage.foldername(name))[1] = auth.uid()::text)$p$;
+    execute 'drop policy if exists portraits_delete on storage.objects';
+    execute $p$create policy portraits_delete on storage.objects for delete to authenticated
+      using (bucket_id = 'portraits' and (storage.foldername(name))[1] = auth.uid()::text)$p$;
+  end if;
+end $$;
 
 -- ---------------------------------------------------------------- tempo real
 

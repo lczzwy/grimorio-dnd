@@ -5,12 +5,21 @@ import { useAuth } from '../cloud/auth';
 import { uploadAll, uploader, useSyncStatus } from '../cloud/sync';
 import { Modal, useFlash } from './ui';
 
-/** A strip under the top bar while some sheet keeps failing to save online. */
+/** A strip under the top bar while some sheet keeps failing to save online, or the server is down. */
 export function SyncBanner() {
   const failed = useSyncStatus((s) => s.failed);
+  const serverDown = useAuth((s) => s.serverDown);
   const chars = useApp((s) => s.characters);
   const [busy, setBusy] = useState(false);
   const ids = Object.keys(failed);
+  if (serverDown) {
+    return (
+      <div className="sync-banner" role="status">
+        <CloudOff size={16} />
+        <span className="grow">O servidor da mesa não está respondendo (pode estar pausado). As fichas funcionam neste aparelho; campanhas e chat voltam quando ele voltar.</span>
+      </div>
+    );
+  }
   if (!ids.length) return null;
   const names = ids.map((id) => chars.find((c) => c.id === id)?.name || 'Sem nome');
   const reason = failed[ids[0]];

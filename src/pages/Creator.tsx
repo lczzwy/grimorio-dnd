@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { storePortrait } from '../cloud/portraits';
 import { Check, ChevronLeft, ChevronRight, Dices, Sparkles, ImagePlus } from 'lucide-react';
 import type { Ability, Character, Edition, SrdData } from '../data/types';
 import { ABILITIES } from '../data/types';
@@ -31,7 +32,8 @@ export async function fileToPortrait(file: File): Promise<string> {
   const ctx = cv.getContext('2d')!;
   const r = Math.max(s / img.width, s / img.height);
   ctx.drawImage(img, (s - img.width * r) / 2, (s - img.height * r) / 2, img.width * r, img.height * r);
-  return cv.toDataURL('image/jpeg', 0.85);
+  // signed in: the picture goes to Supabase Storage and only its address is kept
+  return storePortrait(cv.toDataURL('image/jpeg', 0.85));
 }
 
 /** Puts fixed starting gear (e.g. "1× Leather Armor") into the inventory when the item exists in the data. */

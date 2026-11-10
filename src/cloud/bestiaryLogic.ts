@@ -92,7 +92,7 @@ export function normalizeCreature(raw: unknown): Creature {
     bonus: actions(o.bonus),
     reactions: actions(o.reactions),
     legendary: actions(o.legendary),
-    image: typeof o.image === 'string' && o.image.startsWith('data:image/') ? o.image : null,
+    image: typeof o.image === 'string' && (o.image.startsWith('data:image/') || /^https:\/\/[a-z0-9.-]+\.supabase\.co\/storage\/v1\/object\/public\/portraits\//.test(o.image)) ? o.image : null,
     notes: str(o.notes),
   };
 }
