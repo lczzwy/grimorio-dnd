@@ -19,6 +19,7 @@ import { Sheet } from './pages/Sheet';
 import { Compendium } from './pages/Compendium';
 import { HomebrewPage } from './pages/Homebrew';
 import { ErrorBoundary } from './ui/ErrorBoundary';
+import { FirstLoginUpload, SyncBanner } from './ui/SyncNotices';
 
 export default function App() {
   const route = useRoute();
@@ -82,12 +83,14 @@ export default function App() {
           {auth.user ? <><UserCircle size={15} /> <span className="hidden-mobile">{auth.profile?.display_name || 'Conta'}</span></> : <><LogIn size={15} /> <span className="hidden-mobile">Entrar</span></>}
         </button>
       </header>
+      <SyncBanner />
       {/* campaign tabs stay mounted: remounting refetched everything from the server on each click */}
       <ErrorBoundary key={route[0] === 'campanha' ? route.slice(0, 2).join('/') : route.join('/')}>{page}</ErrorBoundary>
       {(ed || route[0] === 'campanha') && <DiceTray />}
       <RollToast />
       <FlashHost />
       <Onboarding />
+      <FirstLoginUpload />
     </div>
   );
 }

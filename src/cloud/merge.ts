@@ -1,15 +1,6 @@
 import type { Character } from '../data/types';
 
 /**
- * Decides what to do with a character copy received from the cloud.
- * Returns the copy to store locally, or null to keep the local one (it is as new or newer).
- */
-export function mergeRemote(local: Character | undefined, remote: Character): Character | null {
-  if (local && (local.updatedAt || 0) >= (remote.updatedAt || 0)) return null;
-  return { ...remote, cloud: true };
-}
-
-/**
  * Debounced, retrying upload queue: one pending slot per character (latest state wins).
  * Network failures back off 1s, 2s, 4s… up to 30s and never drop the newest edit.
  */
@@ -25,6 +16,11 @@ export class Uploader {
   constructor(send: (c: Character) => Promise<void>, delay = 800) {
     this.send = send;
     this.delay = delay;
+  }
+
+  /** Whether an edit of this character is still waiting to be sent. */
+  has(id: string) {
+    return this.queue.has(id);
   }
 
   schedule(c: Character) {
@@ -71,4 +67,45 @@ export class Uploader {
       this.running = false;
     }
   }
+}
+
+/**
+ * Fields the GM changes on a player's sheet during play (gm_apply). When both sides changed one of
+ * these since the last sync, the server copy wins: that is where the GM's damage lives.
+ */
+const TABLE_FIELDS = new Set(['hp.current', 'hp.temp', 'conditions', 'deathSaves', 'concentration']);
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * Three-way merge of a character: `base` is the last copy both sides agreed on (may be unknown).
+ * Field by field: changed on one side only → that side; changed on both → server for table fields
+ * (HP, conditions, death saves, concentration), local for everything else. Without a base, table
+ * fields come from the server and the rest from this device.
+ */
+export function mergeCharacter(base: Character | undefined, local: Character, remote: Character): Character {
+  const out: Record<string, unknown> = {};
+  const pick = (path: string, b: unknown, l: unknown, r: unknown) => {
+    if (base === undefined) return TABLE_FIELDS.has(path) ? r : l;
+    if (same(l, b)) return r;
+    if (same(r, b)) return l;
+    return TABLE_FIELDS.has(path) ? r : l;
+  };
+  const keys = new Set([...Object.keys(local), ...Object.keys(remote)]);
+  for (const k of keys) {
+    if (k === 'updatedAt' || k === 'cloud' || k === 'serverVersion' || k === 'syncedAt') continue;
+    const b = (base as unknown as Record<string, unknown> | undefined)?.[k];
+    const l = (local as unknown as Record<string, unknown>)[k];
+    const r = (remote as unknown as Record<string, unknown>)[k];
+    if (k === 'hp' && l && r) {
+      const hp: Record<string, unknown> = {};
+      for (const hk of new Set([...Object.keys(l as object), ...Object.keys(r as object)])) {
+        hp[hk] = pick('hp.' + hk, (b as Record<string, unknown> | undefined)?.[hk], (l as Record<string, unknown>)[hk], (r as Record<string, unknown>)[hk]);
+      }
+      out.hp = hp;
+      continue;
+    }
+    const v = pick(k, b, l, r);
+    if (v !== undefined) out[k] = v;
+  }
+  return { ...(out as unknown as Character), updatedAt: Math.max(local.updatedAt || 0, remote.updatedAt || 0), cloud: true };
 }

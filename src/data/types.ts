@@ -277,4 +277,8 @@ export interface Character {
 
   rollLog?: RollEntry[];
   cloud?: boolean; // synced to the user's account
+  /** server version this device last saw (see save_character) */
+  serverVersion?: number;
+  /** this device's updatedAt when it last matched the server: newer edits are not uploaded yet */
+  syncedAt?: number;
 }

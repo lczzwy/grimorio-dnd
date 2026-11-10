@@ -263,3 +263,7 @@ h1 { text-shadow: 0 2px 0 #000; }
 .btn.discord:hover { background: #4752c4; border-color: #3c45a5; color: #fff; }
 .or-line { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
 .or-line::before, .or-line::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
+
+/* ---- ficha que não salva online ---- */
+.sync-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 16px; background: color-mix(in srgb, var(--warn) 18%, var(--bg-2)); border-bottom: 1px solid color-mix(in srgb, var(--warn) 50%, transparent); color: var(--text); font-size: 13.5px; }
+.sync-banner svg { color: var(--warn); flex: none; }

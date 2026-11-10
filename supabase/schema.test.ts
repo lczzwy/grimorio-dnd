@@ -404,3 +404,34 @@ describe('phase 3: profile names from Discord', () => {
     expect(await profileOf(c)).toBe('caio');
   });
 });
+
+describe('phase 4: saving a sheet checks the version', () => {
+  type Res = { status: 'ok' | 'conflict'; version: number; data?: { hp: { current: number } } };
+  const save = async (u: string, id: string, hp: number, base: number | null) =>
+    (await as<{ r: Res }>(u, `select save_character($1, '2014', 'Novo', $2, $3) as r`, [id, sheet(hp), base]))[0].r;
+
+  it('creates, then saves only on top of the version it last saw', async () => {
+    expect(await save(P1, 'novo', 30, null)).toEqual({ status: 'ok', version: 1 });
+    expect(await save(P1, 'novo', 28, 1)).toEqual({ status: 'ok', version: 2 });
+    // the GM applies damage: the version moves on
+    await as(P1, `select set_member_character($1, 'novo')`, [campaign]);
+    await as(GM, `select gm_apply('novo', $1, -10, null, null, null, null)`, [campaign]);
+    // the player's device still thinks it is on version 2: no overwrite, it gets the server copy back
+    const c = await save(P1, 'novo', 28, 2);
+    expect(c.status).toBe('conflict');
+    expect(c.version).toBe(3);
+    expect(c.data!.hp.current).toBe(18);
+    expect((await as<{ hp: number }>(GM, `select (data->'hp'->>'current')::int as hp from characters where id = 'novo'`))[0].hp).toBe(18);
+    // after merging, saving on top of version 3 works
+    expect(await save(P1, 'novo', 18, 3)).toEqual({ status: 'ok', version: 4 });
+  });
+
+  it('an existing sheet with an unknown version is a conflict, never a blind overwrite', async () => {
+    expect((await save(P1, 'novo', 1, null)).status).toBe('conflict');
+  });
+
+  it("nobody saves over someone else's sheet, even with the same id", async () => {
+    await fails(save(P2, 'novo', 1, 99), /not_owner/);
+    await fails(save(OUT, 'novo', 1, 99), /not_owner/);
+  });
+});

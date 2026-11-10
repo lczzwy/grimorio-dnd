@@ -413,6 +413,31 @@ begin
   return code;
 end $$;
 
+-- salvar a ficha com checagem de versão: só grava em cima da versão que o aparelho viu por último.
+-- Se alguém mudou no meio do caminho (dano do mestre, outro aparelho), devolve a cópia do servidor
+-- para o site juntar as duas, em vez de apagar a mudança do outro.
+create or replace function public.save_character(ch_id text, ch_edition text, ch_name text, ch_data jsonb, base_version int)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare cur_owner uuid; cur_version int; cur_data jsonb;
+begin
+  if auth.uid() is null then raise exception 'not_authenticated'; end if;
+  if ch_edition not in ('2014', '2024') then raise exception 'bad_edition'; end if;
+  select owner, version, data into cur_owner, cur_version, cur_data from characters where id = ch_id for update;
+  if not found then
+    insert into characters (id, owner, edition, name, data, updated_at, version)
+    values (ch_id, auth.uid(), ch_edition, coalesce(ch_name, ''), ch_data, clock_timestamp(), 1);
+    return jsonb_build_object('status', 'ok', 'version', 1);
+  end if;
+  if cur_owner <> auth.uid() then raise exception 'not_owner'; end if;
+  if base_version is null or base_version < cur_version then
+    return jsonb_build_object('status', 'conflict', 'version', cur_version, 'data', cur_data);
+  end if;
+  update characters set edition = ch_edition, name = coalesce(ch_name, ''), data = ch_data, updated_at = clock_timestamp(), version = cur_version + 1
+  where id = ch_id;
+  return jsonb_build_object('status', 'ok', 'version', cur_version + 1);
+end $$;
+
 -- Mestre altera PV / PV temporário / condições de um personagem da campanha, sem reescrever a ficha.
 create or replace function public.gm_apply(
   ch text, campaign uuid, delta_hp int, temp_hp int, add_conditions text[], remove_conditions text[], max_hp int default null
@@ -551,7 +576,7 @@ revoke all on
 revoke insert, update on public.rolls from authenticated;
 grant execute on function
   public.join_campaign(text), public.set_member_character(uuid, text), public.set_member_color(uuid, text), public.roll_my_initiative(uuid, uuid), public.new_invite_code(uuid),
-  public.roll_dice(uuid, text, text, text, boolean, boolean), public.reveal_roll(uuid),
+  public.roll_dice(uuid, text, text, text, boolean, boolean), public.reveal_roll(uuid), public.save_character(text, text, text, jsonb, int),
   public.gm_apply(text, uuid, int, int, text[], text[], int), public.hp_band(int, int)
   to authenticated;
 
