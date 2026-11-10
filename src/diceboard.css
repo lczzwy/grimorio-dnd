@@ -256,7 +256,7 @@ html[data-tablemode] body { overflow: hidden; }
 .tm .dice-board-frame { flex: 1; min-height: 0; width: 100%; margin: 0; padding: 10px; border-radius: 0; background: none; box-shadow: none; container-type: size; display: grid; place-items: center; }
 .tm .dice-board-frame::before, .tm .dice-board-frame::after { display: none; }
 .tm .dice-board-felt { width: 100%; height: 100%; }
-.tm .dice-board-felt.has-map { width: min(100cqw - 20px, 100cqh - 20px); height: auto; aspect-ratio: 1 / 1; box-shadow: 0 0 0 1px var(--gold), 0 10px 40px rgba(0, 0, 0, 0.6); }
+.tm .dice-board-felt.has-map { width: min(100cqw, 100cqh); height: auto; aspect-ratio: 1 / 1; box-shadow: 0 0 0 1px var(--gold), 0 10px 40px rgba(0, 0, 0, 0.6); }
 .tm-init { position: absolute; left: 10px; top: 8px; z-index: 6; width: min(340px, 40%); max-height: calc(100% - 20px); overflow: auto; }
 .tm-init .init-bar { margin: 0; font-size: 13px; }
 .tm-init .init-list { flex-direction: column; flex-wrap: nowrap; }
