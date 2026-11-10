@@ -274,3 +274,5 @@ html[data-tablemode] body { overflow: hidden; }
 /* o botão de dados sai de cima do chat e vai para o canto do mapa */
 html[data-tablemode] .dice-fab { right: 296px; bottom: 16px; z-index: 30; width: 52px; height: 52px; }
 html[data-tablemode] .dice-tray { right: 296px; bottom: 80px; z-index: 30; }
+/* no modo mesa a moldura é o palco inteiro (vence a regra da moldura quadrada da página normal) */
+.tm .dice-board.has-map .dice-board-frame { width: 100%; padding: 10px; margin: 0; border-radius: 0; }
