@@ -8,6 +8,7 @@ export function campaignErrorPt(message: string): string {
   if (message.includes('edition_mismatch')) return 'Esse personagem é de outra edição. Escolha um da mesma edição da campanha.';
   if (message.includes('not_owner')) return 'Você só pode usar personagens seus.';
   if (message.includes('forbidden')) return 'Só o mestre da campanha pode fazer isso.';
+  if (message.includes('row-level security')) return 'Isso é de outra pessoa: só quem criou ou o mestre podem mudar.';
   if (message.includes('not_authenticated')) return 'Entre na sua conta primeiro.';
   if (/failed to fetch|network/i.test(message)) return 'Sem conexão com o servidor. Verifique a internet e tente de novo.';
   return 'Não deu certo: ' + message;

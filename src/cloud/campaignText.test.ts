@@ -14,4 +14,7 @@ describe('campaign helpers', () => {
     expect(campaignErrorPt('not_authenticated')).toBe('Entre na sua conta primeiro.');
     expect(campaignErrorPt('Failed to fetch')).toMatch(/conexão/);
   });
+  it('explains an item that belongs to someone else', () => {
+    expect(campaignErrorPt('new row violates row-level security policy')).toBe('Isso é de outra pessoa: só quem criou ou o mestre podem mudar.');
+  });
 });

@@ -53,6 +53,11 @@ create table if not exists public.campaign_homebrew (
   primary key (campaign_id, kind, id)
 );
 
+-- quem criou cada item de homebrew da campanha (só essa pessoa ou o mestre editam e apagam)
+alter table public.campaign_homebrew add column if not exists created_by uuid references auth.users (id) on delete cascade default auth.uid();
+update public.campaign_homebrew set created_by = updated_by where created_by is null;
+alter table public.campaign_homebrew alter column created_by set not null;
+
 create table if not exists public.rolls (
   id uuid primary key default gen_random_uuid(),
   campaign_id uuid not null references public.campaigns (id) on delete cascade,
@@ -218,6 +223,29 @@ end $$;
 drop trigger if exists on_secret_changed on public.combatant_secrets;
 create trigger on_secret_changed after insert or update of hp_current, hp_max on public.combatant_secrets
   for each row execute function public.sync_hp_band();
+
+-- o nome do autor no chat vem do perfil, não do navegador
+create or replace function public.chat_author() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  new.author := coalesce((select display_name from profiles where id = new.user_id), '');
+  return new;
+end $$;
+drop trigger if exists on_chat_insert on public.chat_messages;
+create trigger on_chat_insert before insert on public.chat_messages for each row execute function public.chat_author();
+
+-- quem sai da campanha (ou troca de personagem) sai também da ordem de combate
+create or replace function public.member_left_fight() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if old.character_id is not null and (tg_op = 'DELETE' or new.character_id is distinct from old.character_id) then
+    delete from combatants where campaign_id = old.campaign_id and kind = 'player' and character_id = old.character_id;
+  end if;
+  return null;
+end $$;
+drop trigger if exists on_member_left on public.campaign_members;
+create trigger on_member_left after delete or update of character_id on public.campaign_members
+  for each row execute function public.member_left_fight();
 
 -- ---------------------------------------------------------------- funções chamadas pelo site
 
@@ -467,11 +495,11 @@ create policy members_delete on public.campaign_members for delete using (user_i
 drop policy if exists homebrew_select on public.campaign_homebrew;
 create policy homebrew_select on public.campaign_homebrew for select using (is_member(campaign_id));
 drop policy if exists homebrew_insert on public.campaign_homebrew;
-create policy homebrew_insert on public.campaign_homebrew for insert with check (is_member(campaign_id) and updated_by = auth.uid());
+create policy homebrew_insert on public.campaign_homebrew for insert with check (is_member(campaign_id) and updated_by = auth.uid() and created_by = auth.uid());
 drop policy if exists homebrew_update on public.campaign_homebrew;
-create policy homebrew_update on public.campaign_homebrew for update using (is_member(campaign_id)) with check (is_member(campaign_id) and updated_by = auth.uid());
+create policy homebrew_update on public.campaign_homebrew for update using (created_by = auth.uid() or is_gm(campaign_id)) with check (is_member(campaign_id) and updated_by = auth.uid());
 drop policy if exists homebrew_delete on public.campaign_homebrew;
-create policy homebrew_delete on public.campaign_homebrew for delete using (updated_by = auth.uid() or is_gm(campaign_id));
+create policy homebrew_delete on public.campaign_homebrew for delete using (created_by = auth.uid() or is_gm(campaign_id));
 
 drop policy if exists rolls_select on public.rolls;
 create policy rolls_select on public.rolls for select using (is_member(campaign_id) and (not hidden or user_id = auth.uid() or is_gm(campaign_id)));

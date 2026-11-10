@@ -342,3 +342,50 @@ describe("gm's bestiary", () => {
     await fails(as(GM, `insert into creatures (name, data) values ('', '{}')`), /check constraint/);
   });
 });
+
+describe('phase 2: each one only touches what is theirs', () => {
+  const item = (name: string) => JSON.stringify({ id: 'hb-p2', name, desc: 'x' });
+  const nameOf = async () => (await as<{ item: { name: string }; created_by: string }>(GM, `select item, created_by from campaign_homebrew where campaign_id = $1 and id = 'hb-p2'`, [campaign]))[0];
+
+  it('campaign homebrew: only the original author or the gm edit and delete an item', async () => {
+    await as(P1, `insert into campaign_homebrew (campaign_id, kind, id, item) values ($1, 'feats', 'hb-p2', $2)`, [campaign, item('Original')]);
+    expect((await nameOf()).created_by).toBe(P1);
+    // another player cannot overwrite it, neither by update nor by upsert
+    await as(P2, `update campaign_homebrew set item = $2 where campaign_id = $1 and id = 'hb-p2'`, [campaign, item('Sabotado')]);
+    await fails(as(P2, `insert into campaign_homebrew (campaign_id, kind, id, item) values ($1, 'feats', 'hb-p2', $2) on conflict (campaign_id, kind, id) do update set item = excluded.item, updated_by = excluded.updated_by`, [campaign, item('Sabotado')]), /row-level security/);
+    expect((await nameOf()).item.name).toBe('Original');
+    // the author can, and so can the gm; authorship stays with whoever created it
+    await as(P1, `update campaign_homebrew set item = $2, updated_by = $3 where campaign_id = $1 and id = 'hb-p2'`, [campaign, item('Revisado'), P1]);
+    expect((await nameOf()).item.name).toBe('Revisado');
+    await as(GM, `update campaign_homebrew set item = $2, updated_by = $3 where campaign_id = $1 and id = 'hb-p2'`, [campaign, item('Do mestre'), GM]);
+    expect(await nameOf()).toMatchObject({ item: { name: 'Do mestre' }, created_by: P1 });
+    // nobody can claim someone else's item as their own creation
+    await fails(as(P2, `insert into campaign_homebrew (campaign_id, kind, id, item, created_by) values ($1, 'feats', 'hb-p2b', $2, $3)`, [campaign, item('X'), P1]), /row-level security/);
+    // deleting: not the other player, yes the author
+    await as(P2, `delete from campaign_homebrew where campaign_id = $1 and id = 'hb-p2'`, [campaign]);
+    expect(await nameOf()).toBeTruthy();
+    await as(P1, `delete from campaign_homebrew where campaign_id = $1 and id = 'hb-p2'`, [campaign]);
+    expect(await nameOf()).toBeUndefined();
+  });
+
+  it('chat: the author name comes from the profile, not from the browser', async () => {
+    const [m] = await as<{ author: string }>(P1, `insert into chat_messages (campaign_id, author, body) values ($1, 'Mestre Falso', 'oi') returning author`, [campaign]);
+    expect(m.author).toBe('Ana');
+  });
+
+  it('a player who swaps character or leaves the campaign also leaves the fight', async () => {
+    await as(P2, `insert into characters (id, owner, edition, name, data) values ('beto2', $1, '2014', 'Beto II', $2)`, [P2, sheet(12)]);
+    await as(P2, `select set_member_character($1, 'beto')`, [campaign]);
+    await as(GM, `insert into combatants (campaign_id, kind, character_id, name) values ($1, 'player', 'beto', 'Beto')`, [campaign]);
+    const inFight = async () => (await as<{ character_id: string }>(GM, `select character_id from combatants where campaign_id = $1 and kind = 'player' order by character_id`, [campaign])).map((r) => r.character_id);
+    expect(await inFight()).toContain('beto');
+    // swapping character takes the old one out of the order
+    await as(P2, `select set_member_character($1, 'beto2')`, [campaign]);
+    expect(await inFight()).not.toContain('beto');
+    await as(GM, `insert into combatants (campaign_id, kind, character_id, name) values ($1, 'player', 'beto2', 'Beto II')`, [campaign]);
+    // leaving (or being removed) takes the current one out; other players stay
+    const before = (await inFight()).filter((c) => c !== 'beto2');
+    await as(GM, `delete from campaign_members where campaign_id = $1 and user_id = $2`, [campaign, P2]);
+    expect(await inFight()).toEqual(before);
+  });
+});

@@ -8,16 +8,17 @@ import type { CampaignProps } from '../Campaign';
 
 const LABEL: Record<string, string> = { species: 'Raças / Espécies', classes: 'Classes', subclasses: 'Subclasses', backgrounds: 'Antecedentes', feats: 'Talentos', spells: 'Magias', equipment: 'Equipamento', magicItems: 'Itens mágicos' };
 
-export function HomebrewTab({ campaign, isGm }: CampaignProps) {
+export function HomebrewTab({ campaign, isGm, uid }: CampaignProps) {
   const { rows } = useCampaignHomebrew(campaign.id);
   const mine = useApp((s) => s.homebrew[campaign.edition]);
   const flash = useFlash((s) => s.show);
   const [paste, setPaste] = useState<string | null>(null);
   const publish = async (raw: unknown) => {
     try {
-      const r = await publishPack(campaign.id, raw);
-      if (!r.kept) return alert('Nada para publicar: o arquivo não tem itens de homebrew reconhecíveis.');
-      flash(`${r.kept} item(ns) publicado(s) para a campanha${r.dropped ? ` (${r.dropped} ignorado(s))` : ''}`);
+      const r = await publishPack(campaign.id, raw, { uid, isGm });
+      if (!r.kept && !r.skipped) return alert('Nada para publicar: o arquivo não tem itens de homebrew reconhecíveis.');
+      const notes = [r.dropped ? `${r.dropped} ignorado(s)` : '', r.skipped ? `${r.skipped} de outra pessoa mantido(s) como estava(m)` : ''].filter(Boolean).join(', ');
+      flash(`${r.kept} item(ns) publicado(s) para a campanha${notes ? ` (${notes})` : ''}`);
       setPaste(null);
     } catch (e) {
       alert((e as Error).message);
@@ -44,7 +45,7 @@ export function HomebrewTab({ campaign, isGm }: CampaignProps) {
               {list.map((r) => (
                 <div key={r.id} className="row small" style={{ padding: '4px 6px', borderRadius: 8, background: 'var(--bg-2)' }}>
                   <span className="grow">{r.item.name}</span>
-                  {isGm && <button className="btn icon sm ghost danger" title="Remover da campanha" onClick={() => confirm(`Remover ${r.item.name} da campanha?`) && removeItem(campaign.id, k, r.id).catch((e) => alert(e.message))}><Trash2 size={12} /></button>}
+                  {(isGm || r.created_by === uid) && <button className="btn icon sm ghost danger" title="Remover da campanha" onClick={() => confirm(`Remover ${r.item.name} da campanha?`) && removeItem(campaign.id, k, r.id).catch((e) => alert(e.message))}><Trash2 size={12} /></button>}
                 </div>
               ))}
             </div>
