@@ -1,26 +1,30 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { ThemePicker } from './ui/ThemePicker';
 import { BookOpen, Users, Hammer, LogIn, UserCircle, Swords, HelpCircle } from 'lucide-react';
 import { initAuth, useAuth } from './cloud/auth';
 import { startSync } from './cloud/sync';
 import { initRollPublishing } from './cloud/rolls';
-import { Account, NewPassword } from './pages/Account';
 import { Onboarding, useOnboarding } from './ui/Onboarding';
-import { Campaigns } from './pages/Campaigns';
 import { Invite } from './pages/Invite';
-import { Campaign } from './pages/Campaign';
 import { useRoute, go, FlashHost, D20Icon } from './ui/ui';
+import { DialogHost } from './ui/dialogs';
 import { DiceTray, RollToast } from './ui/Dice';
 import type { Edition } from './data/types';
 import { Home } from './pages/Home';
 import { Roster } from './pages/Roster';
-import { Creator } from './pages/Creator';
-import { Sheet } from './pages/Sheet';
-import { Compendium } from './pages/Compendium';
-import { HomebrewPage } from './pages/Homebrew';
 import { ErrorBoundary } from './ui/ErrorBoundary';
 import { initErrorLog } from './cloud/errorLog';
 import { FirstLoginUpload, SyncBanner } from './ui/SyncNotices';
+
+// telas carregadas sob demanda: o pacote inicial fica só com a casca, a lista e a conta
+const Campaign = lazy(() => import('./pages/Campaign').then((m) => ({ default: m.Campaign })));
+const Creator = lazy(() => import('./pages/Creator').then((m) => ({ default: m.Creator })));
+const Sheet = lazy(() => import('./pages/Sheet').then((m) => ({ default: m.Sheet })));
+const Compendium = lazy(() => import('./pages/Compendium').then((m) => ({ default: m.Compendium })));
+const HomebrewPage = lazy(() => import('./pages/Homebrew').then((m) => ({ default: m.HomebrewPage })));
+const Account = lazy(() => import('./pages/Account').then((m) => ({ default: m.Account })));
+const NewPassword = lazy(() => import('./pages/Account').then((m) => ({ default: m.NewPassword })));
+const Campaigns = lazy(() => import('./pages/Campaigns').then((m) => ({ default: m.Campaigns })));
 
 export default function App() {
   const route = useRoute();
@@ -53,6 +57,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <a className="skip-link" href="#conteudo" onClick={(e) => { e.preventDefault(); document.getElementById('conteudo')?.focus(); }}>Pular para o conteúdo</a>
       <header className="topbar">
         <a className="brand" href="#/">
           <span className="brand-mark"><D20Icon size={20} /></span>
@@ -61,7 +66,7 @@ export default function App() {
         {ed && <span className="ed-chip">{ed === '2014' ? 'D&D 2014' : 'D&D 2024'}</span>}
         <span className="spacer" />
         {ed && (
-          <nav className="row" style={{ gap: 4 }}>
+          <nav className="row g4" aria-label="Seções">
             <button className={'btn ghost sm' + (!view || view === 'c' || view === 'novo' ? ' active' : '')} onClick={() => go(ed)}>
               <Users size={15} /> <span className="hidden-mobile">Personagens</span>
             </button>
@@ -86,10 +91,15 @@ export default function App() {
       </header>
       <SyncBanner />
       {/* campaign tabs stay mounted: remounting refetched everything from the server on each click */}
-      <ErrorBoundary key={route[0] === 'campanha' ? route.slice(0, 2).join('/') : route.join('/')}>{page}</ErrorBoundary>
+      <main id="conteudo" tabIndex={-1} style={{ outline: 'none' }}>
+        <ErrorBoundary key={route[0] === 'campanha' ? route.slice(0, 2).join('/') : route.join('/')}>
+          <Suspense fallback={<div className="empty" role="status">Carregando…</div>}>{page}</Suspense>
+        </ErrorBoundary>
+      </main>
       {(ed || route[0] === 'campanha') && <DiceTray />}
       <RollToast />
       <FlashHost />
+      <DialogHost />
       <Onboarding />
       <FirstLoginUpload />
     </div>

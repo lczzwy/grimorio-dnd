@@ -8,10 +8,11 @@ import { addEnemy } from '../../cloud/combat';
 import { abilityMod } from '../../engine/rules';
 import { fmtMod, rollFormula } from '../../engine/dice';
 import { useDice } from '../../store';
-import { Modal, NumInput, useFlash } from '../../ui/ui';
+import { Modal, NumInput, useFlash, clickable } from '../../ui/ui';
 import { fileToPortrait } from '../Creator';
 import { MonsterBlock } from './CombatTab';
 import type { CampaignProps } from '../Campaign';
+import { confirmBox } from '../../ui/dialogs';
 
 const ABILITIES: [Ability, string][] = [['str', 'FOR'], ['dex', 'DES'], ['con', 'CON'], ['int', 'INT'], ['wis', 'SAB'], ['cha', 'CAR']];
 const SIZES = ['Miúdo', 'Pequeno', 'Médio', 'Grande', 'Enorme', 'Imenso'];
@@ -36,20 +37,20 @@ export function BestiaryTab({ campaign }: CampaignProps) {
   const shown = useMemo(() => (list || []).filter((c) => !q || c.name.toLowerCase().includes(q.toLowerCase())), [list, q]);
 
   const remove = async (c: Creature) => {
-    if (!confirm(`Apagar "${c.name}" do seu bestiário? Isso não tira as cópias que já estão em combate.`)) return;
+    if (!(await confirmBox(`Apagar "${c.name}" do seu bestiário? Isso não tira as cópias que já estão em combate.`, { danger: true, ok: 'Apagar' }))) return;
     try { await deleteCreature(c.id); await reload(); flash(`${c.name} apagada`); } catch (e) { flash((e as Error).message); }
   };
   const duplicate = (c: Creature) => setEditing({ ...c, id: '', name: `${c.name} (cópia)` });
 
   return (
     <div className="col" style={{ gap: 14 }}>
-      <div className="panel row wrap" style={{ gap: 8 }}>
+      <div className="panel row wrap g8">
         <div className="grow" style={{ minWidth: 200 }}>
           <div className="display" style={{ fontSize: 20 }}><BookOpen size={18} /> Meu bestiário</div>
           <div className="small muted">Suas criaturas ficam na sua conta e servem em todas as suas campanhas de D&amp;D {campaign.edition}. Só você vê.</div>
         </div>
         <div className="row" style={{ position: 'relative' }}>
-          <Search size={15} style={{ position: 'absolute', left: 10, color: 'var(--faint)' }} />
+          <Search size={15} className="search-ic" />
           <input className="input" style={{ paddingLeft: 32, width: 180 }} placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <button className="btn sm" onClick={() => setFromSrd(true)}><Copy size={14} /> Copiar do SRD</button>
@@ -68,7 +69,7 @@ export function BestiaryTab({ campaign }: CampaignProps) {
           <div key={c.id} className="beast-card">
             <div className="beast-top">
               <span className="beast-av" style={c.image ? { backgroundImage: `url(${c.image})` } : undefined}>{!c.image && c.name[0]}</span>
-              <div className="grow" style={{ minWidth: 0 }}>
+              <div className="grow min0">
                 <div className="beast-name">{c.name}</div>
                 <div className="small muted">{c.size} {c.type} · ND {c.cr}</div>
               </div>
@@ -78,7 +79,7 @@ export function BestiaryTab({ campaign }: CampaignProps) {
               <span className="tag">CA {c.ac}</span>
               <span className="tag">{c.actions.length} ataque{c.actions.length === 1 ? '' : 's'}</span>
             </div>
-            <div className="row" style={{ gap: 4 }}>
+            <div className="row g4">
               <button className="btn sm primary grow" onClick={() => setPlacing(c)}><Swords size={13} /> Na mesa</button>
               <button className="btn icon sm" title="Editar" onClick={() => setEditing(c)}><Pencil size={13} /></button>
               <button className="btn icon sm" title="Duplicar" onClick={() => duplicate(c)}><Copy size={13} /></button>
@@ -139,8 +140,8 @@ export function PlaceOnTable({ campaignId, creature, onClose, onPlaced }: { camp
     <Modal title={`Colocar na mesa · ${creature.name}`} onClose={onClose} footer={<button className="btn primary" disabled={busy} onClick={place}><Swords size={14} /> Colocar {count > 1 ? `${count}×` : ''}</button>}>
       <div className="col">
         <label className="field" style={{ width: 120 }}>Quantas<NumInput value={count} min={1} max={20} onChange={setCount} /></label>
-        <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={rollHp} disabled={!canRoll} onChange={(e) => setRollHp(e.target.checked)} /> Rolar os PV de cada uma ({creature.hpDice || 'sem dados de vida'}) em vez de usar {creature.hp}</label>
-        <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} /> Começar oculta (os jogadores não veem até você mostrar)</label>
+        <label className="row small g6"><input type="checkbox" checked={rollHp} disabled={!canRoll} onChange={(e) => setRollHp(e.target.checked)} /> Rolar os PV de cada uma ({creature.hpDice || 'sem dados de vida'}) em vez de usar {creature.hp}</label>
+        <label className="row small g6"><input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} /> Começar oculta (os jogadores não veem até você mostrar)</label>
         <div className="tiny muted">Entra na ordem de iniciativa e na aba Combate, com os ataques prontos para rolar.</div>
       </div>
     </Modal>
@@ -160,7 +161,7 @@ function SrdPicker({ edition, onClose, onPick }: { edition: Edition; onClose: ()
         <input className="input" autoFocus placeholder="Buscar monstro…" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="pick-list" style={{ maxHeight: '55vh', overflow: 'auto' }}>
           {list.map((m) => (
-            <div key={m.id} className="pick-item" onClick={() => onPick(m)}>
+            <div key={m.id} className="pick-item" {...clickable(() => onPick(m))}>
               <span className="grow">{m.name}</span><span className="small faint">ND {m.cr} · PV {m.hp} · CA {m.ac}</span>
             </div>
           ))}
@@ -200,18 +201,18 @@ function CreatureEditor({ initial, onClose, onSave }: { initial: Creature; onClo
               <div className="avatar lg" style={c.image ? { backgroundImage: `url(${c.image})` } : undefined}>{!c.image && <ImagePlus size={26} />}</div>
               <input type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) set('image', await fileToPortrait(f)); }} />
             </label>
-            <div className="col grow" style={{ gap: 8 }}>
+            <div className="col grow g8">
               <label className="field">Nome<input className="input" value={c.name} onChange={(e) => set('name', e.target.value)} placeholder="Ex.: Lobo Sombrio" /></label>
-              <div className="row wrap" style={{ gap: 8 }}>
+              <div className="row wrap g8">
                 <label className="field" style={{ width: 120 }}>Tamanho<select className="select" value={c.size} onChange={(e) => set('size', e.target.value)}>{[...new Set([...SIZES, c.size])].map((s) => <option key={s}>{s}</option>)}</select></label>
                 <label className="field grow">Tipo<input className="input" value={c.type} onChange={(e) => set('type', e.target.value)} placeholder="fera, morto-vivo…" /></label>
                 <label className="field" style={{ width: 70 }}>ND<input className="input" value={c.cr} onChange={(e) => set('cr', e.target.value)} /></label>
               </div>
             </div>
           </div>
-          {c.image && <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => set('image', null)}><X size={12} /> Tirar a foto</button>}
+          {c.image && <button className="btn sm ghost self-start" onClick={() => set('image', null)}><X size={12} /> Tirar a foto</button>}
 
-          <div className="row wrap" style={{ gap: 8 }}>
+          <div className="row wrap g8">
             <label className="field" style={{ width: 70 }}>CA<NumInput value={c.ac} min={0} max={40} onChange={(n) => set('ac', n)} /></label>
             <label className="field" style={{ width: 80 }}>PV<NumInput value={c.hp} min={1} onChange={(n) => set('hp', n)} /></label>
             <label className="field" style={{ width: 130 }}>Dados de vida<input className="input" value={c.hpDice} onChange={(e) => set('hpDice', e.target.value)} placeholder="7d8+14" /></label>
@@ -228,11 +229,11 @@ function CreatureEditor({ initial, onClose, onSave }: { initial: Creature; onClo
             ))}
           </div>
 
-          <div className="row wrap" style={{ gap: 8 }}>
+          <div className="row wrap g8">
             <label className="field grow">Sentidos<input className="input" value={c.senses || ''} onChange={(e) => set('senses', e.target.value)} placeholder="visão no escuro 18 m" /></label>
             <label className="field grow">Idiomas<input className="input" value={c.languages || ''} onChange={(e) => set('languages', e.target.value)} /></label>
           </div>
-          <div className="row wrap" style={{ gap: 8 }}>
+          <div className="row wrap g8">
             <label className="field grow">Resistências<input className="input" value={c.resist || ''} onChange={(e) => set('resist', e.target.value)} /></label>
             <label className="field grow">Imunidades<input className="input" value={c.immune || ''} onChange={(e) => set('immune', e.target.value)} /></label>
           </div>
@@ -245,7 +246,7 @@ function CreatureEditor({ initial, onClose, onSave }: { initial: Creature; onClo
         </div>
 
         <div className="beast-preview">
-          <div className="tiny muted" style={{ marginBottom: 6 }}>Prévia · clique em Rolar para testar um ataque</div>
+          <div className="tiny muted mb6">Prévia · clique em Rolar para testar um ataque</div>
           <div className="row" style={{ gap: 10, marginBottom: 8 }}>
             <span className="beast-av" style={c.image ? { backgroundImage: `url(${c.image})` } : undefined}>{!c.image && (c.name[0] || '?')}</span>
             <div>
@@ -284,12 +285,12 @@ function ActionsEditor({ title, list, onChange, compact }: { title: string; list
       {!list.length && !compact && <div className="tiny muted">Sem ataques: use a bandeja de dados durante o combate.</div>}
       {list.map((a, i) => (
         <div key={i} className="beast-action">
-          <div className="row wrap" style={{ gap: 6 }}>
+          <div className="row wrap g6">
             <input className="input grow" style={{ minWidth: 140 }} value={a.name} placeholder="Nome (ex.: Mordida)" onChange={(e) => upd(i, { name: e.target.value })} />
-            <label className="row small" style={{ gap: 4 }}>Acerto
+            <label className="row small g4">Acerto
               <input className="input num" style={{ width: 56 }} value={a.toHit ?? ''} placeholder="—" onChange={(e) => upd(i, { toHit: e.target.value === '' || e.target.value === '-' ? undefined : parseInt(e.target.value, 10) || 0 })} />
             </label>
-            <label className="row small" style={{ gap: 4 }}><Dices size={13} />
+            <label className="row small g4"><Dices size={13} />
               <input className="input" style={{ width: 96 }} value={a.damage ?? ''} placeholder="2d6+3" onChange={(e) => upd(i, { damage: e.target.value || undefined })} />
             </label>
             <button className="btn icon sm ghost danger" onClick={() => onChange(list.filter((_, j) => j !== i))}><Trash2 size={13} /></button>

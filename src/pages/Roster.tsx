@@ -2,13 +2,14 @@ import { Plus, Upload, Copy, Trash2, Download } from 'lucide-react';
 import { useApp } from '../store';
 import type { Edition } from '../data/types';
 import { useSrd } from '../data/srd';
-import { isCompanionFile } from '../import/companion';
+import { isCompanionFile } from '../import/detect';
 import { confirmAndDelete } from '../cloud/sync';
 import { Cloud } from 'lucide-react';
 import { sanitizeHomebrew } from '../data/homebrew';
 import { companionReport, importCompanionCharacter } from '../import/importFile';
-import { go, pickFile, useFlash, download } from '../ui/ui';
+import { go, pickFile, useFlash, download, clickable } from '../ui/ui';
 import { armorClass, classSummary, maxHp, speciesName } from '../engine/rules';
+import { alertBox, confirmBox } from '../ui/dialogs';
 
 export function Avatar({ name, portrait, size }: { name: string; portrait?: string; size?: 'lg' }) {
   return (
@@ -32,15 +33,15 @@ export function Roster({ edition }: { edition: Edition }) {
       const raw = JSON.parse(await f.text());
       if (isCompanionFile(raw)) {
         // 5e Companion App exports use the 2014 rules
-        if (edition !== '2014' && !confirm('Fichas do 5e Companion usam as regras de 2014. Importar na mesa D&D 2014?')) return;
+        if (edition !== '2014' && !(await confirmBox('Fichas do 5e Companion usam as regras de 2014. Importar na mesa D&D 2014?', { ok: 'Importar' }))) return;
         const { character, created, warnings } = await importCompanionCharacter(raw);
         flash(`${character.name} importado do 5e Companion!`);
-        if (created.length || warnings.length) alert(companionReport(created, warnings));
+        if (created.length || warnings.length) void alertBox(companionReport(created, warnings));
         go(`2014/c/${character.id}`);
         return;
       }
       if (raw?.edition === '2014' || raw?.edition === '2024') {
-        if (raw.edition !== edition && !confirm(`Esta ficha é da edição ${raw.edition}. Importar mesmo assim para a mesa ${raw.edition}?`)) return;
+        if (raw.edition !== edition && !(await confirmBox(`Esta ficha é da edição ${raw.edition}. Importar mesmo assim para a mesa ${raw.edition}?`, { ok: 'Importar' }))) return;
         const c = importCharacter(raw);
         flash(`${c.name || 'Personagem'} importado!`);
         go(`${c.edition}/c/${c.id}`);
@@ -49,14 +50,14 @@ export function Roster({ edition }: { edition: Edition }) {
       // a homebrew content pack picked in the wrong button: import it where it belongs
       const pack = sanitizeHomebrew(raw);
       if (pack.kept) {
-        if (!confirm(`Este arquivo é um pacote de homebrew (${pack.kept} item(ns)), não uma ficha.\n\nAdicionar ao Homebrew da mesa D&D ${edition}?`)) return;
+        if (!(await confirmBox(`Este arquivo é um pacote de homebrew (${pack.kept} item(ns)), não uma ficha.\n\nAdicionar ao Homebrew da mesa D&D ${edition}?`, { ok: 'Adicionar' }))) return;
         importHomebrew(edition, raw);
         flash(`${pack.kept} item(ns) adicionado(s) ao Homebrew ${edition}.`);
         return;
       }
-      alert('Esse arquivo não é uma ficha que o site reconheça.\n\nO botão "Importar ficha" aceita:\n• fichas exportadas por este site (.json)\n• fichas do 5e Companion App (.cah)\n\nPacotes de raças, magias e talentos vão em Homebrew → Importar pacote.');
+      void alertBox('Esse arquivo não é uma ficha que o site reconheça.\n\nO botão "Importar ficha" aceita:\n• fichas exportadas por este site (.json)\n• fichas do 5e Companion App (.cah)\n\nPacotes de raças, magias e talentos vão em Homebrew → Importar pacote.');
     } catch (e) {
-      alert('Não consegui ler esse arquivo (ele precisa ser .json ou .cah): ' + (e as Error).message);
+      void alertBox('Não consegui ler esse arquivo (ele precisa ser .json ou .cah): ' + (e as Error).message);
     }
   };
 
@@ -75,7 +76,7 @@ export function Roster({ edition }: { edition: Edition }) {
           const max = srd ? maxHp(c, srd) : 1;
           const pct = Math.max(0, Math.min(100, (c.hp.current / max) * 100));
           return (
-            <div key={c.id} className="char-card" onClick={() => go(`${edition}/c/${c.id}`)}>
+            <div key={c.id} className="char-card" {...clickable(() => go(`${edition}/c/${c.id}`))}>
               <div className="top">
                 <Avatar name={c.name} portrait={c.portrait} />
                 <div className="grow">

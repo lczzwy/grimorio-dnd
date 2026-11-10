@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, Swords, Sparkles, Zap, RotateCcw } from 'lucide-react';
 import { turnOptions, type TurnOption, type TurnSlot } from '../../engine/turn';
 import { fmtMod } from '../../engine/dice';
-import { Markdown, Modal } from '../../ui/ui';
+import { Markdown, Modal, clickable } from '../../ui/ui';
 import { SpellCard } from './SpellsTab';
 import { fullAttack } from './attack';
 import { PsiOptions } from './PsiOptions';
@@ -42,10 +42,10 @@ export function TurnPanel({ c, srd, upd }: SheetProps) {
 
   return (
     <div className="panel" style={{ marginBottom: 16 }}>
-      <div className="panel-title" style={{ marginBottom: open ? 12 : 0, cursor: 'pointer' }} onClick={toggle}>
+      <div className="panel-title" style={{ marginBottom: open ? 12 : 0, cursor: 'pointer' }} {...clickable(toggle)}>
         <h3>Meu turno</h3>
         <span className="spacer" />
-        {open && <label className="row small muted" style={{ gap: 6 }} onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={showBasic} onChange={(e) => setShowBasic(e.target.checked)} /> ações básicas</label>}
+        {open && <label className="row small muted g6" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={showBasic} onChange={(e) => setShowBasic(e.target.checked)} /> ações básicas</label>}
         {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </div>
       {open && (
@@ -53,8 +53,8 @@ export function TurnPanel({ c, srd, upd }: SheetProps) {
           {COLS.map(({ slot, title, hint, icon: Icon }) => {
             const list = opts[slot].filter((o) => showBasic || o.kind !== 'basic');
             return (
-              <div key={slot} className="col" style={{ gap: 8 }}>
-                <div className="row" style={{ gap: 6 }}><Icon size={15} /><b>{title}</b><span className="tiny faint">{hint}</span></div>
+              <div key={slot} className="col g8">
+                <div className="row g6"><Icon size={15} /><b>{title}</b><span className="tiny faint">{hint}</span></div>
                 <div className="cond-grid">
                   {list.map(chip)}
                   {!list.length && <span className="small faint">{showBasic ? 'Nada.' : 'Nada específico. Marque "ações básicas" para ver as opções gerais.'}</span>}
@@ -68,7 +68,7 @@ export function TurnPanel({ c, srd, upd }: SheetProps) {
         <Modal title={detail.name} onClose={() => setDetail(null)}>
           {detail.kind === 'spell' ? <SpellCard sp={detail.spell} srd={srd} c={c} /> : detail.kind === 'attack' ? null : (
             <div className="col">
-              {detail.kind === 'feature' && <span className="tag accent" style={{ alignSelf: 'flex-start' }}>{detail.source}</span>}
+              {detail.kind === 'feature' && <span className="tag accent self-start">{detail.source}</span>}
               <Markdown text={detail.desc} />
               {detail.kind === 'feature' && <PsiOptions c={c} upd={upd} name={detail.name} desc={detail.desc} />}
             </div>

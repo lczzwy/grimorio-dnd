@@ -149,7 +149,7 @@ export function Creator({ edition }: { edition: Edition }) {
 
       {/* ---------- 1. species ---------- */}
       {step === 0 && (
-        <div className="sheet-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <div className="sheet-grid cols2">
           <div className="choice-grid">
             {srd.species.map((s) => (
               <button key={s.id} className={'choice' + (c.speciesId === s.id ? ' on' : '')} onClick={() => upd((d) => { d.speciesId = s.id; d.subraceId = s.subraces?.[0]?.id; d.speciesChoice = []; })}>
@@ -174,7 +174,7 @@ export function Creator({ edition }: { edition: Edition }) {
                 </div>
                 {species.bonusChoice && (
                   <div>
-                    <div className="small muted" style={{ marginBottom: 6 }}>Escolha {species.bonusChoice.choose} atributos para +{species.bonusChoice.bonus}:</div>
+                    <div className="small muted mb6">Escolha {species.bonusChoice.choose} atributos para +{species.bonusChoice.bonus}:</div>
                     <div className="row wrap">
                       {species.bonusChoice.from.map((a) => {
                         const on = c.speciesChoice.includes(a);
@@ -209,7 +209,7 @@ export function Creator({ edition }: { edition: Edition }) {
 
       {/* ---------- 2. class ---------- */}
       {step === 1 && (
-        <div className="sheet-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <div className="sheet-grid cols2">
           <div className="col">
             <div className="choice-grid">
               {srd.classes.map((k) => (
@@ -263,7 +263,7 @@ export function Creator({ edition }: { edition: Edition }) {
 
       {/* ---------- 3. background ---------- */}
       {step === 2 && (
-        <div className="sheet-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <div className="sheet-grid cols2">
           <div className="col">
             <div className="choice-grid">
               {srd.backgrounds.map((b) => (
@@ -395,7 +395,7 @@ export function Creator({ edition }: { edition: Edition }) {
 
       {/* ---------- 6. details ---------- */}
       {step === 5 && (
-        <div className="sheet-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <div className="sheet-grid cols2">
           <div className="panel col">
             <div className="row">
               <label style={{ cursor: 'pointer' }} title="Enviar retrato">
@@ -421,7 +421,7 @@ export function Creator({ edition }: { edition: Edition }) {
                 <label key={k} className="field">{label}
                   <textarea className="textarea" style={{ minHeight: 60 }} value={c[k]} onChange={(e) => upd((d) => (d[k] = e.target.value))} />
                   {sugg.length > 0 && (
-                    <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => upd((d) => (d[k] = sugg[Math.floor(Math.random() * sugg.length)]))}>
+                    <button className="btn sm ghost self-start" onClick={() => upd((d) => (d[k] = sugg[Math.floor(Math.random() * sugg.length)]))}>
                       <Dices size={13} /> Sugestão do antecedente
                     </button>
                   )}
@@ -442,7 +442,7 @@ export function Creator({ edition }: { edition: Edition }) {
               <div key={a} className="score-box"><div className="tiny muted">{ABILITY_PT[a].short}</div><div className="sv">{scores[a]}</div><b>{fmtMod(abilityMod(scores[a]))}</b></div>
             ))}
           </div>
-          {STEPS.slice(0, 6).map((s, i) => !valid[i] && <div key={s} className="tag bad" style={{ alignSelf: 'flex-start' }}>Falta completar: {s}</div>)}
+          {STEPS.slice(0, 6).map((s, i) => !valid[i] && <div key={s} className="tag bad self-start">Falta completar: {s}</div>)}
         </div>
       )}
 
@@ -468,7 +468,7 @@ function BackgroundBonusPicker({ abilities, c, upd, mode, setMode }: { abilities
     d.backgroundBonus = next;
   });
   return (
-    <div className="col" style={{ gap: 8 }}>
+    <div className="col g8">
       <div className="row">
         <span className="small muted grow">Aumento de atributo do antecedente</span>
         <div className="seg">
@@ -479,7 +479,7 @@ function BackgroundBonusPicker({ abilities, c, upd, mode, setMode }: { abilities
       {mode === '2-1' && (
         <div className="row wrap">
           {abilities.map((a) => (
-            <div key={a} className="row" style={{ gap: 4 }}>
+            <div key={a} className="row g4">
               <span className="small" style={{ width: 92 }}>{ABILITY_PT[a].name}</span>
               <button className={'btn sm' + (c.backgroundBonus[a] === 2 ? ' active' : '')} onClick={() => set(a, 2)}>+2</button>
               <button className={'btn sm' + (c.backgroundBonus[a] === 1 ? ' active' : '')} onClick={() => set(a, 1)}>+1</button>

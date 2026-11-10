@@ -56,8 +56,7 @@ export interface CompanionFile {
   conditions?: Record<string, unknown>;
 }
 
-export const isCompanionFile = (x: unknown): x is CompanionFile =>
-  !!x && typeof x === 'object' && (x as CompanionFile).jsonType === 'character' && 'strength' in (x as object) && ('jobs' in (x as object) || 'allRequiredClasses' in (x as object));
+export { isCompanionFile } from './detect';
 
 /* ---------------- helpers ---------------- */
 

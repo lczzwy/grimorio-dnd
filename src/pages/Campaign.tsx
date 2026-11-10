@@ -113,7 +113,7 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
     return (
       <main className="page">
         <div className="camp-wrap">
-          <div style={{ minWidth: 0 }}>{header}{content}</div>
+          <div className="min0">{header}{content}</div>
           <aside className="camp-chat"><ChatPanel {...props} /></aside>
         </div>
       </main>

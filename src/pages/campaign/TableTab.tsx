@@ -9,6 +9,7 @@ import { CONDITION_PT } from '../../engine/rules';
 import { Modal, NumInput, go, useFlash } from '../../ui/ui';
 import { Sheet } from '../Sheet';
 import type { CampaignProps } from '../Campaign';
+import { showError } from '../../ui/dialogs';
 
 /** Characters in play in a campaign, kept live. */
 export function useParty(characterIds: string[]) {
@@ -39,7 +40,7 @@ export function TableTab({ campaign, members, isGm, uid }: CampaignProps) {
       flash(msg);
       setAmount((a) => ({ ...a, [c.id]: undefined }));
     } catch (e) {
-      alert((e as Error).message);
+      showError(e);
     }
   };
 

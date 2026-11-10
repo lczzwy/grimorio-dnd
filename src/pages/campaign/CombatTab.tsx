@@ -12,12 +12,13 @@ import { BAND_COLOR, BAND_LABEL, hpBand, type HpBand } from '../../engine/hpBand
 import { fmtMod } from '../../engine/dice';
 import { uid } from '../../engine/character';
 import { useDice } from '../../store';
-import { Markdown, Modal, NumInput, useFlash } from '../../ui/ui';
+import { Markdown, Modal, NumInput, useFlash, clickable } from '../../ui/ui';
 import { fileToPortrait } from '../Creator';
 import { useParty } from './TableTab';
 import { useBestiary } from '../../cloud/bestiary';
 import type { Creature } from '../../cloud/bestiaryLogic';
 import type { CampaignProps } from '../Campaign';
+import { confirmBox, showError } from '../../ui/dialogs';
 
 export function CombatTab({ campaign, members, isGm }: CampaignProps) {
   const { encounter, list, secrets, reloadSecrets } = useEncounter(campaign.id, isGm);
@@ -32,7 +33,7 @@ export function CombatTab({ campaign, members, isGm }: CampaignProps) {
   if (!encounter || !srd) return <div className="empty">Carregando combate…</div>;
   const active = encounter.active;
   const current = list[encounter.turn]?.id;
-  const safe = (p: Promise<unknown>) => p.catch((e) => alert((e as Error).message));
+  const safe = (p: Promise<unknown>) => p.catch(showError);
 
   const rollMonsterInit = async () => {
     for (const c of list.filter((x) => x.kind !== 'player')) {
@@ -100,7 +101,7 @@ export function CombatTab({ campaign, members, isGm }: CampaignProps) {
 
       {list.length === 0 && <div className="panel empty">{isGm ? 'Adicione jogadores e inimigos para montar o combate.' : 'Nenhum combate em andamento.'}</div>}
 
-      <div className="col" style={{ gap: 8 }}>
+      <div className="col g8">
         {list.map((c) => {
           const hp = hpOf(c);
           const turn = active && c.id === current;
@@ -123,13 +124,13 @@ export function CombatTab({ campaign, members, isGm }: CampaignProps) {
                   <div className="tiny faint">init</div>
                 </div>
                 {isGm && (
-                  <div className="row" style={{ gap: 4 }}>
+                  <div className="row g4">
                     <NumInput value={amt[c.id]} min={0} placeholder="PV" onChange={(n) => setAmt((a) => ({ ...a, [c.id]: n }))} style={{ width: 56 }} />
                     <button className="btn icon sm hurt" disabled={!amt[c.id]} onClick={() => hurt(c, -amt[c.id]!)} title="Dano"><HeartCrack size={13} /></button>
                     <button className="btn icon sm heal" disabled={!amt[c.id]} onClick={() => hurt(c, amt[c.id]!)} title="Cura"><Heart size={13} /></button>
                     <button className="btn icon sm ghost" title={c.visible ? 'Esconder dos jogadores' : 'Mostrar aos jogadores'} onClick={() => safe(updateCombatant(c.id, { visible: !c.visible }))}>{c.visible ? <Eye size={14} /> : <EyeOff size={14} />}</button>
                     <button className="btn icon sm ghost" title="Detalhes, ataques e efeitos" onClick={() => setOpen(c.id)}><Swords size={14} /></button>
-                    <button className="btn icon sm ghost danger" title="Remover" onClick={() => confirm(`Remover ${c.name} do combate?`) && safe(removeCombatant(c.id))}><Trash2 size={14} /></button>
+                    <button className="btn icon sm ghost danger" title="Remover" onClick={async () => (await confirmBox(`Remover ${c.name} do combate?`, { danger: true, ok: 'Remover' })) && safe(removeCombatant(c.id))}><Trash2 size={14} /></button>
                   </div>
                 )}
               </div>
@@ -178,7 +179,7 @@ export function AddEnemy({ campaignId, edition, onClose, onAdded }: { campaignId
       onAdded();
       onClose();
     } catch (e) {
-      alert((e as Error).message);
+      showError(e);
     } finally {
       setBusy(false);
     }
@@ -189,8 +190,8 @@ export function AddEnemy({ campaignId, edition, onClose, onAdded }: { campaignId
       <div className="grid" style={{ gridTemplateColumns: 'minmax(220px, 1fr) 1.2fr', alignItems: 'start' }}>
         <div className="col">
           <div className="row" style={{ position: 'relative' }}>
-            <Search size={15} style={{ position: 'absolute', left: 10, color: 'var(--faint)' }} />
-            <input className="input" style={{ paddingLeft: 32 }} placeholder={source === 'mine' ? 'Buscar no meu bestiário…' : 'Buscar monstro do SRD…'} value={q} onChange={(e) => setQ(e.target.value)} />
+            <Search size={15} className="search-ic" />
+            <input className="input pl-search" placeholder={source === 'mine' ? 'Buscar no meu bestiário…' : 'Buscar monstro do SRD…'} value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           <div className="seg">
             <button className={source === 'mine' ? 'on' : ''} onClick={() => setSource('mine')}>Meu bestiário{mine ? ` (${mine.length})` : ''}</button>
@@ -199,7 +200,7 @@ export function AddEnemy({ campaignId, edition, onClose, onAdded }: { campaignId
           {source === 'mine' && mine && !mine.length && <div className="tiny muted">Seu bestiário está vazio. Crie criaturas na aba Bestiário.</div>}
           <div className="pick-list" style={{ maxHeight: '45vh', overflow: 'auto' }}>
             {list.map((m) => (
-              <div key={m.id} className={'pick-item' + (sel?.id === m.id ? ' sel' : '')} onClick={() => pick(m)}>
+              <div key={m.id} className={'pick-item' + (sel?.id === m.id ? ' sel' : '')} {...clickable(() => pick(m))}>
                 <span className="grow">{m.name}</span><span className="small faint">ND {m.cr} · PV {m.hp}</span>
               </div>
             ))}
@@ -230,7 +231,7 @@ export function AddEnemy({ campaignId, edition, onClose, onAdded }: { campaignId
 export function MonsterBlock({ m, onAttack }: { m: MonsterDef; onAttack?: (a: MonsterDef['actions'][number]) => void }) {
   const line = (k: string, v?: string) => v ? <div className="small"><b>{k}</b> <span className="muted">{v}</span></div> : null;
   return (
-    <div className="col" style={{ gap: 6 }}>
+    <div className="col g6">
       <div className="small muted">{m.size} {m.type} · ND {m.cr}{m.xp ? ` (${m.xp} XP)` : ''} · {m.speed}</div>
       <div className="row wrap small">{(['str', 'dex', 'con', 'int', 'wis', 'cha'] as const).map((a) => <span key={a} className="tag">{a.toUpperCase()} {m.scores[a]} ({fmtMod(abilityMod(m.scores[a]))})</span>)}</div>
       {line('Sentidos', m.senses)}{line('Resistências', m.resist)}{line('Imunidades', m.immune)}{line('Imune a condições', m.condImmune)}
@@ -254,7 +255,7 @@ function EnemyDetail({ c, s, conditionIds, onClose, onSaved }: { c: Combatant; s
   const roll = useDice((st) => st.roll);
   const [fx, setFx] = useState<Effect>({ id: '', name: '', kind: 'debuff', rounds: undefined, visible: true });
   const [notes, setNotes] = useState(s?.notes ?? '');
-  const safe = (p: Promise<unknown>) => p.then(onSaved).catch((e) => alert((e as Error).message));
+  const safe = (p: Promise<unknown>) => p.then(onSaved).catch(showError);
   const attack = async (a: MonsterDef['actions'][number]) => {
     if (a.toHit != null) {
       const r = await roll(`${c.name}: ${a.name} (ataque)`, `1d20${fmtMod(a.toHit)}`);
@@ -286,7 +287,7 @@ function EnemyDetail({ c, s, conditionIds, onClose, onSaved }: { c: Combatant; s
             <input className="input" style={{ width: 180 }} placeholder="Ex.: Abençoado, Envenenado…" value={fx.name} onChange={(e) => setFx({ ...fx, name: e.target.value })} />
             <div className="seg"><button className={fx.kind === 'buff' ? 'on' : ''} onClick={() => setFx({ ...fx, kind: 'buff' })}>Buff</button><button className={fx.kind === 'debuff' ? 'on' : ''} onClick={() => setFx({ ...fx, kind: 'debuff' })}>Debuff</button></div>
             <NumInput value={fx.rounds} min={0} placeholder="rodadas" onChange={(n) => setFx({ ...fx, rounds: n || undefined })} style={{ width: 80 }} />
-            <label className="row small" style={{ gap: 4 }}><input type="checkbox" checked={!fx.visible} onChange={(e) => setFx({ ...fx, visible: !e.target.checked })} /> secreto</label>
+            <label className="row small g4"><input type="checkbox" checked={!fx.visible} onChange={(e) => setFx({ ...fx, visible: !e.target.checked })} /> secreto</label>
             <button className="btn sm" disabled={!fx.name.trim()} onClick={() => { void safe(updateCombatant(c.id, { effects: [...c.effects, { ...fx, id: uid(), name: fx.name.trim() }] })); setFx({ ...fx, name: '' }); }}><Plus size={13} /> Efeito</button>
           </div>
         </div>

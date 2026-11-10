@@ -6,6 +6,7 @@ import { useDice } from '../../store';
 import { uid } from '../../engine/character';
 import { type AttackLine, ABILITY_PT, CONDITION_PT, armorClass, concentrationDc, hitDice, maxHp, mods, saveMod, weaponAttacks, syncResources } from '../../engine/rules';
 import { fmtMod, rollFormula } from '../../engine/dice';
+import { promptBox } from '../../ui/dialogs';
 import { Modal, NumInput, Markdown, useFlash } from '../../ui/ui';
 import { AdvToggle } from '../../ui/Dice';
 import type { SheetProps } from '../Sheet';
@@ -114,7 +115,7 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
     <>
     <TurnPanel c={c} srd={srd} upd={upd} />
     <div className="sheet-grid-3">
-      <div className="col" style={{ gap: 16 }}>
+      <div className="col g16">
         {c.concentration && (
           <div className="panel row" style={{ borderColor: 'var(--gold)', padding: '10px 14px' }}>
             <Brain size={18} color="var(--gold)" />
@@ -228,7 +229,7 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
         </div>
       </div>
 
-      <div className="col" style={{ gap: 16 }}>
+      <div className="col g16">
         {/* attacks */}
         <div className="panel">
           <div className="panel-title"><h3>Ataques</h3><span className="spacer" /><AdvToggle />
@@ -236,14 +237,14 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
           </div>
           {attacks.map((a) => (
             <div key={a.uid} className="attack">
-              <div style={{ minWidth: 0 }}>
+              <div className="min0">
                 <div className="an">{a.name}</div>
                 <div className="small muted">{[a.type, a.range, a.mastery && `Maestria: ${a.mastery}`, a.notes].filter(Boolean).join(' · ')}</div>
               </div>
               <button className="roll-chip" onClick={(e) => fullAttack(a, e.shiftKey)} title="Ataque completo: rola o acerto e depois o dano (20 natural = crítico automático). Shift+clique: só o acerto.">
                 <Zap size={14} /> {fmtMod(a.toHit)}
               </button>
-              <div className="row" style={{ gap: 4 }}>
+              <div className="row g4">
                 <button className="roll-chip" onClick={(e) => roll(`${who}: ${a.name} (dano${e.shiftKey ? ', crítico' : ''})`, a.damage, { crit: e.shiftKey })} title="Rolar dano (Shift = crítico)">
                   {a.damage}
                 </button>
@@ -253,24 +254,26 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
               </div>
             </div>
           ))}
-          <p className="small faint" style={{ margin: '6px 0 0' }}><Zap size={11} style={{ verticalAlign: '-2px' }} /> rola o acerto e o dano juntos (no 20 natural o dano já sai crítico). Shift+clique rola só o acerto. Armas equipadas no Inventário aparecem aqui.</p>
+          <p className="small faint" style={{ margin: '6px 0 0' }}><Zap size={11} className="ic-inline" /> rola o acerto e o dano juntos (no 20 natural o dano já sai crítico). Shift+clique rola só o acerto. Armas equipadas no Inventário aparecem aqui.</p>
         </div>
 
         {/* resources */}
         <div className="panel">
           <div className="panel-title"><h3>Recursos de classe</h3><span className="spacer" />
             <button className="btn sm ghost" onClick={() => upd((d) => (d.resources = syncResources(d, srd, uid)))} title="Recalcular com base na classe e nível">↻</button>
-            <button className="btn sm" onClick={() => {
-              const name = prompt('Nome do recurso (ex.: Usos de Varinha)');
+            <button className="btn sm" onClick={async () => {
+              const name = (await promptBox('Ex.: Usos de Varinha', { title: 'Nome do recurso', ok: 'Continuar' }))?.trim();
               if (!name) return;
-              const max = parseInt(prompt('Quantidade máxima?') || '1', 10) || 1;
+              const answer = await promptBox(`Quantas vezes dá para usar ${name} antes de recuperar?`, { title: 'Usos máximos', value: '1', numeric: true, ok: 'Adicionar' });
+              if (answer == null) return;
+              const max = parseInt(answer, 10) || 1;
               upd((d) => d.resources.push({ uid: uid(), name, max, used: 0, reset: 'long' }));
             }}><Plus size={14} /> Recurso</button>
           </div>
           {resources.length === 0 && <div className="empty small">Nenhum recurso. Clique em ↻ para gerar os da sua classe.</div>}
           {resources.map((r) => (
             <div key={r.uid} className="row" style={{ marginBottom: 10, alignItems: 'center' }}>
-              <div className="grow" style={{ minWidth: 0 }}>
+              <div className="grow min0">
                 <div style={{ fontWeight: 600, fontSize: 14 }}>{r.name}</div>
                 <div className="tiny faint">{r.reset === 'short' ? 'descanso curto' : r.reset === 'long' ? 'descanso longo' : 'manual'} · {r.max - r.used}/{r.max}</div>
               </div>
@@ -281,7 +284,7 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
                   ))}
                 </div>
               ) : (
-                <div className="row" style={{ gap: 4 }}>
+                <div className="row g4">
                   <button className="btn icon sm" onClick={() => upd((d) => { const x = d.resources.find((y) => y.uid === r.uid)!; x.used = Math.min(x.max, x.used + 1); })}><Minus size={13} /></button>
                   <b className="mono" style={{ width: 54, textAlign: 'center' }}>{r.max - r.used}</b>
                   <button className="btn icon sm" onClick={() => upd((d) => { const x = d.resources.find((y) => y.uid === r.uid)!; x.used = Math.max(0, x.used - 1); })}><Plus size={13} /></button>
@@ -301,7 +304,7 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
             <label className="field" style={{ width: 110 }}>Bônus inic.<NumInput value={c.initBonus} onChange={(n) => upd((d) => (d.initBonus = n))} /></label>
             <label className="field" style={{ width: 110 }}>Bônus desloc.<NumInput value={c.speedBonus} onChange={(n) => upd((d) => (d.speedBonus = n))} /></label>
           </div>
-          <p className="small faint" style={{ marginBottom: 0 }}>Ex.: Estilo de Luta Defesa = +1 de CA. CA manual 0 = automático.</p>
+          <p className="small faint mb0">Ex.: Estilo de Luta Defesa = +1 de CA. CA manual 0 = automático.</p>
         </div>
       </div>
 
@@ -339,7 +342,7 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
             <button className="btn" onClick={() => setConcCheck(null)}>Mantive</button>
             <button className="btn primary" onClick={rollConcentration}><Dices size={15} /> Rolar CON {fmtMod(conSave)}</button>
           </>}>
-          <p style={{ margin: 0 }}>Você levou <b>{concCheck.dmg}</b> de dano concentrado em <b>{concName}</b>.</p>
+          <p className="m0">Você levou <b>{concCheck.dmg}</b> de dano concentrado em <b>{concName}</b>.</p>
           <div className="row" style={{ margin: '14px 0 4px', gap: 18 }}>
             <div className="center"><div className="display" style={{ fontSize: 38, fontWeight: 900 }}>{concCheck.dc}</div><div className="tiny muted">CD</div></div>
             <div className="small muted">CD = o maior entre 10 e metade do dano{c.edition === '2024' ? ' (máximo 30)' : ''}. Se falhar, a magia termina.</div>
@@ -405,7 +408,7 @@ export function RestModal({ c, srd, upd, kind, onClose, onDone }: SheetProps & {
       footer={<><button className="btn" onClick={onClose}>Cancelar</button><button className="btn primary" onClick={doRest}>Descansar</button></>}>
       {kind === 'short' ? (
         <div className="col">
-          <p className="muted" style={{ margin: 0 }}>Gaste Dados de Vida para recuperar PV (cada um rola o dado + CON {fmtMod(con)}). PV: {c.hp.current}/{max}</p>
+          <p className="muted m0">Gaste Dados de Vida para recuperar PV (cada um rola o dado + CON {fmtMod(con)}). PV: {c.hp.current}/{max}</p>
           {hd.map((h) => (
             <div key={h.die} className="row">
               <b style={{ width: 40 }}>{h.die}</b><span className="small muted grow">{h.total - h.used} disponíveis</span>
@@ -423,7 +426,7 @@ export function RestModal({ c, srd, upd, kind, onClose, onDone }: SheetProps & {
           {c.exhaustion > 0 && <li>Exaustão reduzida em 1</li>}
         </ul>
       )}
-      {recovering.length > 0 && <p className="small" style={{ marginBottom: 0 }}>Também recupera: {recovering.map((r) => r.name).join(', ')}{kind === 'short' && c.classes.some((x) => x.classId === 'warlock') ? ', espaços de Pacto' : ''}.</p>}
+      {recovering.length > 0 && <p className="small mb0">Também recupera: {recovering.map((r) => r.name).join(', ')}{kind === 'short' && c.classes.some((x) => x.classId === 'warlock') ? ', espaços de Pacto' : ''}.</p>}
     </Modal>
   );
 }

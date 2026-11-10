@@ -14,7 +14,7 @@ const FIELDS: [TextKey, string, string][] = [
 export function StoryTab({ c, upd }: SheetProps) {
   const set = (k: TextKey) => (e: React.ChangeEvent<HTMLTextAreaElement>) => upd((d: Character) => (d[k] = e.target.value));
   return (
-    <div className="col" style={{ gap: 16 }}>
+    <div className="col g16">
       <div className="panel row wrap">
         <label className="field grow">Jogador<input className="input" value={c.player || ''} onChange={(e) => upd((d) => (d.player = e.target.value))} /></label>
         <label className="field grow">Tendência

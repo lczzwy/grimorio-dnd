@@ -2,6 +2,7 @@ import { useApp } from '../store';
 import { Download, Upload, HardDrive } from 'lucide-react';
 import { download, go, pickFile, useFlash } from '../ui/ui';
 import { isBackupFile, makeBackup } from '../data/backup';
+import { alertBox } from '../ui/dialogs';
 
 export function Home() {
   const chars = useApp((s) => s.characters);
@@ -67,20 +68,20 @@ function BackupPanel() {
     try {
       const data = JSON.parse(await f.text());
       if (!isBackupFile(data)) {
-        alert('Esse arquivo não é um backup do Grimório. Para fichas avulsas, use "Importar ficha" dentro da mesa.');
+        void alertBox('Esse arquivo não é um backup do Grimório. Para fichas avulsas, use "Importar ficha" dentro da mesa.');
         return;
       }
       const r = restore(data);
-      alert(`Backup restaurado.\n\n• ${r.added} personagem(ns) novo(s)\n• ${r.updated} atualizado(s) com a versão do backup\n• ${r.kept} mantido(s) (a versão daqui era mais recente)\n\nNada foi apagado.`);
+      void alertBox(`Backup restaurado.\n\n• ${r.added} personagem(ns) novo(s)\n• ${r.updated} atualizado(s) com a versão do backup\n• ${r.kept} mantido(s) (a versão daqui era mais recente)\n\nNada foi apagado.`);
     } catch (e) {
-      alert('Não consegui ler o backup: ' + (e as Error).message);
+      void alertBox('Não consegui ler o backup: ' + (e as Error).message);
     }
   };
 
   return (
     <section className="panel row wrap" style={{ marginTop: 28, gap: 14, borderColor: stale ? 'var(--warn)' : undefined }}>
       <div className="grow" style={{ minWidth: 220 }}>
-        <h3 style={{ marginBottom: 4 }}><HardDrive size={17} style={{ verticalAlign: '-2px' }} /> Backup</h3>
+        <h3 style={{ marginBottom: 4 }}><HardDrive size={17} className="ic-inline" /> Backup</h3>
         <div className="small muted">
           {characters.length} personagem(ns) · {hbCount} item(ns) de homebrew ·{' '}
           {days === null ? 'nenhum backup feito ainda' : days === 0 ? 'último backup hoje' : `último backup há ${days} dia(s)`}

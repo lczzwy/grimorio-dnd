@@ -76,7 +76,7 @@ export function FirstLoginUpload() {
       <p style={{ marginTop: 0 }}>
         Este navegador tem {localOnly.length} ficha(s) que ainda não estão na sua conta: <b>{localOnly.map((c) => c.name || 'Sem nome').join(', ')}</b>.
       </p>
-      <p className="small muted" style={{ marginBottom: 0 }}>Na conta, elas ficam salvas online, aparecem nos seus outros aparelhos e podem entrar nas campanhas. Dá para fazer isso depois em <b>Sua conta</b>.</p>
+      <p className="small muted mb0">Na conta, elas ficam salvas online, aparecem nos seus outros aparelhos e podem entrar nas campanhas. Dá para fazer isso depois em <b>Sua conta</b>.</p>
     </Modal>
   );
 }

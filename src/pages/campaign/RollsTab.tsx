@@ -1,6 +1,7 @@
 import { EyeOff, Eye } from 'lucide-react';
 import { revealRoll, useRollFeed } from '../../cloud/rolls';
 import type { CampaignProps } from '../Campaign';
+import { showError } from '../../ui/dialogs';
 
 export function RollsTab({ campaign, isGm, uid }: CampaignProps) {
   const rows = useRollFeed(campaign.id);
@@ -18,7 +19,7 @@ export function RollsTab({ campaign, isGm, uid }: CampaignProps) {
             <div className="tot">{r.total}</div>
             <div className="small muted mono">
               {r.formula} [{r.rolls.join(', ')}]{r.dropped?.length ? ` ~${r.dropped.join(',')}` : ''} · {r.created_at ? new Date(r.created_at).toLocaleTimeString().slice(0, 5) : ''}
-              {r.hidden && (isGm || r.user_id === uid) && <button className="btn sm ghost" style={{ marginLeft: 8 }} onClick={() => revealRoll(r.id!).catch((e) => alert(e.message))}><Eye size={12} /> Revelar</button>}
+              {r.hidden && (isGm || r.user_id === uid) && <button className="btn sm ghost" style={{ marginLeft: 8 }} onClick={() => revealRoll(r.id!).catch(showError)}><Eye size={12} /> Revelar</button>}
             </div>
           </div>
         ))}

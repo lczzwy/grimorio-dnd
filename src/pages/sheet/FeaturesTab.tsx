@@ -6,7 +6,7 @@ import { useDice } from '../../store';
 import { uid } from '../../engine/character';
 import { ABILITY_PT, XP_TABLE, allFeatures, className, computeScores, findClass, maxHp, mods, speciesName, syncResources, totalLevel } from '../../engine/rules';
 import { fmtMod } from '../../engine/dice';
-import { Markdown, Modal, NumInput } from '../../ui/ui';
+import { Markdown, Modal, NumInput, clickable } from '../../ui/ui';
 import type { SheetProps } from '../Sheet';
 import { PsiOptions } from './PsiOptions';
 
@@ -22,7 +22,7 @@ export function FeaturesTab({ c, srd, upd, onLevelUp }: SheetProps & { onLevelUp
 
   return (
     <div className="sheet-grid" style={{ gridTemplateColumns: '340px 1fr' }}>
-      <div className="col" style={{ gap: 16 }}>
+      <div className="col g16">
         <div className="panel edit-only">
           <div className="panel-title"><h3>Classes e nível</h3><span className="spacer" /><button className="btn sm primary" onClick={onLevelUp}><ArrowUpCircle size={14} /> Subir</button></div>
           {c.classes.map((e, i) => {
@@ -49,7 +49,7 @@ export function FeaturesTab({ c, srd, upd, onLevelUp }: SheetProps & { onLevelUp
         </div>
 
         <div className="panel col edit-only">
-          <div className="panel-title" style={{ marginBottom: 0 }}><h3>Origem</h3></div>
+          <div className="panel-title mb0"><h3>Origem</h3></div>
           <label className="field">{c.edition === '2014' ? 'Raça' : 'Espécie'}
             <select className="select" value={c.speciesId || ''} onChange={(e) => upd((d) => { d.speciesId = e.target.value || undefined; d.subraceId = srd.species.find((s) => s.id === e.target.value)?.subraces?.[0]?.id; d.speciesChoice = []; })}>
               <option value="">—</option>{srd.species.map((s) => <option key={s.id} value={s.id}>{speciesName(s.id, srd)}</option>)}
@@ -89,7 +89,7 @@ export function FeaturesTab({ c, srd, upd, onLevelUp }: SheetProps & { onLevelUp
           {c.feats.map((id) => {
             const f = srd.feats.find((x) => x.id === id);
             return (
-              <div key={id} className="row" style={{ marginBottom: 6 }}>
+              <div key={id} className="row mb6">
                 <span className="grow">{f?.name || id}</span>
                 {f?.type && <span className="tag">{f.type}</span>}
                 <button className="btn icon sm ghost danger" onClick={() => upd((d) => (d.feats = d.feats.filter((x) => x !== id)))}><Trash2 size={13} /></button>
@@ -105,7 +105,7 @@ export function FeaturesTab({ c, srd, upd, onLevelUp }: SheetProps & { onLevelUp
         </div>
         {groups.map((g) => (
           <div key={g.source + g.kind} style={{ marginBottom: 14 }}>
-            <div className="row" style={{ marginBottom: 6 }}><span className={'tag ' + KIND_COLOR[g.kind]}>{g.source}</span></div>
+            <div className="row mb6"><span className={'tag ' + KIND_COLOR[g.kind]}>{g.source}</span></div>
             {g.items.map((f, i) => (
               <details key={(f.id || f.name) + i} className="feature">
                 <summary>
@@ -143,14 +143,14 @@ function FeatPicker({ feats, onPick, onClose }: { feats: FeatDef[]; onPick: (f: 
       <div className="grid" style={{ gridTemplateColumns: 'minmax(200px, 1fr) 1.4fr', alignItems: 'start' }}>
         <div className="pick-list">
           {feats.map((f) => (
-            <div key={f.id} className={'pick-item' + (sel?.id === f.id ? ' sel' : '')} onClick={() => setSel(f)}>
+            <div key={f.id} className={'pick-item' + (sel?.id === f.id ? ' sel' : '')} {...clickable(() => setSel(f))}>
               <span className="grow">{f.name}</span>{f.type && <span className="tag">{f.type}</span>}
             </div>
           ))}
           {feats.length <= 1 && <p className="small faint">O SRD 2014 só tem 1 talento gratuito. Cadastre outros em Homebrew.</p>}
         </div>
         <div className="panel">
-          {sel && <div className="col"><h2>{sel.name}</h2>{sel.prereq && <span className="tag bad" style={{ alignSelf: 'flex-start' }}>Pré-requisito: {sel.prereq}</span>}<Markdown text={sel.desc} /><button className="btn primary" style={{ alignSelf: 'flex-start' }} onClick={() => onPick(sel)}><Plus size={14} /> Escolher</button></div>}
+          {sel && <div className="col"><h2>{sel.name}</h2>{sel.prereq && <span className="tag bad self-start">Pré-requisito: {sel.prereq}</span>}<Markdown text={sel.desc} /><button className="btn primary self-start" onClick={() => onPick(sel)}><Plus size={14} /> Escolher</button></div>}
         </div>
       </div>
     </Modal>
@@ -268,7 +268,7 @@ export function LevelUpModal({ c, srd, upd, onClose, onDone }: SheetProps & { on
         {!(row?.features || []).length && !subFeatures.length && <div className="small faint">Nenhuma característica nova listada neste nível.</div>}
         {hasAsi && (
           <div className="panel col" style={{ borderColor: 'var(--gold)' }}>
-            <div className="row"><span className="grow" style={{ fontWeight: 700 }}><Star size={14} style={{ verticalAlign: '-2px' }} /> Aumento de Atributo</span>
+            <div className="row"><span className="grow" style={{ fontWeight: 700 }}><Star size={14} className="ic-inline" /> Aumento de Atributo</span>
               <div className="seg">
                 <button className={asiMode === 'plus2' ? 'on' : ''} onClick={() => setAsiMode('plus2')}>+2 em um</button>
                 <button className={asiMode === 'split' ? 'on' : ''} onClick={() => setAsiMode('split')}>+1 em dois</button>

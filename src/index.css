@@ -497,3 +497,26 @@ label.field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; 
   .roll-toast { bottom: 140px; }
   .hp-ring { width: 110px; height: 110px; }
 }
+
+/* foco do teclado: um anel de latão em tudo que dá para usar sem mouse */
+:where(a, button, input, select, textarea, summary, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.modal:focus { outline: none; }
+.skip-link { position: absolute; left: 12px; top: -60px; z-index: 100; padding: 8px 14px; background: var(--panel); border: 1px solid var(--gold); color: var(--text); border-radius: 6px; }
+.skip-link:focus { top: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+/* utilitários que substituem os estilos inline mais repetidos (com !important, como o inline que vieram trocar) */
+.g4 { gap: 4px !important; } .g6 { gap: 6px !important; } .g8 { gap: 8px !important; } .g16 { gap: 16px !important; }
+.self-start { align-self: flex-start !important; }
+.m0 { margin: 0 !important; } .mb0 { margin-bottom: 0 !important; } .mb6 { margin-bottom: 6px !important; }
+.min0 { min-width: 0 !important; }
+.ic-inline { vertical-align: -2px !important; }
+.cols2 { grid-template-columns: 1fr 1fr !important; }
+.search-ic { position: absolute !important; left: 10px !important; color: var(--faint) !important; }
+.input.pl-search, .pl-search { padding-left: 32px !important; }

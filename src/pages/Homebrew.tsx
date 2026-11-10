@@ -6,8 +6,9 @@ import { useSrd } from '../data/srd';
 import { useApp, type HomebrewKind } from '../store';
 import { ABILITY_PT, SCHOOL_PT, SKILL_PT, className, profBonus } from '../engine/rules';
 import { Modal, NumInput, download, go, pickFile, useFlash } from '../ui/ui';
-import { isCompanionFile } from '../import/companion';
+import { isCompanionFile } from '../import/detect';
 import { importCompanionCharacter, companionReport } from '../import/importFile';
+import { alertBox, confirmBox } from '../ui/dialogs';
 
 type AnyItem = { id: string; name: string } & Record<string, unknown>;
 
@@ -56,12 +57,12 @@ function buildClassLevels(d: AnyItem, srd: SrdData): ClassLevel[] {
 
 function FeatureList({ value, onChange, withLevel = true, label = 'Características' }: { value: FeatureRef[]; onChange: (v: FeatureRef[]) => void; withLevel?: boolean; label?: string }) {
   return (
-    <div className="col" style={{ gap: 8 }}>
+    <div className="col g8">
       <div className="row"><span className="tiny muted grow">{label}</span><button className="btn sm" onClick={() => onChange([...value, { name: '', desc: '', level: withLevel ? 1 : undefined }])}><Plus size={13} /> Adicionar</button></div>
       {value.map((f, i) => (
         <div key={i} className="panel col" style={{ padding: 10, gap: 6 }}>
           <div className="row">
-            {withLevel && <label className="row small" style={{ gap: 4 }}>Nv<NumInput value={f.level || 1} min={1} max={20} style={{ width: 50 }} onChange={(n) => onChange(value.map((x, j) => (j === i ? { ...x, level: n } : x)))} /></label>}
+            {withLevel && <label className="row small g4">Nv<NumInput value={f.level || 1} min={1} max={20} style={{ width: 50 }} onChange={(n) => onChange(value.map((x, j) => (j === i ? { ...x, level: n } : x)))} /></label>}
             <input className="input grow" placeholder="Nome" value={f.name} onChange={(e) => onChange(value.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
             <button className="btn icon sm ghost danger" onClick={() => onChange(value.filter((_, j) => j !== i))}><Trash2 size={13} /></button>
           </div>
@@ -119,12 +120,12 @@ function Editor({ kind, init, srd, edition, onClose }: { kind: HomebrewKind; ini
             {edition === '2024' && <label className="field">Tipo de criatura<input className="input" value={(d.creatureType as string) || ''} onChange={(e) => set({ creatureType: e.target.value })} placeholder="Humanoid, Aberration…" /></label>}
           </div>
           {edition === '2014' && (
-            <div className="col" style={{ gap: 6 }}>
+            <div className="col g6">
               <span className="tiny muted">Bônus de atributo</span>
               <div className="row wrap">
                 {ABILITIES.map((a) => {
                   const b = ((d.bonuses as { ability: Ability; bonus: number }[]) || []).find((x) => x.ability === a)?.bonus || 0;
-                  return <label key={a} className="row small" style={{ gap: 4 }}>{ABILITY_PT[a].short}<NumInput value={b} min={-4} max={4} style={{ width: 46 }} onChange={(n) => set({ bonuses: [...((d.bonuses as { ability: Ability }[]) || []).filter((x) => x.ability !== a), ...(n ? [{ ability: a, bonus: n }] : [])] })} /></label>;
+                  return <label key={a} className="row small g4">{ABILITY_PT[a].short}<NumInput value={b} min={-4} max={4} style={{ width: 46 }} onChange={(n) => set({ bonuses: [...((d.bonuses as { ability: Ability }[]) || []).filter((x) => x.ability !== a), ...(n ? [{ ability: a, bonus: n }] : [])] })} /></label>;
                 })}
               </div>
             </div>
@@ -147,9 +148,9 @@ function Editor({ kind, init, srd, edition, onClose }: { kind: HomebrewKind; ini
               <select className="select" value={d._ability as string} onChange={(e) => set({ _ability: e.target.value })}><option value="">—</option>{ABILITIES.map((a) => <option key={a} value={a}>{ABILITY_PT[a].name}</option>)}</select>
             </label>
           </div>
-          <div className="col" style={{ gap: 6 }}><span className="tiny muted">Salvaguardas (2)</span><MultiPick options={abOpts} value={d.saves as Ability[]} max={2} onChange={(v) => set({ saves: v })} /></div>
+          <div className="col g6"><span className="tiny muted">Salvaguardas (2)</span><MultiPick options={abOpts} value={d.saves as Ability[]} max={2} onChange={(v) => set({ saves: v })} /></div>
           <label className="field">Proficiências (separadas por vírgula)<input className="input" value={(d._profText as string) ?? (d.profs as string[]).join(', ')} onChange={(e) => set({ _profText: e.target.value })} placeholder="Light Armor, Simple Weapons, Martial Weapons…" /></label>
-          <div className="col" style={{ gap: 6 }}>
+          <div className="col g6">
             <div className="row"><span className="tiny muted grow">Perícias à escolha</span>Escolher<NumInput value={(d._skills as { choose: number }).choose} min={0} max={6} style={{ width: 46 }} onChange={(n) => set({ _skills: { ...(d._skills as object), choose: n } })} /></div>
             <MultiPick options={skillOpts} value={(d._skills as { from: string[] }).from} onChange={(v) => set({ _skills: { ...(d._skills as object), from: v } })} />
           </div>
@@ -165,10 +166,10 @@ function Editor({ kind, init, srd, edition, onClose }: { kind: HomebrewKind; ini
         </>)}
 
         {kind === 'backgrounds' && (<>
-          <div className="col" style={{ gap: 6 }}><span className="tiny muted">Perícias</span><MultiPick options={skillOpts} value={(d.skills as string[]) || []} onChange={(v) => set({ skills: v })} /></div>
+          <div className="col g6"><span className="tiny muted">Perícias</span><MultiPick options={skillOpts} value={(d.skills as string[]) || []} onChange={(v) => set({ skills: v })} /></div>
           <label className="field">Ferramentas (vírgula)<input className="input" value={((d.tools as string[]) || []).join(', ')} onChange={(e) => set({ tools: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} /></label>
           {edition === '2024' ? (<>
-            <div className="col" style={{ gap: 6 }}><span className="tiny muted">Atributos que pode aumentar (3)</span><MultiPick options={abOpts} value={(d.abilities as Ability[]) || []} max={3} onChange={(v) => set({ abilities: v })} /></div>
+            <div className="col g6"><span className="tiny muted">Atributos que pode aumentar (3)</span><MultiPick options={abOpts} value={(d.abilities as Ability[]) || []} max={3} onChange={(v) => set({ abilities: v })} /></div>
             <label className="field">Talento de origem
               <select className="select" value={(d.feat as { id: string })?.id || ''} onChange={(e) => { const f = srd.feats.find((x) => x.id === e.target.value); set({ feat: f ? { id: f.id, name: f.name } : undefined }); }}>
                 <option value="">—</option>{srd.feats.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
@@ -202,14 +203,14 @@ function Editor({ kind, init, srd, edition, onClose }: { kind: HomebrewKind; ini
             <label className="field">Duração<input className="input" value={d.duration as string} onChange={(e) => set({ duration: e.target.value })} /></label>
           </div>
           <div className="row wrap">
-            <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={!!d.conc} onChange={(e) => set({ conc: e.target.checked || undefined })} /> Concentração</label>
-            <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={!!d.ritual} onChange={(e) => set({ ritual: e.target.checked || undefined })} /> Ritual</label>
+            <label className="row small g6"><input type="checkbox" checked={!!d.conc} onChange={(e) => set({ conc: e.target.checked || undefined })} /> Concentração</label>
+            <label className="row small g6"><input type="checkbox" checked={!!d.ritual} onChange={(e) => set({ ritual: e.target.checked || undefined })} /> Ritual</label>
             <label className="field">Salvaguarda<select className="select" value={(d.save as string) || ''} onChange={(e) => set({ save: e.target.value || undefined })}><option value="">—</option>{ABILITIES.map((a) => <option key={a} value={a}>{ABILITY_PT[a].short}</option>)}</select></label>
             <label className="field">Ataque<select className="select" value={(d.attack as string) || ''} onChange={(e) => set({ attack: e.target.value || undefined })}><option value="">—</option><option value="melee">Corpo a corpo</option><option value="ranged">À distância</option></select></label>
             <label className="field">Dano (ex.: 3d6)<input className="input" value={(d.dmgSlot as Record<string, string>)?.[String(d.level || 1)] || ''} onChange={(e) => set({ dmgSlot: e.target.value ? { [String(d.level || 1)]: e.target.value } : undefined })} /></label>
             <label className="field">Tipo de dano<input className="input" value={(d.dmgType as string) || ''} onChange={(e) => set({ dmgType: e.target.value })} /></label>
           </div>
-          <div className="col" style={{ gap: 6 }}><span className="tiny muted">Classes</span><MultiPick options={srd.classes.map((c) => ({ v: c.id, l: className(c.id, srd) }))} value={(d.classes as string[]) || []} onChange={(v) => set({ classes: v })} /></div>
+          <div className="col g6"><span className="tiny muted">Classes</span><MultiPick options={srd.classes.map((c) => ({ v: c.id, l: className(c.id, srd) }))} value={(d.classes as string[]) || []} onChange={(v) => set({ classes: v })} /></div>
           {descField()}
           {descField('higher', 'Em níveis superiores')}
         </>)}
@@ -232,7 +233,7 @@ function Editor({ kind, init, srd, edition, onClose }: { kind: HomebrewKind; ini
             <div className="row wrap">
               <label className="field">Tipo<select className="select" value={a.cat as string} onChange={(e) => sa({ cat: e.target.value, dex: e.target.value !== 'Heavy' && e.target.value !== 'Shield', max: e.target.value === 'Medium' ? 2 : undefined })}>{['Light', 'Medium', 'Heavy', 'Shield'].map((x) => <option key={x}>{x}</option>)}</select></label>
               <label className="field">CA base<NumInput value={a.base as number} onChange={(n) => sa({ base: n })} /></label>
-              <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={!!a.stealth} onChange={(e) => sa({ stealth: e.target.checked })} /> Desvantagem em Furtividade</label>
+              <label className="row small g6"><input type="checkbox" checked={!!a.stealth} onChange={(e) => sa({ stealth: e.target.checked })} /> Desvantagem em Furtividade</label>
             </div>); })()}
           {descField()}
         </>)}
@@ -241,7 +242,7 @@ function Editor({ kind, init, srd, edition, onClose }: { kind: HomebrewKind; ini
           <div className="row wrap">
             <label className="field">Raridade<select className="select" value={d.rarity as string} onChange={(e) => set({ rarity: e.target.value })}>{['Common', 'Uncommon', 'Rare', 'Very Rare', 'Legendary', 'Artifact'].map((x) => <option key={x}>{x}</option>)}</select></label>
             <label className="field">Categoria<input className="input" value={(d.category as string) || ''} onChange={(e) => set({ category: e.target.value })} placeholder="Wondrous Item, Weapon…" /></label>
-            <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={!!d.attune} onChange={(e) => set({ attune: e.target.checked })} /> Requer sintonização</label>
+            <label className="row small g6"><input type="checkbox" checked={!!d.attune} onChange={(e) => set({ attune: e.target.checked })} /> Requer sintonização</label>
           </div>
           {descField()}
         </>)}
@@ -276,24 +277,24 @@ export function HomebrewPage({ edition }: { edition: Edition }) {
     try {
       data = JSON.parse(txt);
     } catch (e) {
-      alert('JSON inválido: ' + (e as Error).message);
+      void alertBox('JSON inválido: ' + (e as Error).message);
       return;
     }
     if (isCompanionFile(data)) {
       // a character sheet, not a content pack: route it to the character importer
-      if (!confirm(`Isso é uma ficha de personagem do 5e Companion, não um pacote de homebrew.
+      if (!(await confirmBox(`Isso é uma ficha de personagem do 5e Companion, não um pacote de homebrew.
 
-Importar como personagem na mesa D&D 2014?`)) return;
+Importar como personagem na mesa D&D 2014?`, { ok: 'Importar' }))) return;
       setPaste(null);
       const { character, created, warnings } = await importCompanionCharacter(data);
       flash(`${character.name} importado do 5e Companion!`);
-      if (created.length || warnings.length) alert(companionReport(created, warnings));
+      if (created.length || warnings.length) void alertBox(companionReport(created, warnings));
       go(`2014/c/${character.id}`);
       return;
     }
     const r = importHb(edition, data);
     if (!r.kept) {
-      alert('Nada foi importado: o arquivo não tem itens de homebrew reconhecíveis (species, classes, subclasses, backgrounds, feats, spells, equipment ou magicItems, cada um com "name").');
+      void alertBox('Nada foi importado: o arquivo não tem itens de homebrew reconhecíveis (species, classes, subclasses, backgrounds, feats, spells, equipment ou magicItems, cada um com "name").');
       return;
     }
     setPaste(null);
@@ -327,14 +328,14 @@ Importar como personagem na mesa D&D 2014?`)) return;
           const items = ((hb?.[k] as AnyItem[] | undefined) || []);
           return (
             <div key={k} className="panel col">
-              <div className="panel-title" style={{ marginBottom: 0 }}><h3>{label}</h3><span className="spacer" /><button className="btn sm primary" onClick={() => setEdit({ kind: k, item: blank(k) })}><Plus size={14} /> Novo</button></div>
+              <div className="panel-title mb0"><h3>{label}</h3><span className="spacer" /><button className="btn sm primary" onClick={() => setEdit({ kind: k, item: blank(k) })}><Plus size={14} /> Novo</button></div>
               <div className="small faint">{hint}</div>
               {items.length === 0 && <div className="empty small" style={{ padding: 12 }}>Nada ainda.</div>}
               {items.map((it) => (
                 <div key={it.id} className="row" style={{ padding: '6px 8px', borderRadius: 8, background: 'var(--bg-2)' }}>
                   <span className="grow" style={{ fontWeight: 600 }}>{it.name}</span>
                   <button className="btn icon sm ghost" onClick={() => openEdit(k, it)}><Pencil size={13} /></button>
-                  <button className="btn icon sm ghost danger" onClick={() => confirm(`Excluir ${it.name}?`) && remove(edition, k, it.id)}><Trash2 size={13} /></button>
+                  <button className="btn icon sm ghost danger" onClick={async () => (await confirmBox(`Excluir ${it.name}?`, { danger: true, ok: 'Excluir' })) && remove(edition, k, it.id)}><Trash2 size={13} /></button>
                 </div>
               ))}
             </div>

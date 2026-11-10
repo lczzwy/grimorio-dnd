@@ -22,6 +22,8 @@ const write = (k: string, v: boolean) => {
   try { localStorage.setItem(k, v ? '1' : '0'); } catch { /* private mode */ }
 };
 
+const reducedMotion = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
+
 interface DicePrefs {
   on: boolean;
   sound: boolean;
@@ -31,7 +33,8 @@ interface DicePrefs {
   toggleTray: () => void;
 }
 export const useDicePrefs = create<DicePrefs>((set, get) => ({
-  on: read('dice3d', true),
+  // "reduzir movimento" no sistema desliga os dados 3D por padrão; quem ligar de novo no botão fica com a escolha
+  on: read('dice3d', !reducedMotion()),
   sound: read('dice3d-sound', true),
   trayOpen: read('dice3d-tray', true),
   toggle: () => { const on = !get().on; write('dice3d', on); set({ on }); },

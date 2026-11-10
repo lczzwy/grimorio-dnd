@@ -11,6 +11,7 @@ import { DicePrefsButtons, useDicePrefs } from '../../dice3d/TableDice';
 import { useTyping, typingText } from '../../cloud/typing';
 import { playMessageSound } from '../../dice3d/sound';
 import { useReveal } from '../../dice3d/reveal';
+import { showError } from '../../ui/dialogs';
 
 const QUICK_DICE = [4, 6, 8, 10, 12, 20, 100];
 const BASE_TITLE = typeof document !== 'undefined' ? document.title : '';
@@ -191,7 +192,7 @@ export function Line({ it, p, compact, canDelete }: { it: FeedItem; p: Person; c
         <div className="chat-body">
           {it.row.body}
           {canDelete && (
-            <button className="chat-del" title="Apagar" onClick={() => deleteChat(it.row.id).catch((e) => alert(e.message))}>
+            <button className="chat-del" title="Apagar" onClick={() => deleteChat(it.row.id).catch(showError)}>
               <Trash2 size={12} />
             </button>
           )}

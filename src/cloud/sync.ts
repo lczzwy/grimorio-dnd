@@ -6,6 +6,7 @@ import { useApp } from '../store';
 import { supabase } from './client';
 import { mergeCharacter, Uploader } from './merge';
 import { migratePortraits } from './portraits';
+import { alertBox, confirmBox } from '../ui/dialogs';
 
 let currentUser: string | null = null;
 /** id@updatedAt of copies written by the sync itself, so they are not sent back up. */
@@ -217,12 +218,12 @@ export async function confirmAndDelete(c: Character): Promise<boolean> {
   const msg = c.cloud
     ? `Excluir ${name}? Ele também será apagado da sua conta online e sairá das campanhas. Não dá para desfazer.`
     : `Excluir ${name}? Não dá para desfazer.`;
-  if (!confirm(msg)) return false;
+  if (!(await confirmBox(msg, { danger: true, ok: 'Excluir' }))) return false;
   if (c.cloud && currentUser) {
     try {
       await deleteCloudCharacter(c.id);
     } catch (e) {
-      alert('Não consegui apagar a cópia online agora (' + (e as Error).message + '). Tente de novo com internet.');
+      void alertBox('Não consegui apagar a cópia online agora (' + (e as Error).message + '). Tente de novo com internet.');
       return false;
     }
   }

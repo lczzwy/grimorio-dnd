@@ -1,9 +1,10 @@
 import { loadSrd } from '../data/srd';
 import { useApp } from '../store';
-import { importCompanion, type CompanionFile } from './companion';
+import type { CompanionFile } from './companion';
 
 /** Imports a 5e Companion export as a 2014 character, registering its non-SRD content as homebrew. */
 export async function importCompanionCharacter(raw: CompanionFile) {
+  const { importCompanion } = await import('./companion');
   const { character, homebrew, warnings } = importCompanion(raw, await loadSrd('2014'));
   const app = useApp.getState();
   // keep content the user already has (e.g. a translated feat) instead of the sheet's copy

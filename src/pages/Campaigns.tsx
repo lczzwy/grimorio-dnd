@@ -4,6 +4,7 @@ import type { Edition } from '../data/types';
 import { useAuth } from '../cloud/auth';
 import { createCampaign, joinCampaign, listCampaigns, type Campaign } from '../cloud/campaigns';
 import { go, useFlash } from '../ui/ui';
+import { showError } from '../ui/dialogs';
 
 /** Accepts a full invite link or just the code. */
 const codeFrom = (s: string) => s.trim().split('/convite/').pop()!.replace(/[^a-z0-9]/gi, '');
@@ -43,7 +44,7 @@ export function Campaigns() {
       flash('Campanha criada! Mande o link de convite para os jogadores.');
       go('campanha/' + c.id + '/ajustes');
     } catch (e) {
-      alert((e as Error).message);
+      showError(e);
     } finally {
       setBusy(false);
     }
@@ -54,7 +55,7 @@ export function Campaigns() {
       const id = await joinCampaign(codeFrom(code));
       go('campanha/' + id + '/ajustes');
     } catch (e) {
-      alert((e as Error).message);
+      showError(e);
     } finally {
       setBusy(false);
     }
@@ -80,11 +81,11 @@ export function Campaigns() {
             </button>
           ))}
         </div>
-        <div className="col" style={{ gap: 16 }}>
+        <div className="col g16">
           <div className="panel col">
             <h3>Criar campanha (você é o mestre)</h3>
             <input className="input" placeholder="Nome da campanha" value={name} onChange={(e) => setName(e.target.value)} />
-            <div className="seg" style={{ alignSelf: 'flex-start' }}>
+            <div className="seg self-start">
               <button className={edition === '2014' ? 'on' : ''} onClick={() => setEdition('2014')}>D&D 2014</button>
               <button className={edition === '2024' ? 'on' : ''} onClick={() => setEdition('2024')}>D&D 2024</button>
             </div>

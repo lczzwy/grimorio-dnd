@@ -7,7 +7,7 @@
 :root[data-theme='obsidiana'] {
   --bg: #050505; --bg-2: #0c0c0c; --panel: #121212; --panel-2: #191919; --panel-3: #222222;
   --line: #2c2c2c; --line-2: #474747;
-  --text: #ececec; --muted: #a2a2a2; --faint: #6a6a6a;
+  --text: #ececec; --muted: #a2a2a2; --faint: #7e7e7e;
   --gold: #d6d6d6; --good: #8fb48a; --bad: #c95454; --warn: #c9a04a;
 }
 :root[data-theme='obsidiana'], :root[data-theme='obsidiana'] [data-ed] { --accent: #4a4a4a; --accent-2: #e6e6e6; --accent-soft: rgba(255, 255, 255, 0.08); }
@@ -16,7 +16,7 @@
 :root[data-theme='sangue'] {
   --bg: #0d0405; --bg-2: #160709; --panel: #1d0a0c; --panel-2: #260e11; --panel-3: #321317;
   --line: #44191e; --line-2: #6a2a31;
-  --text: #f0e4d6; --muted: #b9a196; --faint: #7d625c;
+  --text: #f0e4d6; --muted: #b9a196; --faint: #917770;
   --gold: #e2cfa8; --good: #8fa65a; --bad: #e0503f; --warn: #d39a4a;
 }
 :root[data-theme='sangue'], :root[data-theme='sangue'] [data-ed] { --accent: #8e1f24; --accent-2: #e2cfa8; --accent-soft: rgba(142, 31, 36, 0.25); }
@@ -25,7 +25,7 @@
 :root[data-theme='floresta'] {
   --bg: #050c08; --bg-2: #09140e; --panel: #0e1b13; --panel-2: #132419; --panel-3: #1a2f21;
   --line: #22402c; --line-2: #3a6047;
-  --text: #e4e8d8; --muted: #9fb2a2; --faint: #66786a;
+  --text: #e4e8d8; --muted: #9fb2a2; --faint: #758779;
   --gold: #c99a5b; --good: #8cc06a; --bad: #c25a3f; --warn: #d1a24a;
 }
 :root[data-theme='floresta'], :root[data-theme='floresta'] [data-ed] { --accent: #3f6b3a; --accent-2: #c99a5b; --accent-soft: rgba(63, 107, 58, 0.25); }
@@ -34,7 +34,7 @@
 :root[data-theme='arcano'] {
   --bg: #08050f; --bg-2: #0f0a1a; --panel: #150f24; --panel-2: #1c142f; --panel-3: #261b3e;
   --line: #322452; --line-2: #4e3a78;
-  --text: #ece6f6; --muted: #aa9fc2; --faint: #6f6488;
+  --text: #ece6f6; --muted: #aa9fc2; --faint: #84799d;
   --gold: #c9b6ee; --good: #7fc4a0; --bad: #e0607a; --warn: #e0a55a;
 }
 :root[data-theme='arcano'], :root[data-theme='arcano'] [data-ed] { --accent: #5b3a9e; --accent-2: #c9b6ee; --accent-soft: rgba(91, 58, 158, 0.25); }
@@ -43,7 +43,7 @@
 :root[data-theme='brasa'] {
   --bg: #0a0908; --bg-2: #12100e; --panel: #191613; --panel-2: #211d19; --panel-3: #2b2620;
   --line: #3a332b; --line-2: #57493b;
-  --text: #efe7dc; --muted: #b0a596; --faint: #776c60;
+  --text: #efe7dc; --muted: #b0a596; --faint: #8c8173;
   --gold: #e39b3c; --good: #8fb05a; --bad: #d4513b; --warn: #e39b3c;
 }
 :root[data-theme='brasa'], :root[data-theme='brasa'] [data-ed] { --accent: #a2491f; --accent-2: #e39b3c; --accent-soft: rgba(162, 73, 31, 0.25); }

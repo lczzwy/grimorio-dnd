@@ -3,7 +3,7 @@ import { ABILITIES } from '../../data/types';
 import { useDice } from '../../store';
 import { ABILITY_PT, SKILL_PT, computeScores, hasJack, mods, passiveInsight, passiveInvestigation, passivePerception, saveMod, skillMod } from '../../engine/rules';
 import { fmtMod } from '../../engine/dice';
-import { NumInput } from '../../ui/ui';
+import { NumInput, clickable } from '../../ui/ui';
 import { AdvToggle } from '../../ui/Dice';
 import type { SheetProps } from '../Sheet';
 import { useState } from 'react';
@@ -27,7 +27,7 @@ export function MainTab({ c, srd, upd }: SheetProps) {
       </div>
       <div className="abilities">
         {ABILITIES.map((a) => (
-          <div key={a} className="ability" onClick={() => !edit && roll(`${who}: teste de ${ABILITY_PT[a].name}`, `1d20${fmtMod(m[a])}`)}>
+          <div key={a} className="ability" {...clickable(() => !edit && roll(`${who}: teste de ${ABILITY_PT[a].name}`, `1d20${fmtMod(m[a])}`))}>
             <span className={'save' + (c.saveProfs.includes(a) ? ' on' : '')} title="Proficiente em salvaguarda" />
             <div className="an">{ABILITY_PT[a].short}</div>
             <div className="am">{fmtMod(m[a])}</div>
@@ -45,7 +45,7 @@ export function MainTab({ c, srd, upd }: SheetProps) {
       </div>
 
       <div className="sheet-grid">
-        <div className="col" style={{ gap: 16 }}>
+        <div className="col g16">
           <div className="panel">
             <div className="panel-title"><h3>Salvaguardas</h3></div>
             <div className="list saves-list">
@@ -53,7 +53,7 @@ export function MainTab({ c, srd, upd }: SheetProps) {
                 const v = saveMod(c, srd, a);
                 const on = c.saveProfs.includes(a);
                 return (
-                  <div key={a} className="li" onClick={() => roll(`${who}: salvaguarda de ${ABILITY_PT[a].name}`, `1d20${fmtMod(v)}`)}>
+                  <div key={a} className="li" {...clickable(() => roll(`${who}: salvaguarda de ${ABILITY_PT[a].name}`, `1d20${fmtMod(v)}`))}>
                     <button className={'pip' + (on ? ' p1' : '')} onClick={(e) => { e.stopPropagation(); upd((d) => (d.saveProfs = on ? d.saveProfs.filter((x) => x !== a) : [...d.saveProfs, a])); }} />
                     <span className="val">{fmtMod(v)}</span>
                     <span className="sv-name" data-s={ABILITY_PT[a].short}>{ABILITY_PT[a].name}</span>
@@ -72,9 +72,9 @@ export function MainTab({ c, srd, upd }: SheetProps) {
             </div>
           </div>
           <div className="panel col edit-only">
-            <div className="panel-title" style={{ marginBottom: 0 }}><h3>Proficiências</h3></div>
+            <div className="panel-title mb0"><h3>Proficiências</h3></div>
             <textarea className="textarea" style={{ minHeight: 80, fontSize: 14 }} value={c.proficienciesText} onChange={(e) => upd((d) => (d.proficienciesText = e.target.value))} placeholder="Armaduras, armas, ferramentas…" />
-            <div className="panel-title" style={{ marginBottom: 0 }}><h3>Idiomas</h3></div>
+            <div className="panel-title mb0"><h3>Idiomas</h3></div>
             <textarea className="textarea" style={{ minHeight: 50, fontSize: 14 }} value={c.languagesText} onChange={(e) => upd((d) => (d.languagesText = e.target.value))} placeholder="Comum, Élfico…" />
           </div>
         </div>
@@ -93,7 +93,7 @@ export function MainTab({ c, srd, upd }: SheetProps) {
               const v = skillMod(c, srd, s.key);
               const label = SKILL_PT[s.key] || s.name;
               return (
-                <div key={s.key} className="li" style={{ breakInside: 'avoid' }} onClick={() => roll(`${who}: ${label}`, `1d20${fmtMod(v)}`)} title={s.desc}>
+                <div key={s.key} className="li" style={{ breakInside: 'avoid' }} {...clickable(() => roll(`${who}: ${label}`, `1d20${fmtMod(v)}`))} title={s.desc}>
                   <button
                     className={'pip' + (lvl === 2 ? ' p2' : lvl === 1 ? ' p1' : lvl === 0.5 ? ' p05' : '')}
                     title="Clique: proficiente → especialista → nenhum"

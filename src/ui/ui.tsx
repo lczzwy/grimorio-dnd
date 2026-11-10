@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import type React from 'react';
 import { X } from 'lucide-react';
 import { create } from 'zustand';
 
@@ -20,22 +21,52 @@ export const go = (path: string) => {
 
 /* ---------------- modal ---------------- */
 
+const modalStack: symbol[] = [];
+const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function Modal({ title, onClose, children, footer, wide, icon }: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean; icon?: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const me = Symbol();
+    modalStack.push(me);
+    const before = document.activeElement as HTMLElement | null;
+    // focus the first field (or the dialog itself) unless a child already took focus
+    requestAnimationFrame(() => {
+      const el = box.current;
+      if (el && !el.contains(document.activeElement)) {
+        const first = el.querySelector<HTMLElement>('.modal-body ' + FOCUSABLE) || el;
+        first.focus();
+      }
+    });
+    const k = (e: KeyboardEvent) => {
+      if (modalStack[modalStack.length - 1] !== me) return;
+      if (e.key === 'Escape') { e.stopPropagation(); closeRef.current(); return; }
+      if (e.key === 'Tab' && box.current) {
+        const items = [...box.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
+        if (!items.length) return;
+        const first = items[0], last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
     window.addEventListener('keydown', k);
     document.body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', k);
-      document.body.style.overflow = '';
+      modalStack.splice(modalStack.indexOf(me), 1);
+      if (!modalStack.length) document.body.style.overflow = '';
+      before?.focus?.();
     };
-  }, [onClose]);
+  }, []);
+  const titleId = useId();
   return (
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={'modal' + (wide ? ' wide' : '')} role="dialog" aria-modal="true">
+      <div ref={box} tabIndex={-1} className={'modal' + (wide ? ' wide' : '')} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <div className="modal-head">
           {icon}
-          <h2 className="grow">{title}</h2>
+          <h2 className="grow" id={titleId}>{title}</h2>
           <button className="btn icon ghost" onClick={onClose} aria-label="Fechar">
             <X size={18} />
           </button>
@@ -195,3 +226,22 @@ export const D20Icon = ({ size = 24, className }: { size?: number; className?: s
     <path d="M32 3 20 24h24L32 3ZM20 24 6 18M44 24l14-6M20 24l12 22 12-22M32 46v15M20 24 6 46M44 24l14 22M6 46l26 0 26 0" />
   </svg>
 );
+
+/* ---------------- keyboard ---------------- */
+
+/**
+ * Makes a non-button element (a card or row that contains its own buttons) act as a button:
+ * focusable with Tab, triggered by Enter or Space. Keys pressed on inner controls are ignored.
+ */
+export function clickable(fn: () => void, label?: string) {
+  return {
+    role: 'button' as const,
+    tabIndex: 0,
+    'aria-label': label,
+    onClick: fn,
+    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
+      if (e.target !== e.currentTarget) return;
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); }
+    },
+  };
+}

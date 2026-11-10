@@ -9,6 +9,7 @@ import { NumInput, useFlash } from '../../ui/ui';
 import { useParty } from './TableTab';
 import { AddEnemy } from './CombatTab';
 import type { CampaignProps } from '../Campaign';
+import { confirmBox } from '../../ui/dialogs';
 
 /**
  * Turn order under the dice table, on every campaign tab.
@@ -63,7 +64,7 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
         {calling && !active && <span className="init-now">{waiting.length ? `aguardando ${waiting.length} jogador${waiting.length > 1 ? 'es' : ''}…` : 'todos rolaram'}</span>}
         <span className="spacer" />
         {isGm && (
-          <span className="row" style={{ gap: 4 }}>
+          <span className="row g4">
             <button className="btn sm" disabled={busy || !players.length} onClick={ask} title="Coloca todos os jogadores na ordem e pede que rolem"><Megaphone size={14} /> Pedir iniciativa</button>
             <button className="btn sm" disabled={busy} onClick={() => setAdding(true)}><Plus size={14} /> Criatura</button>
             {active ? (
@@ -97,7 +98,7 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
               editing={editing === c.id}
               onEdit={() => setEditing(c.id)}
               onSet={(n) => { setEditing(null); void safe(updateCombatant(c.id, { initiative: n ?? null })); }}
-              onRemove={() => confirm(`Tirar ${c.name} da ordem?`) && void safe(removeCombatant(c.id))}
+              onRemove={async () => (await confirmBox(`Tirar ${c.name} da ordem?`, { danger: true, ok: 'Tirar' })) && void safe(removeCombatant(c.id))}
             />
           ))}
         </ol>

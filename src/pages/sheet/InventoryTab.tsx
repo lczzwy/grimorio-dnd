@@ -3,7 +3,7 @@ import { Plus, Search, Trash2, Sword, Shield, Gem, Package } from 'lucide-react'
 import type { EquipmentDef, InventoryItem, MagicItemDef, SrdData } from '../../data/types';
 import { uid } from '../../engine/character';
 import { carriedWeight, carryCapacity } from '../../engine/rules';
-import { Markdown, Modal, NumInput, useFlash } from '../../ui/ui';
+import { Markdown, Modal, NumInput, useFlash, clickable } from '../../ui/ui';
 import type { SheetProps } from '../Sheet';
 
 const COINS = [
@@ -38,8 +38,8 @@ export function ItemPicker({ srd, onPick, onClose }: { srd: SrdData; onPick: (it
           <button className={tab === 'custom' ? 'on' : ''} onClick={() => setTab('custom')}>Personalizado</button>
         </div>
         {tab !== 'custom' && <div className="row grow" style={{ position: 'relative', minWidth: 200 }}>
-          <Search size={15} style={{ position: 'absolute', left: 10, color: 'var(--faint)' }} />
-          <input className="input" style={{ paddingLeft: 32 }} autoFocus placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Search size={15} className="search-ic" />
+          <input className="input pl-search" autoFocus placeholder="Buscar…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>}
       </div>
       {tab === 'custom' ? (
@@ -56,7 +56,7 @@ export function ItemPicker({ srd, onPick, onClose }: { srd: SrdData; onPick: (it
         <div className="grid" style={{ gridTemplateColumns: 'minmax(220px, 1fr) 1.3fr', alignItems: 'start' }}>
           <div className="pick-list" style={{ maxHeight: '55vh', overflow: 'auto' }}>
             {list.map((x) => (
-              <div key={x.id} className={'pick-item' + (sel?.id === x.id ? ' sel' : '')} onClick={() => setSel(x)}>
+              <div key={x.id} className={'pick-item' + (sel?.id === x.id ? ' sel' : '')} {...clickable(() => setSel(x))}>
                 {(x as EquipmentDef).weapon ? <Sword size={14} /> : (x as EquipmentDef).armor ? <Shield size={14} /> : tab === 'magic' ? <Gem size={14} /> : <Package size={14} />}
                 <span className="grow">{x.name}</span>
                 <span className="small faint">{(x as EquipmentDef).cost || (x as MagicItemDef).rarity}</span>
@@ -87,8 +87,8 @@ export function ItemDetail({ x }: { x: EquipmentDef | MagicItemDef }) {
         {e.cost && <span className="tag">{e.cost}</span>}
         {e.weight != null && <span className="tag">{e.weight} lb</span>}
       </div>
-      {e.weapon && <div className="small"><Sword size={12} style={{ verticalAlign: '-2px' }} /> <b>{e.weapon.dmg} {e.weapon.type}</b> · {e.weapon.cat} {e.weapon.range}{e.weapon.props?.length ? ' · ' + e.weapon.props.join(', ') : ''}{e.weapon.twoHanded ? ` · 2 mãos ${e.weapon.twoHanded}` : ''}{e.weapon.normal && e.weapon.range === 'Ranged' ? ` · ${e.weapon.normal}/${e.weapon.long} ft` : ''}{e.weapon.mastery ? ` · Maestria: ${e.weapon.mastery}` : ''}</div>}
-      {e.armor && <div className="small"><Shield size={12} style={{ verticalAlign: '-2px' }} /> <b>CA {e.armor.cat === 'Shield' ? '+' : ''}{e.armor.base}{e.armor.dex ? (e.armor.max ? ` + DES (máx ${e.armor.max})` : ' + DES') : ''}</b> · {e.armor.cat}{e.armor.str ? ` · FOR ${e.armor.str}` : ''}{e.armor.stealth ? ' · desvantagem em Furtividade' : ''}</div>}
+      {e.weapon && <div className="small"><Sword size={12} className="ic-inline" /> <b>{e.weapon.dmg} {e.weapon.type}</b> · {e.weapon.cat} {e.weapon.range}{e.weapon.props?.length ? ' · ' + e.weapon.props.join(', ') : ''}{e.weapon.twoHanded ? ` · 2 mãos ${e.weapon.twoHanded}` : ''}{e.weapon.normal && e.weapon.range === 'Ranged' ? ` · ${e.weapon.normal}/${e.weapon.long} ft` : ''}{e.weapon.mastery ? ` · Maestria: ${e.weapon.mastery}` : ''}</div>}
+      {e.armor && <div className="small"><Shield size={12} className="ic-inline" /> <b>CA {e.armor.cat === 'Shield' ? '+' : ''}{e.armor.base}{e.armor.dex ? (e.armor.max ? ` + DES (máx ${e.armor.max})` : ' + DES') : ''}</b> · {e.armor.cat}{e.armor.str ? ` · FOR ${e.armor.str}` : ''}{e.armor.stealth ? ' · desvantagem em Furtividade' : ''}</div>}
       <Markdown text={x.desc} />
     </div>
   );
@@ -116,11 +116,11 @@ export function InventoryTab({ c, srd, upd }: SheetProps) {
         <div className="panel-title"><h3>Inventário</h3><span className="spacer" /><button className="btn sm primary" onClick={() => setPicker(true)}><Plus size={14} /> Item</button></div>
         {c.inventory.length === 0 && <div className="empty small">Mochila vazia.</div>}
         {c.inventory.map((it) => (
-          <div key={it.uid} className="spell" style={{ gridTemplateColumns: 'auto 1fr auto auto' }} onClick={() => setOpen(it)}>
+          <div key={it.uid} className="spell" style={{ gridTemplateColumns: 'auto 1fr auto auto' }} {...clickable(() => setOpen(it))}>
             {it.weapon || it.armor ? (
               <button className={'prep' + (it.equipped ? ' on' : '')} title="Equipado" onClick={(e) => { e.stopPropagation(); setItem(it.uid, (x) => (x.equipped = !x.equipped)); }} />
             ) : <span style={{ width: 18, display: 'grid', placeItems: 'center' }}>{it.magic ? <Gem size={14} color="var(--gold)" /> : <Package size={14} color="var(--faint)" />}</span>}
-            <div style={{ minWidth: 0 }}>
+            <div className="min0">
               <div className="sn">{it.name}{it.magicBonus ? ` (+${it.magicBonus})` : ''} {it.attuned && <span className="tag gold" style={{ padding: '0 6px' }}>sintonizado</span>}</div>
               <div className="meta">{[it.weapon && `${it.weapon.dmg} ${it.weapon.type ?? ''}`, it.armor && `CA ${it.armor.base}`, it.weight && `${it.weight} lb`, it.notes].filter(Boolean).join(' · ')}</div>
             </div>
@@ -133,7 +133,7 @@ export function InventoryTab({ c, srd, upd }: SheetProps) {
           </div>
         ))}
       </div>
-      <div className="col" style={{ gap: 16 }}>
+      <div className="col g16">
         <div className="panel">
           <div className="panel-title"><h3>Moedas</h3></div>
           {COINS.map(([k, label, col]) => (
@@ -167,9 +167,9 @@ export function InventoryTab({ c, srd, upd }: SheetProps) {
                 <label className="field" style={{ width: 120 }}>Bônus mágico<NumInput value={it.magicBonus || 0} min={0} max={5} onChange={(n) => setItem(it.uid, (x) => (x.magicBonus = n || undefined))} /></label>
               </div>
               <div className="row wrap">
-                {(it.weapon || it.armor) && <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={!!it.equipped} onChange={(e) => setItem(it.uid, (x) => (x.equipped = e.target.checked))} /> Equipado</label>}
-                <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={!!it.attuned} onChange={(e) => setItem(it.uid, (x) => (x.attuned = e.target.checked))} /> Sintonizado</label>
-                {it.weapon && <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={!!it.proficient} onChange={(e) => setItem(it.uid, (x) => (x.proficient = e.target.checked))} /> Forçar proficiência</label>}
+                {(it.weapon || it.armor) && <label className="row small g6"><input type="checkbox" checked={!!it.equipped} onChange={(e) => setItem(it.uid, (x) => (x.equipped = e.target.checked))} /> Equipado</label>}
+                <label className="row small g6"><input type="checkbox" checked={!!it.attuned} onChange={(e) => setItem(it.uid, (x) => (x.attuned = e.target.checked))} /> Sintonizado</label>
+                {it.weapon && <label className="row small g6"><input type="checkbox" checked={!!it.proficient} onChange={(e) => setItem(it.uid, (x) => (x.proficient = e.target.checked))} /> Forçar proficiência</label>}
               </div>
               {it.weapon && (
                 <div className="row wrap">

@@ -39,7 +39,7 @@ export function PsiOptions({ c, upd, name, desc }: Pick<SheetProps, 'c' | 'upd'>
         const cost = o.min === o.max ? o.min : Math.max(o.min, Math.min(amount[o.name] ?? o.min, top));
         const blocked = o.min > pool.limit ? `acima do limite (${pool.limit})` : o.min > pool.left ? 'psi insuficiente' : '';
         return (
-          <div key={o.name} className="row wrap" style={{ gap: 8 }}>
+          <div key={o.name} className="row wrap g8">
             <span className="grow small"><b>{o.name}</b> <span className="muted">({o.min === o.max ? o.min : `${o.min}–${o.max}`} psi{o.note ? `; ${o.note}` : ''})</span></span>
             {o.min !== o.max && !blocked && (
               <select className="select" style={{ width: 'auto', padding: '4px 8px' }} value={cost} onChange={(e) => setAmount({ ...amount, [o.name]: +e.target.value })}>

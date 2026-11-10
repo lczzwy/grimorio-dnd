@@ -4,7 +4,7 @@ import type { Character, SpellDef, SrdData } from '../../data/types';
 import { useDice } from '../../store';
 import { ABILITY_PT, SCHOOL_PT, className, spellAttack, spellLimits, spellSaveDc, spellSlots, spellcastingClasses, totalLevel } from '../../engine/rules';
 import { fmtMod } from '../../engine/dice';
-import { Markdown, Modal, useFlash } from '../../ui/ui';
+import { Markdown, Modal, useFlash, clickable } from '../../ui/ui';
 import type { SheetProps } from '../Sheet';
 
 const LVL = (l: number) => (l === 0 ? 'Truques' : `${l}º círculo`);
@@ -77,8 +77,8 @@ export function SpellPicker({ srd, c, onPick, onClose, title = 'Adicionar magia'
     <Modal wide title={title} onClose={onClose}>
       <div className="row wrap" style={{ marginBottom: 12 }}>
         <div className="row grow" style={{ position: 'relative', minWidth: 200 }}>
-          <Search size={15} style={{ position: 'absolute', left: 10, color: 'var(--faint)' }} />
-          <input className="input" style={{ paddingLeft: 32 }} autoFocus placeholder="Buscar magia (português ou inglês)…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Search size={15} className="search-ic" />
+          <input className="input pl-search" autoFocus placeholder="Buscar magia (português ou inglês)…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <select className="select" style={{ width: 150 }} value={cls} onChange={(e) => setCls(e.target.value)}>
           <option value="">Todas as classes</option>
@@ -92,7 +92,7 @@ export function SpellPicker({ srd, c, onPick, onClose, title = 'Adicionar magia'
       <div className="grid" style={{ gridTemplateColumns: 'minmax(220px, 1fr) 1.4fr', alignItems: 'start' }}>
         <div className="pick-list" style={{ maxHeight: '55vh', overflow: 'auto' }}>
           {list.map((s) => (
-            <div key={s.id} className={'pick-item' + (sel?.id === s.id ? ' sel' : '')} onClick={() => setSel(s)}>
+            <div key={s.id} className={'pick-item' + (sel?.id === s.id ? ' sel' : '')} {...clickable(() => setSel(s))}>
               <span className="tag" style={{ width: 30, justifyContent: 'center' }}>{s.level || 'T'}</span>
               <span className="grow">{s.name}</span>
               {known.has(s.id) ? <Check size={15} color="var(--good)" /> : (
@@ -141,7 +141,7 @@ export function SpellsTab({ c, srd, upd }: SheetProps) {
   };
 
   return (
-    <div className="col" style={{ gap: 16 }}>
+    <div className="col g16">
       {casters.length === 0 && c.spells.length === 0 && (
         <div className="panel empty">
           <Wand2 size={28} />
@@ -214,11 +214,11 @@ export function SpellsTab({ c, srd, upd }: SheetProps) {
           <div key={lvl} style={{ marginBottom: 12 }}>
             <div className="tiny muted" style={{ margin: '6px 0' }}>{LVL(lvl)}</div>
             {arr.map(({ k, sp }) => (
-              <div key={sp.id} className="spell" onClick={() => setView(sp)}>
+              <div key={sp.id} className="spell" {...clickable(() => setView(sp))}>
                 {lvl > 0 ? (
                   <button className={'prep' + (k.alwaysPrepared ? ' always' : k.prepared ? ' on' : '')} title="Preparada" onClick={(e) => { e.stopPropagation(); if (!k.alwaysPrepared) upd((d) => { const x = d.spells.find((y) => y.id === sp.id)!; x.prepared = !x.prepared; }); }} />
                 ) : <span style={{ width: 18 }} />}
-                <div style={{ minWidth: 0 }}>
+                <div className="min0">
                   <div className="sn">{sp.name} {sp.conc && <span className="tag gold" style={{ padding: '0 5px' }}>C</span>} {sp.ritual && <span className="tag" style={{ padding: '0 5px' }}>R</span>}</div>
                   <div className="meta">{[sp.time, sp.range, sp.dmgType, sp.save && `TR ${ABILITY_PT[sp.save]?.short}`].filter(Boolean).join(' · ')}</div>
                 </div>
@@ -242,7 +242,7 @@ export function SpellsTab({ c, srd, upd }: SheetProps) {
       {cast && (
         <Modal title={`Conjurar ${cast.name}`} onClose={() => setCast(null)}>
           <div className="col">
-            <p className="muted" style={{ margin: 0 }}>Escolha o espaço de magia a gastar:</p>
+            <p className="muted m0">Escolha o espaço de magia a gastar:</p>
             {cast.ritual && <button className="btn" onClick={() => { upd((d) => cast.conc && (d.concentration = cast.id)); flash(`${cast.name} conjurada como ritual (+10 min)`); setCast(null); }}><BookOpen size={15} /> Como ritual (sem gastar espaço)</button>}
             <div className="row wrap">
               {slots.map((n, i) => i + 1 >= cast.level && n > 0 && (

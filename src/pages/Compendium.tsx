@@ -3,7 +3,7 @@ import { Search, Sparkles, Users, BookMarked, Award, Sword, Gem, AlertTriangle, 
 import type { Edition, SrdData, SpellDef, EquipmentDef, MagicItemDef } from '../data/types';
 import { useSrd } from '../data/srd';
 import { ABILITY_PT, CONDITION_PT, SCHOOL_PT, SKILL_PT, className, speciesName } from '../engine/rules';
-import { Markdown, go } from '../ui/ui';
+import { Markdown, go, clickable } from '../ui/ui';
 import { SpellCard } from './sheet/SpellsTab';
 import { ItemDetail } from './sheet/InventoryTab';
 
@@ -46,7 +46,7 @@ function sections(srd: SrdData, ed: Edition): { k: Sec; label: string; icon: typ
         id: s.id, name: s.name, sub: className(s.class, srd), custom: s.custom,
         render: () => (
           <div className="col">
-            <span className="tag accent" style={{ alignSelf: 'flex-start' }}>{className(s.class, srd)}{s.flavor ? ` · ${s.flavor}` : ''}</span>
+            <span className="tag accent self-start">{className(s.class, srd)}{s.flavor ? ` · ${s.flavor}` : ''}</span>
             {s.summary && <i className="muted">{s.summary}</i>}
             <Markdown text={s.desc} />
             {s.features.map((f, i) => <details key={i} className="feature"><summary><ChevronRight className="chev" size={16} /><span className="tag">{f.level}</span>{f.name}</summary><div className="body"><Markdown text={f.desc} /></div></details>)}
@@ -72,7 +72,7 @@ function sections(srd: SrdData, ed: Edition): { k: Sec; label: string; icon: typ
             {(s.traits || []).map((t) => <details key={t.name} className="feature" open><summary><ChevronRight className="chev" size={16} />{t.name}</summary><div className="body"><Markdown text={t.desc} /></div></details>)}
             {(s.subraces || []).map((sr) => (
               <div key={sr.id} className="panel">
-                <h3 style={{ marginBottom: 6 }}>{sr.name}</h3>
+                <h3 className="mb6">{sr.name}</h3>
                 <div className="row wrap">{(sr.bonuses || []).map((b) => <span key={b.ability} className="tag accent">{ABILITY_PT[b.ability].short} +{b.bonus}</span>)}</div>
                 <Markdown text={sr.desc} />
                 {(sr.traits || []).map((t) => <Markdown key={t.name} text={`**${t.name}.** ${t.desc}`} />)}
@@ -104,7 +104,7 @@ function sections(srd: SrdData, ed: Edition): { k: Sec; label: string; icon: typ
     },
     {
       k: 'talentos', label: 'Talentos', icon: Award,
-      entries: srd.feats.map((f) => ({ id: f.id, name: f.name, sub: f.type, custom: f.custom, render: () => <div className="col">{f.prereq && <span className="tag bad" style={{ alignSelf: 'flex-start' }}>Pré-requisito: {f.prereq}</span>}<Markdown text={f.desc} />{f.repeatable && <i className="small muted">{f.repeatable}</i>}</div> })),
+      entries: srd.feats.map((f) => ({ id: f.id, name: f.name, sub: f.type, custom: f.custom, render: () => <div className="col">{f.prereq && <span className="tag bad self-start">Pré-requisito: {f.prereq}</span>}<Markdown text={f.desc} />{f.repeatable && <i className="small muted">{f.repeatable}</i>}</div> })),
     },
     {
       k: 'equipamento', label: 'Equipamento', icon: Sword,
@@ -179,7 +179,7 @@ export function Compendium({ edition, section }: { edition: Edition; section?: s
         </nav>
         <div className="panel" style={{ padding: 10 }}>
           <div className="row" style={{ position: 'relative', marginBottom: 8 }}>
-            <Search size={15} style={{ position: 'absolute', left: 10, color: 'var(--faint)' }} />
+            <Search size={15} className="search-ic" />
             <input className="input" style={{ paddingLeft: 32 }} placeholder={`Buscar em ${cur.label.toLowerCase()}…`} value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           {cur.k === 'magias' && (
@@ -195,8 +195,8 @@ export function Compendium({ edition, section }: { edition: Edition; section?: s
           <div className="small faint" style={{ margin: '0 4px 6px' }}>{list.length} resultado(s)</div>
           <div className="pick-list">
             {list.map((e) => (
-              <div key={e.id} className={'pick-item' + (entry?.id === e.id ? ' sel' : '')} onClick={() => setSel(e.id)}>
-                <div className="grow" style={{ minWidth: 0 }}>
+              <div key={e.id} className={'pick-item' + (entry?.id === e.id ? ' sel' : '')} {...clickable(() => setSel(e.id))}>
+                <div className="grow min0">
                   <div style={{ fontWeight: 600 }}>{e.name} {e.custom && <span className="tag good" style={{ padding: '0 6px' }}>homebrew</span>}</div>
                   {e.sub && <div className="small muted">{e.sub}</div>}
                 </div>

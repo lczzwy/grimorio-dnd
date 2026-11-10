@@ -4,6 +4,7 @@ import { clearNotice, hasDiscord, hasPassword, linkDiscord, requestPasswordReset
 import { nextRouteFrom } from '../cloud/authText';
 import { go, useFlash } from '../ui/ui';
 import { CloudUpload } from './account/CloudUpload';
+import { showError } from '../ui/dialogs';
 
 /** Discord's mark, drawn inline (used only on the "Entrar com Discord" buttons). */
 function DiscordMark({ size = 16 }: { size?: number }) {
@@ -70,7 +71,7 @@ export function Account() {
           <label className="field">Nome que a mesa vê
             <div className="row">
               <input className="input" value={newName ?? profile?.display_name ?? ''} onChange={(e) => setNewName(e.target.value)} />
-              <button className="btn" disabled={newName == null || !newName.trim()} onClick={async () => { try { await updateDisplayName(newName!.trim()); setNewName(null); flash('Nome salvo'); } catch (e) { alert((e as Error).message); } }}><Save size={15} /> Salvar</button>
+              <button className="btn" disabled={newName == null || !newName.trim()} onClick={async () => { try { await updateDisplayName(newName!.trim()); setNewName(null); flash('Nome salvo'); } catch (e) { showError(e); } }}><Save size={15} /> Salvar</button>
             </div>
           </label>
           <div className="row">
@@ -89,13 +90,13 @@ export function Account() {
     return (
       <main className="page" style={{ maxWidth: 480 }}>
         <div className="panel col" style={{ alignItems: 'flex-start' }}>
-          <h1 style={{ margin: 0 }}><MailCheck size={22} /> Confira seu e-mail</h1>
-          <p className="muted" style={{ margin: 0 }}>
+          <h1 className="m0"><MailCheck size={22} /> Confira seu e-mail</h1>
+          <p className="muted m0">
             {sent === 'reset'
               ? <>Se existir uma conta com <b>{email}</b>, enviamos um link para criar uma senha nova. Ele vale por 1 hora; abra no mesmo aparelho de preferência.</>
               : <>Enviamos um link de confirmação para <b>{email}</b>. Clique nele para ativar a conta e voltar ao site já conectado.</>}
           </p>
-          <p className="tiny muted" style={{ margin: 0 }}>Não chegou? Veja a caixa de spam. O envio é limitado a poucos e-mails por hora.</p>
+          <p className="tiny muted m0">Não chegou? Veja a caixa de spam. O envio é limitado a poucos e-mails por hora.</p>
           <button className="btn" onClick={() => { setSent(null); setMode('in'); }}>Voltar para entrar</button>
         </div>
       </main>
@@ -104,7 +105,7 @@ export function Account() {
 
   return (
     <main className="page" style={{ maxWidth: 480 }}>
-      <h1 style={{ marginBottom: 6 }}>{mode === 'in' ? 'Entrar' : mode === 'up' ? 'Criar conta' : 'Esqueci minha senha'}</h1>
+      <h1 className="mb6">{mode === 'in' ? 'Entrar' : mode === 'up' ? 'Criar conta' : 'Esqueci minha senha'}</h1>
       <p className="muted" style={{ marginTop: 0 }}>
         {mode === 'reset'
           ? 'Digite o e-mail da sua conta. Mandamos um link para você criar uma senha nova.'
@@ -120,7 +121,7 @@ export function Account() {
                 <div className="or-line"><span>ou com e-mail</span></div>
               </>
             )}
-            <div className="seg" style={{ alignSelf: 'flex-start' }}>
+            <div className="seg self-start">
               <button type="button" className={mode === 'in' ? 'on' : ''} onClick={() => setMode('in')}>Entrar</button>
               <button type="button" className={mode === 'up' ? 'on' : ''} onClick={() => setMode('up')}>Criar conta</button>
             </div>
@@ -164,15 +165,15 @@ function SecurityPanel() {
 
   return (
     <div className="panel col" style={{ marginTop: 16 }}>
-      <h3 style={{ margin: 0 }}><KeyRound size={16} /> Segurança</h3>
-      <div className="row wrap" style={{ gap: 8 }}>
+      <h3 className="m0"><KeyRound size={16} /> Segurança</h3>
+      <div className="row wrap g8">
         {withDiscord
           ? <span className="tag good"><CheckCircle2 size={12} /> Discord conectado: você pode entrar pelos dois jeitos</span>
           : discordEnabled && <button className="btn sm discord" onClick={() => linkDiscord().catch((e) => setError((e as Error).message))}><Link2 size={14} /> Conectar meu Discord a esta conta</button>}
       </div>
-      <form className="col" onSubmit={save} style={{ gap: 8 }}>
+      <form className="col g8" onSubmit={save}>
         <b className="small">{withPassword ? 'Trocar a senha' : 'Criar uma senha (para entrar também por e-mail)'}</b>
-        <div className="row wrap" style={{ gap: 8 }}>
+        <div className="row wrap g8">
           <input className="input grow" type="password" autoComplete="new-password" minLength={6} required placeholder="Senha nova" value={pw} onChange={(e) => setPw(e.target.value)} />
           <input className="input grow" type="password" autoComplete="new-password" minLength={6} required placeholder="Repita a senha" value={pw2} onChange={(e) => setPw2(e.target.value)} />
           <button className="btn" disabled={busy}>Salvar senha</button>
@@ -197,8 +198,8 @@ export function NewPassword() {
     return (
       <main className="page" style={{ maxWidth: 480 }}>
         <div className="panel col">
-          <h1 style={{ margin: 0 }}>Link inválido</h1>
-          <p className="muted" style={{ margin: 0 }}>Esse link de senha expirou ou já foi usado. Peça outro na tela de entrar.</p>
+          <h1 className="m0">Link inválido</h1>
+          <p className="muted m0">Esse link de senha expirou ou já foi usado. Peça outro na tela de entrar.</p>
           <button className="btn primary" onClick={() => go('conta')}>Ir para entrar</button>
         </div>
       </main>
@@ -213,7 +214,7 @@ export function NewPassword() {
   };
   return (
     <main className="page" style={{ maxWidth: 480 }}>
-      <h1 style={{ marginBottom: 6 }}>Criar senha nova</h1>
+      <h1 className="mb6">Criar senha nova</h1>
       <p className="muted" style={{ marginTop: 0 }}>Conta: <b>{user.email}</b></p>
       <form className="panel col" onSubmit={save}>
         <label className="field">Senha nova<input className="input" type="password" autoComplete="new-password" minLength={6} required value={pw} onChange={(e) => setPw(e.target.value)} /></label>

@@ -3,6 +3,7 @@ import { CloudUpload as CloudIcon, Check, Cloud } from 'lucide-react';
 import { useApp } from '../../store';
 import { uploadAll } from '../../cloud/sync';
 import { useFlash } from '../../ui/ui';
+import { alertBox } from '../../ui/dialogs';
 
 /** Offers to send the characters that only exist in this browser to the account. */
 export function CloudUpload() {
@@ -14,7 +15,7 @@ export function CloudUpload() {
 
   return (
     <div className="panel col" style={{ marginTop: 16 }}>
-      <h3><Cloud size={17} style={{ verticalAlign: '-2px' }} /> Fichas na nuvem</h3>
+      <h3><Cloud size={17} className="ic-inline" /> Fichas na nuvem</h3>
       <div className="small muted">{synced} sincronizada(s) com a sua conta · {localOnly.length} só neste navegador</div>
       {localOnly.length > 0 ? (
         <>
@@ -25,7 +26,7 @@ export function CloudUpload() {
               const n = await uploadAll();
               flash(`${n} ficha(s) enviada(s) para a nuvem!`);
             } catch (e) {
-              alert('Não consegui enviar agora: ' + (e as Error).message + '\nVou tentar de novo sozinho quando a conexão voltar.');
+              void alertBox('Não consegui enviar agora: ' + (e as Error).message + '\nVou tentar de novo sozinho quando a conexão voltar.');
             } finally {
               setBusy(false);
             }

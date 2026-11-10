@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Gamepad2, Pencil, ChevronLeft, Download, Trash2, ArrowUpCircle, LayoutGrid, Swords, Sparkles, Backpack, Scroll, Feather, Moon, Coffee, Star } from 'lucide-react';
 import type { Character, Edition, SrdData } from '../data/types';
 import { useApp, useDice } from '../store';
-import { go, download, useFlash } from '../ui/ui';
+import { go, download, useFlash, clickable } from '../ui/ui';
 import { armorClass, classSummary, initiative, maxHp, pb, speed, speciesName, passivePerception, findBackground } from '../engine/rules';
 import { fmtMod } from '../engine/dice';
 import { Avatar } from './Roster';
@@ -91,7 +91,7 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
           <Avatar name={c.name} portrait={c.portrait} size="lg" />
           <input type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const p = await fileToPortrait(f); upd((d) => (d.portrait = p)); } }} />
         </label>
-        <div style={{ minWidth: 0 }}>
+        <div className="min0">
           {!campaignId && <button className="btn ghost sm" style={{ marginLeft: -6, marginBottom: 2 }} onClick={() => go(edition)}><ChevronLeft size={14} /> Personagens</button>}
           <input className="name-input" readOnly={gameMode} value={c.name} placeholder="Nome do personagem" onChange={(e) => upd((d) => (d.name = e.target.value))} />
           <div className="row wrap small" style={{ marginTop: 4, paddingLeft: 6 }}>
@@ -123,9 +123,9 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
 
       <div className="vitals">
         <div className="vital shield v-ac" title={ac.breakdown}><div className="v">{ac.value}</div><div className="l" data-s="CA">Classe de Armadura</div></div>
-        <div className="vital click v-init" onClick={() => roll(`${c.name}: Iniciativa`, `1d20${fmtMod(init)}`)}><div className="v">{fmtMod(init)}</div><div className="l" data-s="Inic.">Iniciativa</div></div>
+        <div className="vital click v-init" {...clickable(() => roll(`${c.name}: Iniciativa`, `1d20${fmtMod(init)}`))}><div className="v">{fmtMod(init)}</div><div className="l" data-s="Inic.">Iniciativa</div></div>
         <div className="vital v-speed"><div className="v">{speed(c, srd)}<span style={{ fontSize: 14 }}> ft</span></div><div className="l" data-s="Desloc.">Deslocamento</div></div>
-        <div className="vital click v-hp" onClick={() => pickTab('combat')}>
+        <div className="vital click v-hp" {...clickable(() => pickTab('combat'))}>
           <div className="v" style={{ color: c.hp.current <= max / 3 ? 'var(--bad)' : undefined }}>{c.hp.current}<span style={{ fontSize: 14, color: 'var(--muted)' }}>/{max}</span>{c.hp.temp ? <span style={{ fontSize: 14, color: 'var(--accent-2)' }}> +{c.hp.temp}</span> : null}</div>
           <div className="l">Pontos de Vida</div>
         </div>

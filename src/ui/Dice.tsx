@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Trash2, X, Lock, Eye, Zap, Skull } from 'lucide-react';
 import { useDice } from '../store';
-import { D20Icon } from './ui';
+import { D20Icon, clickable } from './ui';
 import { parseDice } from '../engine/dice';
 import { create } from 'zustand';
 
@@ -35,7 +35,7 @@ export function RollToast() {
   }, [current, dismiss]);
   if (!current || quiet) return null;
   return (
-    <div className={'roll-toast ' + (current.kind || '')} key={current.key} onClick={dismiss}>
+    <div className={'roll-toast ' + (current.kind || '')} key={current.key} {...clickable(dismiss)}>
       <D20Icon className="d20" />
       <div className="grow">
         <div style={{ fontWeight: 700 }}>{current.label}</div>
@@ -44,8 +44,8 @@ export function RollToast() {
           {current.dropped && <span className="faint"> (descartado {current.dropped.join(', ')})</span>}
           {current.mode && current.mode !== 'normal' && <span className={current.mode === 'adv' ? 'tag good' : 'tag bad'} style={{ marginLeft: 6 }}>{current.mode === 'adv' ? 'vantagem' : 'desvantagem'}</span>}
         </div>
-        {current.kind === 'crit' && <div className="tiny" style={{ color: 'var(--gold)', marginTop: 3 }}><Zap size={11} style={{ verticalAlign: '-2px' }} /> 20 natural!</div>}
-        {current.kind === 'fumble' && <div className="tiny" style={{ color: 'var(--bad)', marginTop: 3 }}><Skull size={11} style={{ verticalAlign: '-2px' }} /> 1 natural</div>}
+        {current.kind === 'crit' && <div className="tiny" style={{ color: 'var(--gold)', marginTop: 3 }}><Zap size={11} className="ic-inline" /> 20 natural!</div>}
+        {current.kind === 'fumble' && <div className="tiny" style={{ color: 'var(--bad)', marginTop: 3 }}><Skull size={11} className="ic-inline" /> 1 natural</div>}
       </div>
       <div className="total">{current.total}</div>
     </div>
