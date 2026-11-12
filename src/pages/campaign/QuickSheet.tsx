@@ -5,6 +5,7 @@ import { useCampaignSrd } from '../../cloud/campaignHomebrew';
 import { ABILITIES, type Character, type SrdData } from '../../data/types';
 import { ABILITY_PT, CONDITION_PT, SKILL_PT, armorClass, concentrationDc, initiative, maxHp, saveMod, skillMod, speed, spellSlots } from '../../engine/rules';
 import { applyDamage, applyDeathSave, applyHeal, dropsToZero } from '../../engine/hp';
+import { offerUndo } from '../../ui/undo';
 import { feetToMeters } from '../../engine/units';
 import { fmtMod } from '../../engine/dice';
 import { NumInput, useFlash } from '../../ui/ui';
@@ -45,7 +46,9 @@ function Quick({ c, srd, upd }: { c: Character; srd: SrdData; upd: (fn: (d: Char
     const n = amt || 0;
     if (!n) return;
     const down = dropsToZero(c, n);
+    const snap = { hp: { ...c.hp }, deathSaves: { ...c.deathSaves }, concentration: c.concentration };
     upd((d) => applyDamage(d, n));
+    offerUndo(`${who}: −${n} PV`, () => upd((d) => { d.hp = { ...snap.hp }; d.deathSaves = { ...snap.deathSaves }; d.concentration = snap.concentration; }));
     if (c.concentration) {
       if (down || dying) { setConc(null); flash(`Concentração em ${concName} perdida (0 PV).`); }
       else setConc(concentrationDc(n, c.edition));
@@ -55,7 +58,9 @@ function Quick({ c, srd, upd }: { c: Character; srd: SrdData; upd: (fn: (d: Char
   const heal = () => {
     const n = amt || 0;
     if (!n) return;
+    const snap = { hp: { ...c.hp }, deathSaves: { ...c.deathSaves }, concentration: c.concentration };
     upd((d) => applyHeal(d, n, max));
+    offerUndo(`${who}: +${n} PV`, () => upd((d) => { d.hp = { ...snap.hp }; d.deathSaves = { ...snap.deathSaves }; d.concentration = snap.concentration; }));
     setAmt(undefined);
   };
   const rollConc = async () => {

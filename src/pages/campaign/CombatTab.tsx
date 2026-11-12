@@ -6,7 +6,8 @@ import { useCampaignSrd } from '../../cloud/campaignHomebrew';
 import { turnIndex } from '../../cloud/combatLogic';
 import { addEnemy, addPlayerCombatant, nextTurn, startFight, removeCombatant, setEncounter, updateCombatant, updateSecrets, useEncounter, type Combatant, type Secrets } from '../../cloud/combat';
 import type { Effect } from '../../cloud/combatLogic';
-import { gmApply } from '../../cloud/campaigns';
+import { gmApply, gmUndo } from '../../cloud/campaigns';
+import { offerUndo } from '../../ui/undo';
 import { partySummary } from '../../cloud/party';
 import { abilityMod, CONDITION_PT } from '../../engine/rules';
 import { BAND_COLOR, BAND_LABEL, hpBand, type HpBand } from '../../engine/hpBand';
@@ -65,14 +66,22 @@ export function CombatTab({ campaign, members, isGm }: CampaignProps) {
 
   const hurt = async (c: Combatant, delta: number) => {
     if (c.kind === 'player' && c.character_id && party[c.character_id]) {
-      await safe(gmApply(c.character_id, campaign.id, { deltaHp: delta, maxHp: partySummary(party[c.character_id], srd).maxHp }));
+      const before = party[c.character_id];
+      const maxHp = partySummary(before, srd).maxHp;
+      try {
+        const after = await gmApply(c.character_id, campaign.id, { deltaHp: delta, maxHp });
+        const undo = gmUndo(before, after, campaign.id, maxHp);
+        if (undo) offerUndo(`${c.name}: ${delta < 0 ? '−' : '+'}${Math.abs(delta)} PV`, undo);
+      } catch (e) { showError(e); }
     } else {
       const s = secrets[c.id];
       if (!s) return;
       let cur = s.hp_current, tmp = s.hp_temp;
       if (delta < 0) { const t = Math.min(tmp, -delta); tmp -= t; cur = Math.max(0, cur - (-delta - t)); } else cur = Math.min(s.hp_max, cur + delta);
+      const was = { hp_current: s.hp_current, hp_temp: s.hp_temp };
       await safe(updateSecrets(c.id, { hp_current: cur, hp_temp: tmp }));
       await reloadSecrets();
+      offerUndo(`${c.name}: ${delta < 0 ? '−' : '+'}${Math.abs(delta)} PV`, async () => { await updateSecrets(c.id, was); await reloadSecrets(); });
     }
     setAmt((a) => ({ ...a, [c.id]: undefined }));
   };

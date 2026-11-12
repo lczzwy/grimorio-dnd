@@ -4,7 +4,8 @@ import type { Character } from '../../data/types';
 import { useCampaignSrd } from '../../cloud/campaignHomebrew';
 import { watchCharacters } from '../../cloud/sync';
 import { useShared } from '../../cloud/shared';
-import { gmApply } from '../../cloud/campaigns';
+import { gmApply, gmUndo } from '../../cloud/campaigns';
+import { offerUndo } from '../../ui/undo';
 import { partySummary } from '../../cloud/party';
 import { CONDITION_PT } from '../../engine/rules';
 import { Modal, NumInput, go, useFlash } from '../../ui/ui';
@@ -34,8 +35,11 @@ export function TableTab({ campaign, members, isGm, uid }: CampaignProps) {
 
   const act = async (c: Character, o: Parameters<typeof gmApply>[2], msg: string) => {
     try {
-      await gmApply(c.id, campaign.id, { ...o, maxHp: partySummary(c, srd).maxHp });
-      flash(msg);
+      const maxHp = partySummary(c, srd).maxHp;
+      const after = await gmApply(c.id, campaign.id, { ...o, maxHp });
+      const undo = o.deltaHp ? gmUndo(c, after, campaign.id, maxHp) : null;
+      if (undo) offerUndo(msg, undo);
+      else flash(msg);
       setAmount((a) => ({ ...a, [c.id]: undefined }));
     } catch (e) {
       showError(e);

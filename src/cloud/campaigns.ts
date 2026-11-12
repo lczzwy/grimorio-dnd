@@ -1,3 +1,4 @@
+import type { Character } from '../data/types';
 import { useEffect, useState } from 'react';
 import type { Edition } from '../data/types';
 import { supabase } from './client';
@@ -60,8 +61,8 @@ export async function deleteCampaign(campaignId: string) {
 }
 
 /** GM applies damage / healing / temp HP / conditions to a player character (server-side, see gm_apply). */
-export async function gmApply(characterId: string, campaignId: string, o: { deltaHp?: number; tempHp?: number; add?: string[]; remove?: string[]; maxHp?: number }) {
-  check(await supabase.rpc('gm_apply', {
+export async function gmApply(characterId: string, campaignId: string, o: { deltaHp?: number; tempHp?: number; add?: string[]; remove?: string[]; maxHp?: number }): Promise<Character | null> {
+  return check(await supabase.rpc('gm_apply', {
     ch: characterId,
     campaign: campaignId,
     delta_hp: o.deltaHp ?? null,
@@ -69,7 +70,26 @@ export async function gmApply(characterId: string, campaignId: string, o: { delt
     add_conditions: o.add ?? null,
     remove_conditions: o.remove ?? null,
     max_hp: o.maxHp ?? null,
-  }));
+  })) as Character | null;
+}
+
+/**
+ * Undo for a life change the GM made on a player's sheet, done as the opposite change. Only when
+ * that gives back exactly what there was: not if someone dropped to (or rose from) 0 HP, since that
+ * also ends concentration and touches the death saves; not for temporary HP, which never go down.
+ */
+export function gmUndo(before: Character, after: Character | null, campaignId: string, maxHp: number): (() => Promise<unknown>) | null {
+  if (!after) return null;
+  const bc = before.hp.current, bt = before.hp.temp, ac = after.hp.current, at = after.hp.temp;
+  if (bc <= 0 || ac <= 0) return null;
+  if (ac < bc || at < bt) {
+    return async () => {
+      if (bc > ac) await gmApply(before.id, campaignId, { deltaHp: bc - ac, maxHp });
+      if (bt > at) await gmApply(before.id, campaignId, { tempHp: bt });
+    };
+  }
+  if (ac > bc && at === 0) return () => gmApply(before.id, campaignId, { deltaHp: -(ac - bc), maxHp });
+  return null;
 }
 
 const campaignCache = new Map<string, { campaign: Campaign; members: Member[] }>();

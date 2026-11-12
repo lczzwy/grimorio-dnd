@@ -407,3 +407,8 @@ h1 { text-shadow: 0 2px 0 #000; }
 .pdf-unknown ul { margin: 0; padding-left: 18px; font-size: 13px; max-height: 180px; overflow-y: auto; }
 .pdf-links .field > span { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
 @media (max-width: 560px) { .pdf-rows th { white-space: normal; width: 34%; } }
+
+/* ---- Desfazer a última mudança de vida ---- */
+.undo-toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 96; display: flex; align-items: center; gap: 10px; max-width: min(92vw, 480px); padding: 8px 8px 8px 16px; border: 1px solid var(--gold); border-radius: 10px; background: var(--panel-2); box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55); font-size: 14px; animation: toastIn 0.25s; }
+@media (max-width: 760px) { .undo-toast { bottom: 76px; } }
+html[data-tablemode] .undo-toast { bottom: 64px; }

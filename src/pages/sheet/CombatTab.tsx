@@ -14,6 +14,7 @@ import type { SheetProps } from '../Sheet';
 import { fullAttack as sharedFullAttack } from './attack';
 import { TurnPanel } from './TurnPanel';
 import { applyDamage, applyDeathSave, applyHeal, dropsToZero } from '../../engine/hp';
+import { offerUndo } from '../../ui/undo';
 
 function HpRing({ cur, max, temp }: { cur: number; max: number; temp: number }) {
   const r = 56;
@@ -71,7 +72,9 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
     pulse('flash-dmg shake');
     // concentration: dropping to 0 HP ends it; otherwise a CON save is required
     const dropsTo0 = dropsToZero(c, n);
+    const snap = { hp: { ...c.hp }, deathSaves: { ...c.deathSaves }, concentration: c.concentration };
     upd((d) => applyDamage(d, n));
+    offerUndo(`${who}: −${n} PV`, () => upd((d) => { d.hp = { ...snap.hp }; d.deathSaves = { ...snap.deathSaves }; d.concentration = snap.concentration; }));
     if (c.concentration) {
       if (dropsTo0 || c.hp.current <= 0) flash(`Concentração em ${concName} perdida (0 PV).`);
       else setConcCheck({ dc: concentrationDc(n, c.edition), dmg: n });
@@ -81,7 +84,9 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
   const heal = (n: number) => {
     if (!n) return;
     pulse('flash-heal');
+    const snap = { hp: { ...c.hp }, deathSaves: { ...c.deathSaves }, concentration: c.concentration };
     upd((d) => applyHeal(d, n, max));
+    offerUndo(`${who}: +${n} PV`, () => upd((d) => { d.hp = { ...snap.hp }; d.deathSaves = { ...snap.deathSaves }; d.concentration = snap.concentration; }));
     setAmt(undefined);
   };
 
