@@ -1,5 +1,6 @@
-import type { Character, SpellDef, SrdData } from '../data/types';
+import type { Character, PowerDef, PowerListDef, SpellDef, SrdData } from '../data/types';
 import { allFeatures, weaponAttacks, type AttackLine } from './rules';
+import { featuresShownAsPowers, knownPowers, powerLists } from './classData';
 
 export type TurnSlot = 'action' | 'bonus' | 'reaction';
 
@@ -7,6 +8,7 @@ export type TurnOption =
   | { kind: 'attack'; name: string; attack: AttackLine }
   | { kind: 'spell'; name: string; spell: SpellDef }
   | { kind: 'feature'; name: string; source: string; desc: string }
+  | { kind: 'power'; name: string; power: PowerDef; list?: PowerListDef }
   | { kind: 'basic'; name: string; desc: string };
 
 const BASIC: Record<TurnSlot, { name: string; desc: string }[]> = {
@@ -53,16 +55,26 @@ export function turnOptions(c: Character, srd: SrdData): Record<TurnSlot, TurnOp
     if (slot) out[slot].push({ kind: 'spell', name: sp.name, spell: sp });
   }
 
+  // powers (disciplines, talents…): by their casting time, or the time of their first option
+  const lists = powerLists(c, srd);
+  for (const p of knownPowers(c, srd)) {
+    const slot = spellSlotKind(p.time || p.options?.find((o) => o.time)?.time);
+    if (slot) out[slot].push({ kind: 'power', name: p.name, power: p, list: lists.find((l) => l.id === p.list) });
+  }
+
+  const asPowers = featuresShownAsPowers(c, srd);
   const seen = new Set<string>();
   for (const g of allFeatures(c, srd)) {
     for (const f of g.items) {
       // one place per feature: the first that fits (bonus action, then reaction, then action), so a
       // feature whose text mentions several kinds of action doesn't show up two or three times
-      if (!f.desc || seen.has(f.name)) continue;
-      const hit = FEATURE_PATTERNS.find(([, re]) => re.test(f.desc!));
+      if (!f.desc || seen.has(f.name) || (f.id && asPowers.has(f.id))) continue;
+      // a type set in the data wins over reading the text
+      const typed = f.type === 'action' || f.type === 'bonus' || f.type === 'reaction' ? f.type : null;
+      const hit = typed ?? (f.type ? undefined : FEATURE_PATTERNS.find(([, re]) => re.test(f.desc!))?.[0]);
       if (!hit) continue;
       seen.add(f.name);
-      out[hit[0]].push({ kind: 'feature', name: f.name, source: g.source, desc: f.desc });
+      out[hit].push({ kind: 'feature', name: f.name, source: g.source, desc: f.desc });
     }
   }
 

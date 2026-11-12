@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Trash2, Pencil, Download, Upload, ClipboardPaste, Hammer } from 'lucide-react';
-import type { Ability, ClassDef, ClassLevel, Edition, FeatureRef, SrdData } from '../data/types';
+import type { Ability, ClassDef, ClassLevel, CounterDef, Edition, FeatureRef, PowerListDef, PowerOption, SrdData } from '../data/types';
+import { CountersEditor, MulticlassEditor, PowerListsEditor, PowerOptionsEditor, RichFeatureList, withIds, type ListChoice } from './homebrew/ClassDataEditor';
 import { ABILITIES } from '../data/types';
 import { useSrd } from '../data/srd';
 import { useApp, type HomebrewKind } from '../store';
@@ -16,6 +17,7 @@ const KINDS: { k: HomebrewKind; label: string; hint: string }[] = [
   { k: 'species', label: 'Raças / Espécies', hint: 'Ex.: Mind Flayer, Aasimar, Tabaxi' },
   { k: 'classes', label: 'Classes', hint: 'Ex.: Místico, Artífice, Caçador de Sangue' },
   { k: 'subclasses', label: 'Subclasses', hint: 'Ex.: Domínio da Forja, Mestre de Batalha' },
+  { k: 'powers', label: 'Poderes', hint: 'Disciplinas, talentos psiônicos, invocações… (de uma lista definida na classe)' },
   { k: 'backgrounds', label: 'Antecedentes', hint: 'Ex.: Nobre, Soldado, Charlatão' },
   { k: 'feats', label: 'Talentos', hint: 'Ex.: Sentinela, Mestre em Armas Grandes' },
   { k: 'spells', label: 'Magias', hint: 'Ex.: Toll the Dead, Booming Blade' },
@@ -28,7 +30,8 @@ const slug = (s: string) => 'hb-' + s.toLowerCase().normalize('NFD').replace(/[�
 function blank(kind: HomebrewKind): AnyItem {
   switch (kind) {
     case 'species': return { id: '', name: '', speed: 30, size: 'Medium', bonuses: [], traits: [], languages: '' };
-    case 'classes': return { id: '', name: '', hitDie: 8, saves: [], profs: [], profIds: [], levels: [], _caster: 'none', _features: [], _skills: { choose: 2, from: [] }, _ability: '' };
+    case 'classes': return { id: '', name: '', hitDie: 8, saves: [], profs: [], profIds: [], levels: [], counters: [], powerLists: [], multiclass: { prereq: [] }, _caster: 'none', _features: [], _skills: { choose: 2, from: [] }, _ability: '' };
+    case 'powers': return { id: '', name: '', list: '', desc: '', time: '', range: '', duration: '', cost: '', focus: '', tags: [], options: [] };
     case 'subclasses': return { id: '', name: '', class: 'fighter', desc: '', features: [] };
     case 'backgrounds': return { id: '', name: '', skills: [], tools: [], abilities: [], desc: '' };
     case 'feats': return { id: '', name: '', type: 'general', desc: '', prereq: '' };
@@ -49,28 +52,11 @@ function buildClassLevels(d: AnyItem, srd: SrdData): ClassLevel[] {
     return {
       level,
       prof: profBonus(level),
-      features: feats.filter((f) => (f.level || 1) === level).map((f) => ({ name: f.name, desc: f.desc })),
+      // keep the type, the pick and the markers of each feature; the level is the row itself
+      features: feats.filter((f) => (f.level || 1) === level).map((f) => ({ ...f, level: undefined })),
       spellcasting: sc ? { ...sc } : undefined,
     };
   });
-}
-
-function FeatureList({ value, onChange, withLevel = true, label = 'Características' }: { value: FeatureRef[]; onChange: (v: FeatureRef[]) => void; withLevel?: boolean; label?: string }) {
-  return (
-    <div className="col g8">
-      <div className="row"><span className="tiny muted grow">{label}</span><button className="btn sm" onClick={() => onChange([...value, { name: '', desc: '', level: withLevel ? 1 : undefined }])}><Plus size={13} /> Adicionar</button></div>
-      {value.map((f, i) => (
-        <div key={i} className="panel col" style={{ padding: 10, gap: 6 }}>
-          <div className="row">
-            {withLevel && <label className="row small g4">Nv<NumInput value={f.level || 1} min={1} max={20} style={{ width: 50 }} onChange={(n) => onChange(value.map((x, j) => (j === i ? { ...x, level: n } : x)))} /></label>}
-            <input className="input grow" placeholder="Nome" value={f.name} onChange={(e) => onChange(value.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
-            <button className="btn icon sm ghost danger" onClick={() => onChange(value.filter((_, j) => j !== i))}><Trash2 size={13} /></button>
-          </div>
-          <textarea className="textarea" style={{ minHeight: 70, fontSize: 14 }} placeholder="Descrição (aceita **negrito**)" value={f.desc} onChange={(e) => onChange(value.map((x, j) => (j === i ? { ...x, desc: e.target.value } : x)))} />
-        </div>
-      ))}
-    </div>
-  );
 }
 
 function MultiPick<T extends string>({ options, value, onChange, max }: { options: { v: T; l: string }[]; value: T[]; onChange: (v: T[]) => void; max?: number }) {
@@ -90,6 +76,10 @@ function Editor({ kind, init, srd, edition, onClose }: { kind: HomebrewKind; ini
   const [d, setD] = useState<AnyItem>(() => structuredClone(init));
   const set = (patch: Record<string, unknown>) => setD((x) => ({ ...x, ...patch }));
   const abOpts = ABILITIES.map((a) => ({ v: a, l: ABILITY_PT[a].short }));
+  // power lists any class (or this one, while being edited) defines: what a pick can choose from
+  const defined = [...srd.classes, ...srd.subclasses, ...srd.species].flatMap((x) => (x as { powerLists?: PowerListDef[] }).powerLists || []);
+  const editing = kind === 'classes' ? withIds((d.powerLists as PowerListDef[]) || []) : [];
+  const allLists: ListChoice[] = [...new Map([...defined, ...editing].map((l) => [l.id, { v: l.id, l: l.name }])).values()];
   const skillOpts = srd.skills.map((s) => ({ v: s.key, l: SKILL_PT[s.key] || s.name }));
 
   const save = () => {
@@ -99,6 +89,15 @@ function Editor({ kind, init, srd, edition, onClose }: { kind: HomebrewKind; ini
       out.skillChoice = (d._skills as { from: string[] }).from.length ? d._skills : undefined;
       out.spellcasting = d._ability ? { ability: d._ability, level: 1, info: [] } : undefined;
       out.profs = String(d._profText ?? (d.profs as string[]).join(', ')).split(',').map((s) => s.trim()).filter(Boolean);
+      out.counters = withIds((d.counters as CounterDef[]) || []);
+      out.powerLists = withIds((d.powerLists as PowerListDef[]) || []);
+      const mc = (d.multiclass as ClassDef['multiclass']) || {};
+      out.multiclass = mc.prereq?.length || mc.gains?.length || mc.profs?.length || mc.prereqAny?.length ? mc : undefined;
+    }
+    if (kind === 'powers') {
+      out.tags = ((d.tags as string[]) || []).filter(Boolean);
+      out.options = ((d.options as PowerOption[]) || []).filter((o) => o.name.trim());
+      for (const k of ['time', 'range', 'duration', 'cost', 'focus']) if (!out[k]) delete out[k];
     }
     add(edition, kind, out);
     flash(`${out.name} salvo no homebrew`);
@@ -131,7 +130,7 @@ function Editor({ kind, init, srd, edition, onClose }: { kind: HomebrewKind; ini
             </div>
           )}
           <label className="field">Idiomas<input className="input" value={(d.languages as string) || ''} onChange={(e) => set({ languages: e.target.value })} /></label>
-          <FeatureList withLevel={false} label="Traços raciais" value={(d.traits as FeatureRef[]) || []} onChange={(v) => set({ traits: v })} />
+          <RichFeatureList withLevel={false} lists={allLists} label="Traços raciais" value={(d.traits as FeatureRef[]) || []} onChange={(v) => set({ traits: v })} />
         </>)}
 
         {kind === 'classes' && (<>
@@ -154,7 +153,11 @@ function Editor({ kind, init, srd, edition, onClose }: { kind: HomebrewKind; ini
             <div className="row"><span className="tiny muted grow">Perícias à escolha</span>Escolher<NumInput value={(d._skills as { choose: number }).choose} min={0} max={6} style={{ width: 46 }} onChange={(n) => set({ _skills: { ...(d._skills as object), choose: n } })} /></div>
             <MultiPick options={skillOpts} value={(d._skills as { from: string[] }).from} onChange={(v) => set({ _skills: { ...(d._skills as object), from: v } })} />
           </div>
-          <FeatureList label="Características por nível" value={(d._features as FeatureRef[]) || []} onChange={(v) => set({ _features: v })} />
+          <CountersEditor value={(d.counters as CounterDef[]) || []} onChange={(v) => set({ counters: v })} />
+          <PowerListsEditor value={(d.powerLists as PowerListDef[]) || []} counters={(d.counters as CounterDef[]) || []} onChange={(v) => set({ powerLists: v })} />
+          <RichFeatureList markers lists={allLists} label="Características por nível" value={(d._features as FeatureRef[]) || []} onChange={(v) => set({ _features: v })} />
+          <MulticlassEditor value={(d.multiclass as ClassDef['multiclass'])?.prereq || []} onChange={(v) => set({ multiclass: { ...(d.multiclass as object), prereq: v } })} />
+          <RichFeatureList withLevel={false} lists={allLists} label="O que se ganha ao entrar por multiclasse (proficiências etc.)" value={(d.multiclass as ClassDef['multiclass'])?.gains || []} onChange={(v) => set({ multiclass: { ...(d.multiclass as object), gains: v } })} />
         </>)}
 
         {kind === 'subclasses' && (<>
@@ -162,7 +165,31 @@ function Editor({ kind, init, srd, edition, onClose }: { kind: HomebrewKind; ini
             <select className="select" value={d.class as string} onChange={(e) => set({ class: e.target.value })}>{srd.classes.map((c) => <option key={c.id} value={c.id}>{className(c.id, srd)}</option>)}</select>
           </label>
           {descField()}
-          <FeatureList value={(d.features as FeatureRef[]) || []} onChange={(v) => set({ features: v })} />
+          <RichFeatureList lists={allLists} value={(d.features as FeatureRef[]) || []} onChange={(v) => set({ features: v })} />
+        </>)}
+
+        {kind === 'powers' && (<>
+          <div className="row wrap">
+            <label className="field" title="A lista da classe em que este poder aparece">Lista
+              <select className="select" value={(d.list as string) || ''} onChange={(e) => set({ list: e.target.value })}>
+                <option value="">Escolha…</option>
+                {allLists.map((l) => <option key={l.v} value={l.v}>{l.l}</option>)}
+              </select>
+            </label>
+            <label className="field" title="Nível da classe a partir do qual pode ser escolhido">Nível mínimo<NumInput value={d.level as number | undefined} min={1} max={20} onChange={(n) => set({ level: n > 1 ? n : undefined })} /></label>
+            <label className="field grow" title="Separe por vírgula. Uma escolha pode pedir só poderes com uma etiqueta (ex.: a ordem)">Etiquetas<input className="input" value={((d.tags as string[]) || []).join(', ')} onChange={(e) => set({ tags: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} placeholder="Immortal" /></label>
+          </div>
+          {allLists.length === 0 && <div className="small" style={{ color: 'var(--warn)' }}>Nenhuma classe tem lista de poderes ainda. Crie a lista na classe (Listas de poderes) e volte aqui.</div>}
+          <div className="row wrap">
+            <label className="field">Tempo<input className="input" value={(d.time as string) || ''} onChange={(e) => set({ time: e.target.value })} placeholder="Ação, Ação bônus…" /></label>
+            <label className="field">Alcance<input className="input" value={(d.range as string) || ''} onChange={(e) => set({ range: e.target.value })} /></label>
+            <label className="field">Duração<input className="input" value={(d.duration as string) || ''} onChange={(e) => set({ duration: e.target.value })} /></label>
+            <label className="field">Custo (texto)<input className="input" value={(d.cost as string) || ''} onChange={(e) => set({ cost: e.target.value })} placeholder="1–7 psi" /></label>
+            <label className="row small g6"><input type="checkbox" checked={!!d.conc} onChange={(e) => set({ conc: e.target.checked || undefined })} /> Concentração</label>
+          </div>
+          {descField('desc', 'O que faz')}
+          <label className="field" title="Benefício contínuo enquanto o poder é o foco ativo (deixe vazio se não tiver)">Foco (opcional)<textarea className="textarea" style={{ minHeight: 56 }} value={(d.focus as string) || ''} onChange={(e) => set({ focus: e.target.value })} /></label>
+          <PowerOptionsEditor unit={[...srd.classes, ...srd.subclasses].flatMap((x) => (x as { powerLists?: PowerListDef[] }).powerLists || []).find((l) => l.id === d.list)?.unit} value={(d.options as PowerOption[]) || []} onChange={(v) => set({ options: v })} />
         </>)}
 
         {kind === 'backgrounds' && (<>
@@ -256,7 +283,7 @@ const PASTE_HELP = `Cole um pacote JSON. Formato:
   "species": [{ "id": "mind-flayer", "name": "Mind Flayer", "speed": 30, "size": "Medium",
     "bonuses": [{ "ability": "int", "bonus": 2 }],
     "traits": [{ "name": "Telepatia", "desc": "..." }] }],
-  "classes": [...], "subclasses": [...], "backgrounds": [...],
+  "classes": [...], "subclasses": [...], "powers": [...], "backgrounds": [...],
   "feats": [...], "spells": [...], "equipment": [...], "magicItems": [...]
 }`;
 
@@ -294,7 +321,7 @@ Importar como personagem na mesa D&D 2014?`, { ok: 'Importar' }))) return;
     }
     const r = importHb(edition, data);
     if (!r.kept) {
-      void alertBox('Nada foi importado: o arquivo não tem itens de homebrew reconhecíveis (species, classes, subclasses, backgrounds, feats, spells, equipment ou magicItems, cada um com "name").');
+      void alertBox('Nada foi importado: o arquivo não tem itens de homebrew reconhecíveis (species, classes, subclasses, powers, backgrounds, feats, spells, equipment ou magicItems, cada um com "name").');
       return;
     }
     setPaste(null);

@@ -1,9 +1,9 @@
 import type { SrdData } from './types';
 
-export type HomebrewKind = 'spells' | 'feats' | 'species' | 'backgrounds' | 'equipment' | 'magicItems' | 'subclasses' | 'classes';
-export type Homebrew = Partial<Pick<SrdData, HomebrewKind>>;
+export type HomebrewKind = 'spells' | 'feats' | 'species' | 'backgrounds' | 'equipment' | 'magicItems' | 'subclasses' | 'classes' | 'powers';
+export type Homebrew = Partial<Pick<Required<SrdData>, HomebrewKind>>;
 
-export const HOMEBREW_KINDS: HomebrewKind[] = ['species', 'classes', 'subclasses', 'backgrounds', 'feats', 'spells', 'equipment', 'magicItems'];
+export const HOMEBREW_KINDS: HomebrewKind[] = ['species', 'classes', 'subclasses', 'powers', 'backgrounds', 'feats', 'spells', 'equipment', 'magicItems'];
 
 type Obj = Record<string, unknown>;
 const isObj = (x: unknown): x is Obj => !!x && typeof x === 'object' && !Array.isArray(x);
@@ -23,6 +23,7 @@ const REQUIRED: Record<HomebrewKind, (x: Obj) => boolean> = {
   magicItems: (x) => str(x.desc),
   subclasses: (x) => str(x.class) && arr(x.features),
   classes: (x) => typeof x.hitDie === 'number' && arr(x.levels) && arr(x.saves) && arr(x.profs),
+  powers: (x) => str(x.list) && str(x.desc),
 };
 
 export interface SanitizeResult { homebrew: Homebrew; kept: number; dropped: number; ignoredKeys: string[] }

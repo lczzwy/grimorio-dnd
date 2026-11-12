@@ -6,7 +6,7 @@ import { fmtMod } from '../../engine/dice';
 import { Markdown, clickable } from '../../ui/ui';
 import { SpellCard } from './SpellsTab';
 import { fullAttack } from './attack';
-import { PsiOptions } from './PsiOptions';
+import { PowerUse } from './PowerUse';
 import type { SheetProps } from '../Sheet';
 
 const COLS: { slot: TurnSlot; title: string; hint: string; icon: typeof Swords }[] = [
@@ -30,10 +30,10 @@ export function TurnPanel({ c, srd, upd }: SheetProps) {
   };
 
   const chip = (o: TurnOption, i: number) => {
-    const icon = o.kind === 'attack' ? <Swords size={13} /> : o.kind === 'spell' ? <Sparkles size={13} /> : null;
+    const icon = o.kind === 'attack' ? <Swords size={13} /> : o.kind === 'spell' || o.kind === 'power' ? <Sparkles size={13} /> : null;
     const extra = o.kind === 'attack' ? ` ${fmtMod(o.attack.toHit)}` : '';
     return (
-      <button key={o.kind + o.name + i} className={'cond' + (o.kind === 'basic' ? '' : ' on')} style={o.kind === 'basic' ? undefined : { color: 'var(--text)', borderColor: o.kind === 'attack' ? 'var(--accent)' : o.kind === 'spell' ? 'var(--accent-2)' : 'var(--line-2)', background: 'var(--panel-2)' }}
+      <button key={o.kind + o.name + i} className={'cond' + (o.kind === 'basic' ? '' : ' on')} style={o.kind === 'basic' ? undefined : { color: 'var(--text)', borderColor: o.kind === 'attack' ? 'var(--accent)' : o.kind === 'spell' || o.kind === 'power' ? 'var(--accent-2)' : 'var(--line-2)', background: 'var(--panel-2)' }}
         title={o.kind === 'attack' ? 'Ataque completo (acerto + dano)' : 'Ver descrição'}
         onClick={() => (o.kind === 'attack' ? fullAttack(who, o.attack) : setDetail(o))}>
         {icon} {o.name}{extra}
@@ -67,11 +67,10 @@ export function TurnPanel({ c, srd, upd }: SheetProps) {
       )}
       {detail && (
         <Detail title={detail.name} onClose={() => setDetail(null)}>
-          {detail.kind === 'spell' ? <SpellCard sp={detail.spell} srd={srd} c={c} /> : detail.kind === 'attack' ? null : (
+          {detail.kind === 'spell' ? <SpellCard sp={detail.spell} srd={srd} c={c} /> : detail.kind === 'attack' ? null : detail.kind === 'power' ? <PowerUse c={c} srd={srd} upd={upd} power={detail.power} list={detail.list} /> : (
             <div className="col">
               {detail.kind === 'feature' && <span className="tag accent self-start">{detail.source}</span>}
               <Markdown text={detail.desc} />
-              {detail.kind === 'feature' && <PsiOptions c={c} upd={upd} name={detail.name} desc={detail.desc} />}
             </div>
           )}
         </Detail>

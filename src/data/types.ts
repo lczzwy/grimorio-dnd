@@ -7,7 +7,83 @@ export interface Named { id: string; name: string; desc?: string }
 export interface SkillDef { key: string; name: string; ability: Ability; desc: string }
 export interface AbilityDef { key: Ability; name: string; short: string; desc: string }
 
-export interface FeatureRef { id?: string; name: string; desc: string; level?: number }
+/** What a feature is at the table: always on, used with an action/bonus action/reaction, or a pool of uses. */
+export type FeatureType = 'passive' | 'action' | 'bonus' | 'reaction' | 'resource';
+
+/** A pick the character makes when gaining a feature, e.g. "choose 1 discipline". */
+export interface ChoiceDef {
+  /** where the options come from: a power list id (see PowerListDef) or 'feats' */
+  list: string;
+  count: number;
+  label?: string;
+  /** only options carrying this tag (e.g. the disciplines of one order) */
+  tag?: string;
+}
+
+export interface FeatureRef {
+  id?: string;
+  name: string;
+  desc: string;
+  level?: number;
+  type?: FeatureType;
+  choice?: ChoiceDef;
+  /** this level gives an Ability Score Improvement (or a feat) */
+  asi?: boolean;
+  /** this is where the subclass is picked */
+  subclass?: boolean;
+}
+
+/**
+ * A number that grows with the class level, e.g. Psi Points 4/6/14…, disciplines known, a die size.
+ * `values[0]` is level 1. With `reset`, it becomes a pool on the sheet (spent and recovered on rests).
+ */
+export interface CounterDef {
+  id: string;
+  name: string;
+  desc?: string;
+  values: number[];
+  reset?: 'short' | 'long';
+  /** names this pool had before (an old hand-made resource with one of these names is adopted) */
+  aliases?: string[];
+  /** this counter is the most of counter `limitOf` that one use may spend (e.g. Psi Limit) */
+  limitOf?: string;
+}
+
+/** A list of powers a class uses (disciplines, talents, invocations…), shown in its own tab. */
+export interface PowerListDef {
+  id: string;
+  name: string;
+  desc?: string;
+  /** counter id that pays the costs of these powers (e.g. psi points) */
+  resource?: string;
+  /** short name of the cost unit, e.g. "psi" */
+  unit?: string;
+}
+
+/** One way to use a power, with its cost in the list's unit. */
+export interface PowerOption { name: string; cost?: number; costMax?: number; time?: string; conc?: boolean; desc?: string }
+
+export interface PowerDef {
+  id: string;
+  name: string;
+  /** PowerListDef id */
+  list: string;
+  /** class level needed to pick it */
+  level?: number;
+  /** free labels a choice can filter by (e.g. the order a discipline belongs to) */
+  tags?: string[];
+  time?: string;
+  range?: string;
+  duration?: string;
+  conc?: boolean;
+  /** cost text when it isn't split in options, e.g. "1–7 psi" */
+  cost?: string;
+  /** an ongoing benefit while it is the active focus (Mystic's psychic focus) */
+  focus?: string;
+  desc: string;
+  options?: PowerOption[];
+  custom?: boolean;
+}
 
 export interface SpellcastingLevel { cantrips?: number; known?: number; prepared?: number; slots: number[] }
 
@@ -32,8 +108,16 @@ export interface ClassDef {
   otherChoices?: string[];
   equipment?: string[];
   spellcasting?: { ability: Ability; level: number; info: { name: string; desc: string }[] };
-  multiclass?: { prereq?: { ability: Ability; min: number }[]; prereqAny?: { ability: Ability; min: number }[]; profs?: string[] };
+  multiclass?: {
+    prereq?: { ability: Ability; min: number }[];
+    prereqAny?: { ability: Ability; min: number }[];
+    profs?: string[];
+    /** what entering this class by multiclassing gives, instead of the level 1 package */
+    gains?: FeatureRef[];
+  };
   levels: ClassLevel[];
+  counters?: CounterDef[];
+  powerLists?: PowerListDef[];
   custom?: boolean;
 }
 
@@ -46,6 +130,8 @@ export interface SubclassDef {
   desc?: string;
   features: FeatureRef[];
   spells?: { spell: string; level?: string }[];
+  counters?: CounterDef[];
+  powerLists?: PowerListDef[];
   custom?: boolean;
 }
 
@@ -67,6 +153,7 @@ export interface SpeciesDef {
   languages?: string;
   traits?: FeatureRef[];
   subraces?: SubraceDef[];
+  powerLists?: PowerListDef[];
   custom?: boolean;
 }
 
@@ -156,6 +243,8 @@ export interface SrdData {
   spells: SpellDef[];
   equipment: EquipmentDef[];
   magicItems: MagicItemDef[];
+  /** homebrew powers (disciplines, talents…); absent from the SRD files */
+  powers?: PowerDef[];
   conditions: Named[];
   weaponProps: Named[];
   masteries: Named[];
@@ -202,13 +291,35 @@ export interface CustomAttack {
   notes?: string;
 }
 
-export interface Resource { uid: string; name: string; max: number; used: number; reset: 'short' | 'long' | 'none'; auto?: string }
+export interface Resource {
+  uid: string;
+  name: string;
+  max: number;
+  used: number;
+  reset: 'short' | 'long' | 'none';
+  /** managed by the official class rules (rage, ki…) */
+  auto?: string;
+  /** follows a counter of the class data ("ctr:<class>:<counter>"); kept apart from `auto` so an
+   *  older version of the site still treats it as a normal pool and never drops it */
+  counter?: string;
+}
 
 export interface KnownSpell { id: string; prepared?: boolean; alwaysPrepared?: boolean; classId?: string }
 
 export interface CustomFeature { uid: string; name: string; source: string; desc: string }
 
 export interface RollEntry { id: string; label: string; formula: string; rolls: number[]; dropped?: number[]; total: number; kind?: 'crit' | 'fumble'; at: number }
+
+export interface LevelStep {
+  at: number;
+  classId: string;
+  /** the class level reached */
+  level: number;
+  /** a short line for the history list, e.g. "+7 PV · Arma Psiônica" */
+  summary: string;
+  /** the whole sheet just before this level (without the history itself) */
+  before: Omit<Character, 'levelHistory'>;
+}
 
 export interface Character {
   id: string;
@@ -264,6 +375,10 @@ export interface Character {
 
   resources: Resource[];
   customFeatures: CustomFeature[];
+  /** chosen powers (PowerDef ids) from the lists of the character's classes */
+  powers?: string[];
+  /** one entry per level gained with the wizard, newest last: undoing restores `before` */
+  levelHistory?: LevelStep[];
 
   proficienciesText: string;
   languagesText: string;

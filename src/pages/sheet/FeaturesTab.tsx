@@ -8,7 +8,6 @@ import { ABILITY_PT, XP_TABLE, allFeatures, className, computeScores, findClass,
 import { fmtMod } from '../../engine/dice';
 import { Markdown, Modal, NumInput, clickable } from '../../ui/ui';
 import type { SheetProps } from '../Sheet';
-import { PsiOptions } from './PsiOptions';
 
 const KIND_COLOR: Record<string, string> = { class: 'accent', subclass: 'accent', species: 'good', background: 'gold', feat: 'gold', custom: '' };
 
@@ -115,7 +114,7 @@ export function FeaturesTab({ c, srd, upd, onLevelUp }: SheetProps & { onLevelUp
                   {c.psychicFocus === f.name && <span className="tag gold">foco</span>}
                   {g.kind === 'custom' && <button className="btn icon sm ghost danger" onClick={(e) => { e.preventDefault(); upd((d) => (d.customFeatures = d.customFeatures.filter((x) => x.uid !== f.id))); }}><Trash2 size={13} /></button>}
                 </summary>
-                <div className="body"><Markdown text={f.desc} /><PsiOptions c={c} upd={upd} name={f.name} desc={f.desc} /></div>
+                <div className="body"><Markdown text={f.desc} /></div>
               </details>
             ))}
           </div>

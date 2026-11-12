@@ -1,6 +1,6 @@
 import type { Ability, Character, ClassDef, FeatureRef, Resource, SpeciesDef, SrdData, SubraceDef, WeaponStats } from '../data/types';
 import { ABILITIES } from '../data/types';
-import { isPsiResource, psiLevel, psiTable } from './psi';
+import { counterResources } from './classData';
 
 export const abilityMod = (score: number) => Math.floor((score - 10) / 2);
 export const profBonus = (level: number) => 2 + Math.floor((Math.max(1, level) - 1) / 4);
@@ -446,17 +446,26 @@ export function suggestedResources(c: Character, srd: SrdData): Omit<Resource, '
 /** Keeps auto-managed resources in sync with level/class while preserving used counts and custom ones. */
 export function syncResources(c: Character, srd: SrdData, mkId: () => string): Resource[] {
   const sugg = suggestedResources(c, srd);
-  // psi points (Mystic) follow the class table so they grow on level up
-  const custom = c.resources.filter((r) => !r.auto).map((r) => {
-    if (!isPsiResource(r)) return r;
-    const max = psiTable(psiLevel(c)).points;
-    return { ...r, max, used: Math.min(r.used, max) };
-  });
   const auto = sugg.map((s) => {
     const prev = c.resources.find((r) => r.auto === s.auto);
     return { uid: prev?.uid ?? mkId(), used: Math.min(prev?.used ?? 0, s.max), ...s };
   });
-  return [...auto, ...custom];
+  // pools the class data defines (homebrew counters with a rest): they follow the class level.
+  // A hand-made pool with the same name (e.g. "Psi Points" typed before the class had a table)
+  // is taken over, keeping its name and what was spent.
+  const defs = counterResources(c, srd);
+  const live = new Set(defs.map((d) => d.counter));
+  let custom = c.resources.filter((r) => !r.auto && !(r.counter && live.has(r.counter)));
+  const counted = defs.map(({ aliases, ...s }) => {
+    let prev = c.resources.find((r) => r.counter === s.counter);
+    if (!prev) {
+      const names = aliases.map((n) => n.trim().toLowerCase());
+      prev = custom.find((r) => !r.counter && names.includes(r.name.trim().toLowerCase()));
+      if (prev) custom = custom.filter((r) => r !== prev);
+    }
+    return { uid: prev?.uid ?? mkId(), used: Math.min(prev?.used ?? 0, s.max), ...s, name: prev?.name || s.name };
+  });
+  return [...auto, ...counted, ...custom];
 }
 
 /* ---------------- encumbrance ---------------- */

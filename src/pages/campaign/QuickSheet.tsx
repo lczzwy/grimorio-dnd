@@ -10,6 +10,7 @@ import { fmtMod } from '../../engine/dice';
 import { NumInput, useFlash } from '../../ui/ui';
 import { AdvToggle } from '../../ui/Dice';
 import { TurnPanel } from '../sheet/TurnPanel';
+import { useSheetMigration } from '../sheet/useSheetMigration';
 
 /**
  * The sheet in a fight, on one screen: life (damage and healing), defence, conditions, the turn's
@@ -20,6 +21,7 @@ export function QuickSheet({ id, campaignId, edition }: { id: string; campaignId
   const c = useApp((s) => s.characters.find((x) => x.id === id));
   const update = useApp((s) => s.updateCharacter);
   const srd = useCampaignSrd(campaignId, edition);
+  useSheetMigration(c, srd, c ? (fn) => update(c.id, fn) : undefined);
   if (!c) return <div className="empty">A ficha está sendo baixada da sua conta…</div>;
   if (!srd) return <div className="empty">Abrindo a ficha…</div>;
   return <Quick c={c} srd={srd} upd={(fn) => update(c.id, fn)} />;

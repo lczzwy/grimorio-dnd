@@ -7,7 +7,7 @@ import { Modal, pickFile, useFlash } from '../../ui/ui';
 import type { CampaignProps } from '../Campaign';
 import { alertBox, confirmBox, showError } from '../../ui/dialogs';
 
-const LABEL: Record<string, string> = { species: 'Raças / Espécies', classes: 'Classes', subclasses: 'Subclasses', backgrounds: 'Antecedentes', feats: 'Talentos', spells: 'Magias', equipment: 'Equipamento', magicItems: 'Itens mágicos' };
+const LABEL: Record<string, string> = { species: 'Raças / Espécies', classes: 'Classes', subclasses: 'Subclasses', powers: 'Poderes', backgrounds: 'Antecedentes', feats: 'Talentos', spells: 'Magias', equipment: 'Equipamento', magicItems: 'Itens mágicos' };
 
 export function HomebrewTab({ campaign, isGm, uid }: CampaignProps) {
   const { rows } = useCampaignHomebrew(campaign.id);

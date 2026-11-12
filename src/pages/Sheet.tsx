@@ -16,6 +16,7 @@ import { CombatTab, RestModal } from './sheet/CombatTab';
 import { SpellsTab } from './sheet/SpellsTab';
 import { InventoryTab } from './sheet/InventoryTab';
 import { FeaturesTab, LevelUpModal } from './sheet/FeaturesTab';
+import { useSheetMigration } from './sheet/useSheetMigration';
 import { StoryTab } from './sheet/StoryTab';
 import { TableDice } from '../dice3d/TableDice';
 
@@ -69,6 +70,9 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
   const [rest, setRest] = useState<'short' | 'long' | null>(null);
   const [levelUp, setLevelUp] = useState(false);
   const wide = useWide();
+
+  // older sheets: disciplines → powers, pools that follow the class table (only adds)
+  useSheetMigration(c, srd, readOnly || !c ? undefined : (fn) => update(c.id, fn));
 
   if (!c) return <main className="page"><div className="empty">Personagem não encontrado. <a href={'#/' + edition}>Voltar</a></div></main>;
   if (!srd) return <main className="page"><div className="empty">Abrindo o grimório…</div></main>;
