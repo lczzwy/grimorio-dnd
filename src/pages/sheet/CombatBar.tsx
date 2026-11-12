@@ -26,7 +26,7 @@ export function CombatBar({ c, srd, upd, onHp }: SheetProps & { onHp: () => void
     .map((k) => ({ k, sp: srd.spells.find((s) => s.id === k.id) }))
     .filter((x): x is { k: typeof x.k; sp: SpellDef } => !!x.sp && (x.sp.level === 0 || !!x.k.prepared || !!x.k.alwaysPrepared))
     .sort((a, b) => a.sp.level - b.sp.level || a.sp.name.localeCompare(b.sp.name));
-  const { slots } = spellSlots(c, srd);
+  const { slots, pact } = spellSlots(c, srd);
   const free = slots.map((n, i) => n - (c.slotsUsed[i] || 0));
   const pools = c.resources.filter((r) => r.max > 0);
   const bump = (uid: string, by: number) => upd((d) => { const r = d.resources.find((x) => x.uid === uid); if (r) r.used = Math.max(0, Math.min(r.max, r.used + by)); });
@@ -49,6 +49,14 @@ export function CombatBar({ c, srd, upd, onHp }: SheetProps & { onHp: () => void
         <span className="cb-pool" title="Espaços de magia livres por círculo">
           <Wand2 size={12} />
           {slots.map((n, i) => n > 0 && <span key={i} className={'cb-slot' + (free[i] ? '' : ' none')}>{i + 1}º <b>{free[i]}</b></span>)}
+        </span>
+      )}
+      {pact && (
+        <span className="cb-pool" title={`Magia de pacto: espaços de ${pact.level}º círculo, voltam no descanso curto`}>
+          <span className="cb-pool-name">Pacto {pact.level}º</span>
+          <button className="cb-step" disabled={c.pactUsed >= pact.count} onClick={() => upd((d) => (d.pactUsed = Math.min(pact.count, d.pactUsed + 1)))} aria-label="Gastar um espaço de pacto"><Minus size={12} /></button>
+          <b>{pact.count - c.pactUsed}</b><small>/{pact.count}</small>
+          <button className="cb-step" disabled={c.pactUsed <= 0} onClick={() => upd((d) => (d.pactUsed = Math.max(0, d.pactUsed - 1)))} aria-label="Recuperar um espaço de pacto"><Plus size={12} /></button>
         </span>
       )}
       <span className="cb-sep" aria-hidden />

@@ -26,7 +26,7 @@ export function PdfImportModal({ r, srd, edition, onClose }: { r: PdfImport; srd
       classes: classes.map((x) => (x === CREATE ? { create: true as const, hitDie } : x)),
       race: race === CREATE ? { create: true } : race || null,
     };
-    const { character, homebrew } = finishPdfImport(r, choices);
+    const { character, homebrew } = finishPdfImport(r, choices, srd);
     if (homebrew.classes || homebrew.species) importHomebrew(edition, homebrew, { keepExisting: true });
     addCharacter(character);
     flash(`${character.name || 'Personagem'} importado do PDF!${creating ? ' Complete a classe ou raça nova em Homebrew.' : ''}`);

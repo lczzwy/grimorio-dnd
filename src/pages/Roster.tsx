@@ -40,8 +40,8 @@ export function Roster({ edition }: { edition: Edition }) {
     if (/\.pdf$/i.test(f.name) || f.type === 'application/pdf') {
       if (!srd) return;
       try {
-        const { readPdfFields, mapPdfSheet } = await import('../import/pdfSheet');
-        const fields = await readPdfFields(await f.arrayBuffer());
+        const { readPdfSheet, mapPdfSheet } = await import('../import/pdfSheet');
+        const { fields } = await readPdfSheet(await f.arrayBuffer());
         if (!Object.values(fields).some((v) => v)) {
           void alertBox('Este PDF não tem campos preenchidos para ler.\n\nFunciona com a ficha oficial editável (a que se preenche no computador). Um PDF escaneado ou "impresso em PDF" vira imagem e não dá para ler.');
           return;

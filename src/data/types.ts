@@ -308,7 +308,7 @@ export interface Resource {
 
 export interface KnownSpell { id: string; prepared?: boolean; alwaysPrepared?: boolean; classId?: string }
 
-export interface CustomFeature { uid: string; name: string; source: string; desc: string }
+export interface CustomFeature { uid: string; name: string; source: string; desc: string; type?: FeatureType }
 
 export interface RollEntry { id: string; label: string; formula: string; rolls: number[]; dropped?: number[]; total: number; kind?: 'crit' | 'fumble'; at: number }
 

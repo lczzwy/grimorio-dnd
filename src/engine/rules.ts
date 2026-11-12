@@ -401,7 +401,7 @@ export function allFeatures(c: Character, srd: SrdData): FeatureGroup[] {
   if (bg?.feature) groups.push({ source: bg.name, kind: 'background', items: [bg.feature] });
   const feats = c.feats.map((id) => srd.feats.find((f) => f.id === id)).filter(Boolean) as { name: string; desc: string }[];
   if (feats.length) groups.push({ source: 'Talentos', kind: 'feat', items: feats });
-  if (c.customFeatures.length) groups.push({ source: 'Personalizado', kind: 'custom', items: c.customFeatures.map((f) => ({ name: f.name, desc: f.desc, id: f.uid })) });
+  if (c.customFeatures.length) groups.push({ source: 'Personalizado', kind: 'custom', items: c.customFeatures.map((f) => ({ name: f.name, desc: f.desc, id: f.uid, type: f.type })) });
   return groups;
 }
 

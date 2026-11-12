@@ -2,7 +2,8 @@ import type { Ability, Character, ClassDef, Edition, SpeciesDef, SrdData } from 
 import { ABILITIES } from '../data/types';
 import { newCharacter, uid } from '../engine/character';
 import { fold, nameForms } from '../engine/classData';
-import { ABILITY_PT, CLASS_PT, SKILL_PT, SPECIES_PT, abilityMod, profBonus } from '../engine/rules';
+import { ABILITY_PT, CLASS_PT, SKILL_PT, SPECIES_PT, abilityMod, profBonus, spellLimits, spellSlots, spellcastingClasses } from '../engine/rules';
+import { fromPtBrSheet, isPtBrSheet, type PdfLayout } from './pdfPtBr';
 
 /**
  * Import of the official fillable D&D 5e character sheet (PDF with form fields).
@@ -12,19 +13,38 @@ import { ABILITY_PT, CLASS_PT, SKILL_PT, SPECIES_PT, abilityMod, profBonus } fro
 
 export type PdfFields = Record<string, string | boolean>;
 
-/** Reads every form field of a PDF (text as text, checkboxes as true/false). Loads pdf-lib only now. */
-export async function readPdfFields(data: ArrayBuffer | Uint8Array): Promise<PdfFields> {
+/** Reads every form field of a PDF (text as text, checkboxes as true/false) and where it sits. Loads pdf-lib only now. */
+export async function readPdfForm(data: ArrayBuffer | Uint8Array): Promise<{ fields: PdfFields; layout: PdfLayout }> {
   const { PDFDocument, PDFCheckBox, PDFTextField, PDFDropdown, PDFRadioGroup } = await import('pdf-lib');
   const doc = await PDFDocument.load(data, { ignoreEncryption: true });
-  const out: PdfFields = {};
+  const pages = doc.getPages();
+  const fields: PdfFields = {};
+  const layout: PdfLayout = {};
   for (const f of doc.getForm().getFields()) {
     const name = f.getName();
-    if (f instanceof PDFTextField) out[name] = f.getText() ?? '';
-    else if (f instanceof PDFCheckBox) out[name] = f.isChecked();
-    else if (f instanceof PDFDropdown) out[name] = f.getSelected().join(', ');
-    else if (f instanceof PDFRadioGroup) out[name] = f.getSelected() ?? '';
+    if (f instanceof PDFTextField) fields[name] = f.getText() ?? '';
+    else if (f instanceof PDFCheckBox) fields[name] = f.isChecked();
+    else if (f instanceof PDFDropdown) fields[name] = f.getSelected().join(', ');
+    else if (f instanceof PDFRadioGroup) fields[name] = f.getSelected() ?? '';
+    else continue;
+    const w = f.acroField.getWidgets()[0];
+    if (w) {
+      const r = w.getRectangle();
+      const ref = w.P();
+      layout[name] = { page: Math.max(0, pages.findIndex((p) => p.ref === ref)), x: r.x, y: r.y, w: r.width, h: r.height };
+    }
   }
-  return out;
+  return { fields, layout };
+}
+
+export async function readPdfFields(data: ArrayBuffer | Uint8Array): Promise<PdfFields> {
+  return (await readPdfForm(data)).fields;
+}
+
+/** The fields of either official sheet (English, or the Brazilian one) under the English names. */
+export async function readPdfSheet(data: ArrayBuffer | Uint8Array): Promise<{ fields: PdfFields; sheet: 'en' | 'pt-br' }> {
+  const { fields, layout } = await readPdfForm(data);
+  return isPtBrSheet(fields) ? { fields: fromPtBrSheet(fields, layout), sheet: 'pt-br' } : { fields, sheet: 'en' };
 }
 
 /** "Race " / "DEXmod " / "PersonalityTraits " → "race" / "dexmod" / "personalitytraits" */
@@ -42,7 +62,7 @@ const SKILL_FIELD: [string, string, Ability][] = [
   ['stealth', 'stealth', 'dex'], ['survival', 'survival', 'wis'],
 ];
 /** fields the site calculates by itself (not "unrecognized" when filled) */
-const DERIVED = /^(strmod|dexmod|conmod|intmod|wismod|chamod|initiative|passive|profbonus|charactername 2|spellsavedc|spellatkbonus|spellcastingability|spellcasting class|slotstotal|slotsremaining|check box|hdtotal|hd)\b/;
+const DERIVED = /^(strmod|dexmod|conmod|intmod|wismod|chamod|initiative|passive|profbonus|charactername 2|spellsavedc|spellatkbonus|spellcastingability|spellcasting class|slotstotal|slotsremaining|slots total|slots used|spells prepared|death |check box|hdtotal|hd)\b/;
 
 export interface PdfRow { label: string; value: string; status: 'ok' | 'warn' | 'calc'; note?: string }
 export interface ClassGuess { text: string; level: number; subclass?: string; classId?: string }
@@ -55,11 +75,19 @@ export interface PdfImport {
   race: { text: string; speciesId?: string };
   spellsMissing: string[];
   hitDie?: number;
+  /** walking speed in feet read from the sheet ("9 m" or "30 ft") */
+  speedFt?: number;
+  /** spell slots spent, by circle (applied once the classes are known) */
+  slotsUsed: Record<number, number>;
 }
 
+/** "Kaelari (homebrew)" → "Kaelari": the note isn't part of the name */
+export const cleanName = (t: string) => t.replace(/\s*\((?:homebrew|hb|caseir[oa])\)\s*/gi, ' ').trim();
+// singular and plural count as the same word ("Mãos Mágicas" = "Mão Mágica")
+const sing = (x: string) => x.split(' ').map((w) => (w.length > 3 ? w.replace(/(oes|aes)$/, 'ao').replace(/s$/, '') : w)).join(' ');
 const matches = (text: string, ...names: (string | undefined)[]) => {
-  const want = nameForms(text);
-  return names.some((n) => n && nameForms(n).some((x) => want.includes(x)));
+  const want = nameForms(cleanName(text)).map(sing);
+  return names.some((n) => n && nameForms(n).map(sing).some((x) => want.includes(x)));
 };
 
 export function findClassByName(srd: SrdData, text: string): ClassDef | undefined {
@@ -76,7 +104,7 @@ export function parseClassLevel(text: string): ClassPart[] {
   for (const part of text.split(/\s*(?:\/|,|;|\+|\be\b|\band\b)\s*/i)) {
     const m = part.trim().match(/^(.*?)\s*(?:\(([^)]*)\))?\s*(?:n[ií]vel|nv\.?|lvl\.?|level)?\s*(\d{1,2})\s*$/i);
     if (!m || !m[1].trim()) continue;
-    const x: ClassPart = { text: m[1].trim(), level: Math.min(20, Math.max(1, +m[3])) };
+    const x: ClassPart = { text: cleanName(m[1]), level: Math.min(20, Math.max(1, +m[3])) };
     if (m[2]?.trim()) x.subclass = m[2].trim();
     out.push(x);
   }
@@ -117,8 +145,15 @@ export function mapPdfSheet(fields: PdfFields, srd: SrdData, edition: Edition = 
   if (!classes.length && get('classlevel')) row('Classe e nível', get('classlevel'), 'warn', 'Não entendi a classe e o nível (ex.: "Guerreiro 3")');
   const hd = get('hdtotal') || get('hd');
   const hitDie = int(hd.match(/d\s*(\d+)/i)?.[1]);
+  // "5d8" total and "3d8" left: 2 hit dice spent
+  const hdTotal = int(get('hdtotal').match(/^(\d+)\s*d/i)?.[1]);
+  const hdLeft = int(get('hd').match(/^(\d+)\s*d/i)?.[1]);
+  if (hitDie && hdTotal != null && hdLeft != null && hdLeft <= hdTotal) c.hitDiceUsed[`d${hitDie}`] = hdTotal - hdLeft;
+  c.inspiration = !!get('inspiration');
+  const deaths = (k: 'success' | 'fail') => [1, 2, 3].filter((i) => f[`death ${k} ${i}`] === true).length;
+  c.deathSaves = { success: deaths('success'), fail: deaths('fail') };
 
-  const raceText = get('race');
+  const raceText = cleanName(get('race'));
   const species = raceText ? findSpeciesByName(srd, raceText) : undefined;
   row('Raça', raceText, species ? 'ok' : 'warn', species ? undefined : 'Raça não está no site: vincule ou crie no Homebrew');
   const bgText = get('background');
@@ -182,23 +217,30 @@ export function mapPdfSheet(fields: PdfFields, srd: SrdData, edition: Edition = 
   c.backstory = get('backstory');
   c.appearance = [['Idade', 'age'], ['Altura', 'height'], ['Peso', 'weight'], ['Olhos', 'eyes'], ['Pele', 'skin'], ['Cabelo', 'hair']].map(([l, k]) => (get(k) ? `${l}: ${get(k)}` : '')).filter(Boolean).join(' · ');
   c.proficienciesText = get('proficiencieslang');
-  c.notes = [bg ? '' : bgText ? `Antecedente: ${bgText}` : '', get('allies') && `Aliados e organizações: ${get('allies')}`, get('factionname') && `Facção: ${get('factionname')}`, get('treasure') && `Tesouro: ${get('treasure')}`].filter(Boolean).join('\n\n');
+  c.notes = [bg ? '' : bgText ? `Antecedente: ${bgText}` : '', get('attacksspellcasting') && `Ataques e conjuração: ${get('attacksspellcasting')}`, get('allies') && `Aliados e organizações: ${get('allies')}`, get('factionname') && `Facção: ${get('factionname')}`, get('treasure') && `Tesouro: ${get('treasure')}`].filter(Boolean).join('\n\n');
   for (const [k, label] of [['features and traits', 'Características e traços (PDF)'], ['feat+traits', 'Outras características (PDF)']]) {
     const t = get(k);
-    if (t) c.customFeatures.push({ uid: uid(), name: label, source: 'Ficha em PDF', desc: t });
+    // a block of notes, not one feature: kept out of the turn columns
+    if (t) c.customFeatures.push({ uid: uid(), name: label, source: 'Ficha em PDF', desc: t, type: 'passive' });
   }
   row('Personalidade, ideais, vínculos, defeitos, história', [c.personality, c.ideals, c.bonds, c.flaws, c.backstory].filter(Boolean).length + ' de 5 preenchidos');
   row('Características e traços', c.customFeatures.length ? 'copiados como texto na aba Classe' : '');
   row('Proficiências e idiomas', c.proficienciesText ? 'copiados como texto' : '');
 
   // spells: the names on the spell page, matched to the site's spells
-  const spellNames = Object.keys(f).filter((k) => /^spells \d+$/.test(k)).map((k) => get(k)).filter(Boolean);
+  const spellKeys = Object.keys(f).filter((k) => /^spells \d+$/.test(k) && get(k));
+  const spellNames = spellKeys.map((k) => get(k));
   const spellsMissing: string[] = [];
-  for (const n of spellNames) {
+  for (const k of spellKeys) {
+    const n = get(k);
     const sp = srd.spells.find((s) => matches(n, s.name, s.en, s.id));
-    if (sp && !c.spells.some((x) => x.id === sp.id)) c.spells.push({ id: sp.id, prepared: sp.level > 0 });
+    const marked = f[`spells prepared ${k.slice(7)}`];
+    if (sp && !c.spells.some((x) => x.id === sp.id)) c.spells.push({ id: sp.id, prepared: sp.level > 0 && (typeof marked === 'boolean' ? marked : true) });
     else if (!sp) spellsMissing.push(n);
   }
+  const slotsUsed: Record<number, number> = {};
+  for (let l = 1; l <= 9; l++) { const u = int(get(`slots used ${l}`)); if (u) slotsUsed[l] = u; }
+  if (Object.keys(slotsUsed).length) row('Espaços de magia gastos', Object.entries(slotsUsed).map(([l, u]) => `${l}º: ${u}`).join(' · '));
   if (spellNames.length) row('Magias', `${c.spells.length} reconhecidas`, spellsMissing.length ? 'warn' : 'ok', spellsMissing.length ? `Não encontradas: ${spellsMissing.join(', ')} (ficam nas notas)` : undefined);
   if (spellsMissing.length) c.notes = [c.notes, `Magias da ficha em PDF não encontradas no site: ${spellsMissing.join(', ')}`].filter(Boolean).join('\n\n');
 
@@ -206,7 +248,11 @@ export function mapPdfSheet(fields: PdfFields, srd: SrdData, edition: Edition = 
     .filter(([k, v]) => typeof v === 'string' && v.trim() && !used.has(k) && !DERIVED.test(k) && !/^spells \d+$/.test(k))
     .map(([k, v]) => [k, String(v).trim()] as [string, string]);
 
-  return { character: c, rows, unknown, classes, race: { text: raceText, speciesId: species?.id }, spellsMissing, hitDie };
+  if (c.deathSaves.success || c.deathSaves.fail) row('Testes contra a morte', `${c.deathSaves.success} sucesso(s), ${c.deathSaves.fail} falha(s)`);
+  if (Object.keys(c.hitDiceUsed).length) row('Dados de vida gastos', Object.entries(c.hitDiceUsed).map(([d, n]) => `${n} de ${d}`).join(', '));
+  const sp = get('speed').replace(',', '.').match(/(\d+(?:\.\d+)?)\s*(m|ft|p[eé]s?)?/i);
+  const speedFt = sp ? Math.round(/^m/i.test(sp[2] || (+sp[1] < 20 ? 'm' : 'ft')) ? (+sp[1] / 1.5) * 5 : +sp[1]) : undefined;
+  return { character: c, rows, unknown, classes, race: { text: raceText, speciesId: species?.id }, spellsMissing, hitDie, slotsUsed, speedFt };
 }
 
 /** What the player decided in the review: for each class (and the race), link or create. */
@@ -215,7 +261,7 @@ export interface PdfChoices { classes: (string | { create: true; hitDie: number 
 const slugId = (s: string) => 'hb-' + fold(s).replace(/\s+/g, '-');
 
 /** The final sheet, plus the minimal homebrew to create for classes/races not on the site. */
-export function finishPdfImport(r: PdfImport, choices: PdfChoices): { character: Character; homebrew: { classes?: ClassDef[]; species?: SpeciesDef[] } } {
+export function finishPdfImport(r: PdfImport, choices: PdfChoices, srd?: SrdData): { character: Character; homebrew: { classes?: ClassDef[]; species?: SpeciesDef[] } } {
   const c = structuredClone(r.character);
   const hb: { classes: ClassDef[]; species: SpeciesDef[] } = { classes: [], species: [] };
   r.classes.forEach((g, i) => {
@@ -232,8 +278,22 @@ export function finishPdfImport(r: PdfImport, choices: PdfChoices): { character:
   });
   if (choices.race && typeof choices.race === 'object') {
     const id = slugId(r.race.text);
-    hb.species.push({ id, name: r.race.text, speed: 30, size: 'Medium', traits: [], custom: true });
+    hb.species.push({ id, name: r.race.text, speed: r.speedFt || 30, size: 'Medium', traits: [], custom: true });
     c.speciesId = id;
   } else if (choices.race) c.speciesId = choices.race;
+  if (srd) {
+    // classes that know their spells (warlock, sorcerer, bard…) don't prepare them: all are ready
+    const full = { ...srd, classes: [...srd.classes, ...hb.classes] };
+    const casters = spellcastingClasses(c, full);
+    if (casters.length && casters.every((k) => spellLimits(c, full, k.id).known != null)) c.spells = c.spells.map((x) => ({ ...x, prepared: true }));
+  }
+  if (srd && Object.keys(r.slotsUsed).length) {
+    const full = { ...srd, classes: [...srd.classes, ...hb.classes] };
+    const pact = spellSlots(c, full).pact;
+    for (const [l, u] of Object.entries(r.slotsUsed)) {
+      if (pact && +l === pact.level) c.pactUsed = Math.min(pact.count, u);
+      else c.slotsUsed[+l - 1] = u;
+    }
+  }
   return { character: c, homebrew: { ...(hb.classes.length ? { classes: hb.classes } : {}), ...(hb.species.length ? { species: hb.species } : {}) } };
 }
