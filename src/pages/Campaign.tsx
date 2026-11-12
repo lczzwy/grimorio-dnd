@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { ScrollText, ChevronLeft, LayoutGrid, Swords, Dices, Hammer, Settings, Crown, MessageSquare, BookOpen, Users, Heart } from 'lucide-react';
+import { ScrollText, ChevronLeft, LayoutGrid, Swords, Dices, Hammer, Settings, Crown, MessageSquare, BookOpen, Users, Heart, Pin, PinOff, ChevronDown } from 'lucide-react';
 import { FloatWindow } from '../ui/FloatWindow';
 import { PartyList } from './campaign/PartyList';
 import { useParty } from './campaign/TableTab';
@@ -12,6 +12,7 @@ import { SettingsTab } from './campaign/SettingsTab';
 import { TableTab } from './campaign/TableTab';
 import { MySheetTab } from './campaign/MySheetTab';
 import { QuickSheet } from './campaign/QuickSheet';
+import { useAutoHideBar } from './campaign/useAutoHideBar';
 import { RollsTab } from './campaign/RollsTab';
 import { CombatTab } from './campaign/CombatTab';
 import { HomebrewTab } from './campaign/HomebrewTab';
@@ -172,20 +173,28 @@ export function TableMode(props: CampaignProps) {
     return () => window.removeEventListener('keydown', k);
   }, [isGm]);
   const tabs = TABS.filter((t) => t.k !== 'mesa' && t.k !== 'chat' && t.k !== 'ficha' && !(t.k === 'bestiario' && !isGm));
+  const topBar = useAutoHideBar();
   return (
-    <div className="tm">
-      <header className="tm-bar">
+    <div className={'tm' + (topBar.hidden ? ' bar-hidden' : '')}>
+      <header className="tm-bar" ref={topBar.bar}>
         <button className="btn ghost sm icon" title="Voltar às campanhas" aria-label="Voltar às campanhas" onClick={() => go('campanhas')}><ChevronLeft size={16} /></button>
         <b className="tm-name" title={campaign.name}>{campaign.name}</b>
         {isGm && <Crown size={13} className="tm-crown" aria-label="Você é o mestre" />}
         <span className="tm-sep" />
-        {!isGm && <button className={'btn sm' + (sheet ? ' active' : '')} onClick={() => setSheet((v) => !v)} title="Abrir ou fechar a sua ficha (tecla F)" aria-keyshortcuts="F"><ScrollText size={14} /> Ficha</button>}
-        {isGm && <button className={'btn sm' + (party ? ' active' : '')} onClick={() => setParty((v) => !v)} title="Aplicar dano, cura e condições nos personagens"><Heart size={14} /> Vida e condições</button>}
+        {!isGm && <button className={'btn ghost sm icon' + (sheet ? ' active' : '')} onClick={() => setSheet((v) => !v)} title="Minha ficha (tecla F)" aria-label="Abrir ou fechar a sua ficha" aria-keyshortcuts="F" aria-pressed={sheet}><ScrollText size={16} /></button>}
+        {isGm && <button className={'btn ghost sm icon' + (party ? ' active' : '')} onClick={() => setParty((v) => !v)} title="Vida e condições: dano, cura e condições nos personagens" aria-label="Vida e condições dos personagens" aria-pressed={party}><Heart size={16} /></button>}
         <span className="spacer" />
         {tabs.map((t) => (
           <button key={t.k} className="btn ghost sm icon" title={t.label} aria-label={t.label} onClick={() => go(`campanha/${campaign.id}/${t.k}`)}><t.icon size={16} /></button>
         ))}
+        {topBar.canHover && (
+          <button className={'btn ghost sm icon' + (topBar.pinned ? ' active' : '')} onClick={topBar.togglePin} aria-pressed={topBar.pinned}
+            title={topBar.pinned ? 'Barra fixa: clique para ela se esconder sozinha' : 'Fixar a barra (ela se esconde sozinha quando ninguém mexe)'} aria-label="Fixar a barra">
+            {topBar.pinned ? <Pin size={15} /> : <PinOff size={15} />}
+          </button>
+        )}
       </header>
+      {topBar.hidden && <button className="tm-reveal" onClick={topBar.show} onMouseEnter={topBar.show} title="Mostrar a barra" aria-label="Mostrar a barra de cima"><ChevronDown size={14} /></button>}
       <div className="tm-stage">
         <TableBoard campaignId={campaign.id} isGm={isGm} uid={props.uid} members={props.members} />
         <div className="tm-init"><InitiativeBar {...props} /></div>

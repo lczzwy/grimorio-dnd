@@ -456,3 +456,13 @@ button.qs-stat:hover, button.qs-stat:focus-visible { border-color: var(--gold); 
 .qs-chip.prof { border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
 .qs-chip.prof b { color: var(--gold); }
 .qs-chip:hover, .qs-chip:focus-visible { border-color: var(--gold); color: var(--text); }
+
+/* ---- Mesa: a barra de cima sai do caminho quando ninguém mexe ---- */
+.tm { transition: grid-template-rows 0.25s ease; }
+.tm-bar { overflow: hidden; transition: opacity 0.2s ease; }
+.tm.bar-hidden { grid-template-rows: 0 minmax(0, 1fr); }
+.tm.bar-hidden .tm-bar { opacity: 0; border-bottom-width: 0; pointer-events: none; }
+.tm-bar .btn.icon.active { color: var(--gold); background: color-mix(in srgb, var(--gold) 14%, transparent); }
+.tm-reveal { position: fixed; top: 0; left: calc((100% - 320px) / 2); transform: translateX(-50%); z-index: 30; display: grid; place-items: center; width: 44px; height: 14px; padding: 0; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 8px 8px; background: color-mix(in srgb, var(--panel) 92%, black); color: var(--muted); cursor: pointer; }
+.tm-reveal:hover, .tm-reveal:focus-visible { color: var(--gold); border-color: var(--gold); }
+@media (prefers-reduced-motion: reduce) { .tm, .tm-bar { transition: none; } }
