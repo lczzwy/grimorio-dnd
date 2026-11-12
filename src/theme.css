@@ -419,3 +419,10 @@ html[data-tablemode] .undo-toast { bottom: 64px; }
 .cb-state button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; cursor: pointer; opacity: 0.75; }
 .cb-state button:hover, .cb-state button:focus-visible { opacity: 1; background: rgba(255, 255, 255, 0.08); }
 .cb-state-text { max-width: 24ch; overflow: hidden; text-overflow: ellipsis; }
+/* GM damage while concentrating: the save to roll */
+.conc-alert { position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%); z-index: 97; display: flex; align-items: center; gap: 10px; width: min(92vw, 560px); padding: 10px 10px 10px 14px; border: 1px solid var(--gold); border-radius: 10px; background: var(--panel-2); box-shadow: 0 12px 34px rgba(0, 0, 0, 0.6); font-size: 14px; animation: toastIn 0.25s; }
+.conc-alert > svg { color: var(--gold); flex: none; }
+@media (max-width: 760px) { .conc-alert { bottom: 132px; } }
+
+.cb-chip.init.call { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+.qs-rest { grid-area: rest; display: flex; gap: 4px; justify-content: flex-end; }

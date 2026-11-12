@@ -30,7 +30,8 @@ async function loadSecrets(campaignId: string) {
  * Shared: the turn order, the map and the Combat tab read one subscription per campaign.
  */
 export function useEncounter(campaignId: string, isGm: boolean) {
-  const key = fightKey(campaignId, isGm);
+  // no campaign (a sheet played alone): nothing to watch
+  const key = campaignId ? fightKey(campaignId, isGm) : null;
   const state = useShared<FightState>(key, EMPTY_FIGHT, (set) => {
     let alive = true;
     let timer: number | undefined;
@@ -73,7 +74,7 @@ export function useEncounter(campaignId: string, isGm: boolean) {
   // secrets aren't in the realtime publication: the GM reloads them after own writes
   const reload = async () => {
     const secrets = await loadSecrets(campaignId);
-    updateShared<FightState>(key, (s) => ({ ...s, secrets }));
+    if (key) updateShared<FightState>(key, (s) => ({ ...s, secrets }));
   };
   return { encounter: state.encounter, list: state.list, secrets: state.secrets, reloadSecrets: reload };
 }

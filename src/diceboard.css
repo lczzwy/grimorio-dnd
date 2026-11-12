@@ -414,7 +414,7 @@ button.pbar-li:hover, button.pbar-li:focus-visible { background: var(--panel-2);
 .qs-switch button.on { background: var(--panel-2); color: var(--gold); }
 .qs { display: flex; flex-direction: column; gap: 10px; }
 .qs .panel { margin: 0 !important; padding: 10px 12px; }
-.qs-vitals { display: grid; grid-template-columns: minmax(120px, 1fr) auto; grid-template-areas: "hp stats" "ctl ctl"; gap: 8px 14px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+.qs-vitals { display: grid; grid-template-columns: minmax(120px, 1fr) auto; grid-template-areas: "hp stats" "ctl rest"; gap: 8px 14px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
 .qs-vitals.dying { border-color: var(--bad); }
 .qs-hp { grid-area: hp; min-width: 0; }
 .qs-hp-num { display: flex; align-items: baseline; gap: 4px; font-family: var(--font-display); }

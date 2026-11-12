@@ -18,6 +18,8 @@ import { InventoryTab } from './sheet/InventoryTab';
 import { FeaturesTab } from './sheet/FeaturesTab';
 import { LevelUpWizard } from './sheet/LevelUpWizard';
 import { useSheetMigration } from './sheet/useSheetMigration';
+import { useResourceNotice } from './sheet/useResourceNotice';
+import { ConcentrationAlert } from './sheet/ConcentrationAlert';
 import { CombatBar } from './sheet/CombatBar';
 import { PowersTab } from './sheet/PowersTab';
 import { powerLists } from '../engine/classData';
@@ -98,6 +100,7 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
 
   // older sheets: disciplines → powers, pools that follow the class table (only adds)
   useSheetMigration(c, srd, readOnly || !c ? undefined : (fn) => update(c.id, fn));
+  useResourceNotice(readOnly ? undefined : c);
 
   if (!c) return <main className="page"><div className="empty">Personagem não encontrado. <a href={'#/' + edition}>Voltar</a></div></main>;
   if (!srd) return <main className="page"><div className="empty">Abrindo o grimório…</div></main>;
@@ -166,7 +169,7 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
         <div className="vital v-prof"><div className="v">{fmtMod(pb(c))}</div><div className="l" data-s="Profic.">Proficiência</div></div>
         <div className="vital v-pp"><div className="v">{passivePerception(c, srd)}</div><div className="l">Percepção Passiva</div></div>
       </div>
-      <CombatBar {...props} onHp={() => pickTab('combat')} />
+      <CombatBar {...props} onHp={() => pickTab('combat')} campaignId={readOnly ? undefined : campaignId ?? myCampaign} />
       </div>
 
       <div className={wide ? 'sheet-desk' : undefined}>
@@ -194,6 +197,7 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
 
       {/* standalone sheet of a character in play: its table's dice fall here too */}
       {!readOnly && !campaignId && myCampaign && <TableDice campaignId={myCampaign} />}
+      {!readOnly && !campaignId && myCampaign && <ConcentrationAlert characterId={c.id} campaignId={myCampaign} edition={edition} />}
       {rest && <RestModal {...props} kind={rest} onClose={() => setRest(null)} onDone={(m) => { setRest(null); flash(m); }} />}
       {levelUp && <LevelUpWizard {...props} onClose={() => setLevelUp(false)} onDone={(m) => { setLevelUp(false); flash(m); }} />}
     </main>

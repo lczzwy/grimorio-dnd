@@ -15,6 +15,7 @@ import { fullAttack as sharedFullAttack } from './attack';
 import { TurnPanel } from './TurnPanel';
 import { applyDamage, applyDeathSave, applyHeal, dropsToZero } from '../../engine/hp';
 import { offerUndo } from '../../ui/undo';
+import { markLocalHpChange } from '../../ui/localHp';
 
 function HpRing({ cur, max, temp }: { cur: number; max: number; temp: number }) {
   const r = 56;
@@ -73,6 +74,7 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
     // concentration: dropping to 0 HP ends it; otherwise a CON save is required
     const dropsTo0 = dropsToZero(c, n);
     const snap = { hp: { ...c.hp }, deathSaves: { ...c.deathSaves }, concentration: c.concentration };
+    markLocalHpChange();
     upd((d) => applyDamage(d, n));
     offerUndo(`${who}: −${n} PV`, () => upd((d) => { d.hp = { ...snap.hp }; d.deathSaves = { ...snap.deathSaves }; d.concentration = snap.concentration; }));
     if (c.concentration) {

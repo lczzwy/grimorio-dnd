@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { Brain, Dices, Heart, HeartCrack, Minus, Plus, Skull, Sparkles } from 'lucide-react';
+import { Brain, Dices, Heart, HeartCrack, Minus, Plus, Skull, Sparkles, Coffee, Moon } from 'lucide-react';
 import { useApp, useDice } from '../../store';
 import { useCampaignSrd } from '../../cloud/campaignHomebrew';
 import { ABILITIES, type Character, type SrdData } from '../../data/types';
 import { ABILITY_PT, CONDITION_PT, SKILL_PT, armorClass, concentrationDc, initiative, maxHp, saveMod, skillMod, speed, spellSlots } from '../../engine/rules';
 import { applyDamage, applyDeathSave, applyHeal, dropsToZero } from '../../engine/hp';
 import { offerUndo } from '../../ui/undo';
+import { markLocalHpChange } from '../../ui/localHp';
+import { RestModal } from '../sheet/CombatTab';
+import { useResourceNotice } from '../sheet/useResourceNotice';
 import { feetToMeters } from '../../engine/units';
 import { fmtMod } from '../../engine/dice';
 import { NumInput, useFlash } from '../../ui/ui';
@@ -33,6 +36,8 @@ function Quick({ c, srd, upd }: { c: Character; srd: SrdData; upd: (fn: (d: Char
   const flash = useFlash((s) => s.show);
   const [amt, setAmt] = useState<number | undefined>();
   const [conc, setConc] = useState<number | null>(null);
+  const [rest, setRest] = useState<'short' | 'long' | null>(null);
+  useResourceNotice(c);
   const who = c.name || 'Personagem';
   const max = maxHp(c, srd);
   const dying = c.hp.current <= 0;
@@ -47,6 +52,7 @@ function Quick({ c, srd, upd }: { c: Character; srd: SrdData; upd: (fn: (d: Char
     if (!n) return;
     const down = dropsToZero(c, n);
     const snap = { hp: { ...c.hp }, deathSaves: { ...c.deathSaves }, concentration: c.concentration };
+    markLocalHpChange();
     upd((d) => applyDamage(d, n));
     offerUndo(`${who}: −${n} PV`, () => upd((d) => { d.hp = { ...snap.hp }; d.deathSaves = { ...snap.deathSaves }; d.concentration = snap.concentration; }));
     if (c.concentration) {
@@ -84,6 +90,7 @@ function Quick({ c, srd, upd }: { c: Character; srd: SrdData; upd: (fn: (d: Char
 
   return (
     <div className="qs">
+      {rest && <RestModal c={c} srd={srd} upd={upd} kind={rest} onClose={() => setRest(null)} onDone={(m) => { setRest(null); flash(m); }} />}
       {/* life and defence */}
       <section className={'qs-vitals' + (dying ? ' dying' : '')}>
         <div className="qs-hp">
@@ -94,6 +101,10 @@ function Quick({ c, srd, upd }: { c: Character; srd: SrdData; upd: (fn: (d: Char
           <NumInput value={amt} onChange={setAmt} min={0} placeholder="PV" className="input num qs-amt" />
           <button className="btn sm hurt" onClick={damage} title="Tirar PV (os temporários saem primeiro)"><HeartCrack size={14} /> Dano</button>
           <button className="btn sm heal" onClick={heal}><Heart size={14} /> Curar</button>
+        </div>
+        <div className="qs-rest">
+          <button className="btn sm ghost" onClick={() => setRest('short')} title="Descanso curto: gastar dados de vida, recuperar o que volta no curto"><Coffee size={14} /> Curto</button>
+          <button className="btn sm ghost" onClick={() => setRest('long')} title="Descanso longo: recupera vida, espaços e recursos"><Moon size={14} /> Longo</button>
         </div>
         <div className="qs-stats">
           <span title={armorClass(c, srd).breakdown}><b>{armorClass(c, srd).value}</b>CA</span>

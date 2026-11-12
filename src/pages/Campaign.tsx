@@ -13,6 +13,7 @@ import { TableTab } from './campaign/TableTab';
 import { MySheetTab } from './campaign/MySheetTab';
 import { QuickSheet } from './campaign/QuickSheet';
 import { useAutoHideBar } from './campaign/useAutoHideBar';
+import { ConcentrationAlert } from './sheet/ConcentrationAlert';
 import { RollsTab } from './campaign/RollsTab';
 import { CombatTab } from './campaign/CombatTab';
 import { HomebrewTab } from './campaign/HomebrewTab';
@@ -119,6 +120,7 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
         <TableDice campaignId={campaign.id} variant="overlay" />
       )}
       <InitiativeBar {...props} />
+      <MyConcentration {...props} />
       {body ? body(props) : <div className="panel empty">Em construção.</div>}
     </>
   );
@@ -198,6 +200,7 @@ export function TableMode(props: CampaignProps) {
       <div className="tm-stage">
         <TableBoard campaignId={campaign.id} isGm={isGm} uid={props.uid} members={props.members} />
         <div className="tm-init"><InitiativeBar {...props} /></div>
+        <MyConcentration {...props} />
         <div className="tm-first"><FirstSteps {...props} /></div>
         {sheet && <FloatWindow id="sheet" title="Minha ficha" icon={<ScrollText size={15} />} onClose={() => setSheet(false)} initial={{ x: 64, y: 56, w: 560 }}><TableSheet {...props} /></FloatWindow>}
         {peek && <FloatWindow id="peek" title="Ficha do grupo" icon={<Users size={15} />} onClose={() => setPeek(null)} initial={{ x: 90, y: 70, w: 600 }}><PeekSheet id={peek} edition={campaign.edition} campaignId={campaign.id} /></FloatWindow>}
@@ -235,4 +238,11 @@ export function TableSheet(props: CampaignProps) {
       {full ? <MySheetTab {...props} /> : <QuickSheet id={me.character_id} campaignId={campaign.id} edition={campaign.edition} />}
     </div>
   );
+}
+
+/** A player's own character: asks for the concentration save when the GM deals damage. */
+function MyConcentration({ campaign, members, uid, isGm }: CampaignProps) {
+  const me = members.find((m) => m.user_id === uid);
+  if (isGm || !me?.character_id) return null;
+  return <ConcentrationAlert characterId={me.character_id} campaignId={campaign.id} edition={campaign.edition} />;
 }

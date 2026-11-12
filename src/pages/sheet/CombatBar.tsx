@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { Brain, Heart, Minus, Plus, Sparkle, Sparkles, Swords, Wand2, X } from 'lucide-react';
+import { Brain, Heart, Minus, Plus, Sparkle, Sparkles, Swords, Wand2, X, Dices } from 'lucide-react';
 import type { PowerDef, PowerListDef, SpellDef } from '../../data/types';
 import { knownPowers, powerLists } from '../../engine/classData';
-import { CONDITION_PT, maxHp, spellSlots, weaponAttacks } from '../../engine/rules';
+import { CONDITION_PT, initiative, maxHp, spellSlots, weaponAttacks } from '../../engine/rules';
+import { useDice } from '../../store';
+import { rollMyInitiative, useEncounter } from '../../cloud/combat';
+import { showError } from '../../ui/dialogs';
 import { fmtMod } from '../../engine/dice';
 import { Detail } from '../../ui/Detail';
 import { fullAttack } from './attack';
@@ -16,7 +19,18 @@ import type { SheetProps } from '../Sheet';
  * spell slots, and one-click shortcuts to attacks, powers and spells. What is on right now
  * (concentration, a psychic focus, conditions) shows next to the life, each with an × to end it.
  */
-export function CombatBar({ c, srd, upd, onHp }: SheetProps & { onHp: () => void }) {
+export function CombatBar({ c, srd, upd, onHp, campaignId }: SheetProps & { onHp: () => void; campaignId?: string }) {
+  const roll = useDice((s) => s.roll);
+  const { encounter, list } = useEncounter(campaignId || '', false);
+  const init = initiative(c, srd);
+  // when the GM asked for initiative (or the fight is on) and this character has no number yet,
+  // the roll goes into the order, like the button on the initiative bar
+  const mine = list.find((x) => x.character_id === c.id);
+  const joins = !!campaignId && !!encounter && (encounter.init_call || encounter.active) && mine?.initiative == null;
+  const rollInit = async () => {
+    const r = await roll(`${c.name || 'Personagem'}: Iniciativa`, `1d20${fmtMod(init)}`, { charName: c.name });
+    if (r && joins && campaignId) rollMyInitiative(campaignId, r.id).catch(showError);
+  };
   const [open, setOpen] = useState<{ power: PowerDef; list?: PowerListDef } | { spell: SpellDef } | null>(null);
   const who = c.name || 'Personagem';
   const max = maxHp(c, srd);
@@ -37,6 +51,9 @@ export function CombatBar({ c, srd, upd, onHp }: SheetProps & { onHp: () => void
   if (!pools.length && !attacks.length && !powers.length && !spells.length && !states) return null;
   return (
     <div className="combat-bar" aria-label="Barra de combate">
+      <button className={'cb-chip init' + (joins ? ' call' : '')} onClick={rollInit} title={joins ? 'O mestre pediu iniciativa: rolar e entrar na ordem do combate' : 'Rolar iniciativa'}>
+        <Dices size={12} /> Iniciativa <b>{fmtMod(init)}</b>
+      </button>
       <button className={'cb-hp' + (c.hp.current <= max / 3 ? ' low' : '')} onClick={onHp} title="Pontos de vida: abrir Combate para dano e cura">
         <Heart size={13} /> <b>{c.hp.current}</b>/{max}{c.hp.temp ? <i> +{c.hp.temp}</i> : null}
       </button>
