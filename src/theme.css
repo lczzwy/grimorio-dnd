@@ -412,3 +412,10 @@ h1 { text-shadow: 0 2px 0 #000; }
 .undo-toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 96; display: flex; align-items: center; gap: 10px; max-width: min(92vw, 480px); padding: 8px 8px 8px 16px; border: 1px solid var(--gold); border-radius: 10px; background: var(--panel-2); box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55); font-size: 14px; animation: toastIn 0.25s; }
 @media (max-width: 760px) { .undo-toast { bottom: 76px; } }
 html[data-tablemode] .undo-toast { bottom: 64px; }
+/* what is on right now, in the combat bar */
+.cb-state { display: inline-flex; align-items: center; gap: 5px; padding: 3px 4px 3px 9px; border: 1px solid var(--line-2); border-radius: 999px; font-size: 12.5px; white-space: nowrap; }
+.cb-state.conc, .cb-state.focus { border-color: var(--gold); color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, var(--panel)); }
+.cb-state.cond { border-color: color-mix(in srgb, var(--bad) 60%, var(--line)); color: var(--text); background: color-mix(in srgb, var(--bad) 12%, var(--panel)); }
+.cb-state button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; cursor: pointer; opacity: 0.75; }
+.cb-state button:hover, .cb-state button:focus-visible { opacity: 1; background: rgba(255, 255, 255, 0.08); }
+.cb-state-text { max-width: 24ch; overflow: hidden; text-overflow: ellipsis; }

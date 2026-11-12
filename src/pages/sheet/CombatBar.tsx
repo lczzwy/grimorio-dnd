@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Heart, Minus, Plus, Sparkles, Swords, Wand2 } from 'lucide-react';
+import { Brain, Heart, Minus, Plus, Sparkle, Sparkles, Swords, Wand2, X } from 'lucide-react';
 import type { PowerDef, PowerListDef, SpellDef } from '../../data/types';
 import { knownPowers, powerLists } from '../../engine/classData';
-import { maxHp, spellSlots, weaponAttacks } from '../../engine/rules';
+import { CONDITION_PT, maxHp, spellSlots, weaponAttacks } from '../../engine/rules';
 import { fmtMod } from '../../engine/dice';
 import { Detail } from '../../ui/Detail';
 import { fullAttack } from './attack';
@@ -13,7 +13,8 @@ import type { SheetProps } from '../Sheet';
 /**
  * The strip that stays on top of the sheet while scrolling, with what a fight needs:
  * life (on phones, where the big numbers above are hidden), pools with spend/recover,
- * spell slots, and one-click shortcuts to attacks, powers and spells.
+ * spell slots, and one-click shortcuts to attacks, powers and spells. What is on right now
+ * (concentration, a psychic focus, conditions) shows next to the life, each with an × to end it.
  */
 export function CombatBar({ c, srd, upd, onHp }: SheetProps & { onHp: () => void }) {
   const [open, setOpen] = useState<{ power: PowerDef; list?: PowerListDef } | { spell: SpellDef } | null>(null);
@@ -31,12 +32,33 @@ export function CombatBar({ c, srd, upd, onHp }: SheetProps & { onHp: () => void
   const pools = c.resources.filter((r) => r.max > 0);
   const bump = (uid: string, by: number) => upd((d) => { const r = d.resources.find((x) => x.uid === uid); if (r) r.used = Math.max(0, Math.min(r.max, r.used + by)); });
 
-  if (!pools.length && !attacks.length && !powers.length && !spells.length) return null;
+  const concName = c.concentration ? srd.spells.find((x) => x.id === c.concentration)?.name ?? c.concentration : '';
+  const states = !!c.concentration || !!c.psychicFocus || c.conditions.length > 0 || c.exhaustion > 0;
+  if (!pools.length && !attacks.length && !powers.length && !spells.length && !states) return null;
   return (
     <div className="combat-bar" aria-label="Barra de combate">
       <button className={'cb-hp' + (c.hp.current <= max / 3 ? ' low' : '')} onClick={onHp} title="Pontos de vida: abrir Combate para dano e cura">
         <Heart size={13} /> <b>{c.hp.current}</b>/{max}{c.hp.temp ? <i> +{c.hp.temp}</i> : null}
       </button>
+      {c.concentration && (
+        <span className="cb-state conc" title={`Concentrando em ${concName}. Dano pede um teste de Constituição.`}>
+          <Brain size={12} /> <span className="cb-state-text">{concName.replace(/\s*\([^)]*\)/g, '')}</span>
+          <button onClick={() => upd((d) => (d.concentration = undefined))} aria-label={`Encerrar concentração em ${concName}`} title="Encerrar a concentração"><X size={12} /></button>
+        </span>
+      )}
+      {c.psychicFocus && (
+        <span className="cb-state focus" title={`Foco ativo: ${c.psychicFocus}`}>
+          <Sparkle size={12} /> <span className="cb-state-text">Foco: {c.psychicFocus.replace(/\s*\([^)]*\)/g, '')}</span>
+          <button onClick={() => upd((d) => (d.psychicFocus = undefined))} aria-label="Encerrar o foco" title="Encerrar o foco"><X size={12} /></button>
+        </span>
+      )}
+      {c.conditions.map((k) => (
+        <span key={k} className="cb-state cond" title={(CONDITION_PT[k] || k) + ': clique no × para tirar'}>
+          {CONDITION_PT[k] || k}
+          <button onClick={() => upd((d) => (d.conditions = d.conditions.filter((x) => x !== k)))} aria-label={'Tirar ' + (CONDITION_PT[k] || k)} title="Tirar"><X size={12} /></button>
+        </span>
+      ))}
+      {c.exhaustion > 0 && <span className="cb-state cond" title="Exaustão: ajuste na aba Combate">Exaustão {c.exhaustion}</span>}
       {pools.map((r) => (
         <span key={r.uid} className="cb-pool" title={`${r.name}: ${r.reset === 'long' ? 'volta no descanso longo' : r.reset === 'short' ? 'volta no descanso curto' : 'não volta sozinho'}`}>
           <span className="cb-pool-name">{r.name}</span>
