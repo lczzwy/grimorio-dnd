@@ -75,10 +75,14 @@ export function useRollFeed(campaignId: string) {
     void load();
     const onFocus = () => void load();
     window.addEventListener('focus', onFocus);
-    const poll = setInterval(() => void load(), 15000);
+    const poll = setInterval(() => void load(), 60000);
     const ch = supabase
       .channel('rolls-' + campaignId)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rolls', filter: `campaign_id=eq.${campaignId}` }, () => void load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rolls', filter: `campaign_id=eq.${campaignId}` }, (p) => {
+        // a new roll goes on top; anything else (a revealed roll) reloads
+        if (p.eventType === 'INSERT') setRows((r) => (r.some((x) => x.id === (p.new as RollRow).id) ? r : [p.new as RollRow, ...r].slice(0, 200)));
+        else void load();
+      })
       .subscribe();
     return () => {
       alive = false;

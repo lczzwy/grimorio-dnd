@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { HeartCrack, Heart, Shield, Brain, Skull } from 'lucide-react';
 import type { Character } from '../../data/types';
 import { useCampaignSrd } from '../../cloud/campaignHomebrew';
 import { watchCharacters } from '../../cloud/sync';
+import { useShared } from '../../cloud/shared';
 import { gmApply } from '../../cloud/campaigns';
 import { partySummary } from '../../cloud/party';
 import { CONDITION_PT } from '../../engine/rules';
@@ -11,15 +12,12 @@ import { Sheet } from '../Sheet';
 import type { CampaignProps } from '../Campaign';
 import { showError } from '../../ui/dialogs';
 
-/** Characters in play in a campaign, kept live. */
+/** Characters in play in a campaign, kept live (one shared subscription for the whole page). */
 export function useParty(characterIds: string[]) {
-  const [chars, setChars] = useState<Record<string, Character>>({});
   const key = characterIds.slice().sort().join(',');
-  useEffect(() => {
-    setChars({});
-    return watchCharacters(key ? key.split(',') : [], (c) => setChars((s) => ({ ...s, [c.id]: c })));
-  }, [key]);
-  return chars;
+  return useShared<Record<string, Character>>(key ? 'party:' + key : null, {}, (set) =>
+    watchCharacters(key.split(','), (c) => set((s) => ({ ...s, [c.id]: c }))),
+  );
 }
 
 export function TableTab({ campaign, members, isGm, uid }: CampaignProps) {

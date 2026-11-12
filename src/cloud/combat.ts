@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { updateShared, useShared } from './shared';
 import { supabase } from './client';
 import { campaignErrorPt } from './campaignText';
 import { MANUAL_ORDER, nextTurnState, reorder, sortCombatants, tickEffects, type Effect } from './combatLogic';
@@ -16,44 +16,66 @@ const ok = <T,>(r: { data: T; error: { message: string } | null }) => {
   return r.data;
 };
 
-/** Encounter state, combatants (ordered) and — for the GM — their secrets, all live. */
+interface FightState { encounter: Encounter | null; list: Combatant[]; secrets: Record<string, Secrets> }
+const EMPTY_FIGHT: FightState = { encounter: null, list: [], secrets: {} };
+const fightKey = (campaignId: string, isGm: boolean) => `fight:${campaignId}:${isGm ? 'gm' : 'p'}`;
+
+async function loadSecrets(campaignId: string) {
+  const s = await supabase.from('combatant_secrets').select('*').eq('campaign_id', campaignId);
+  return Object.fromEntries(((s.data as Secrets[]) || []).map((x) => [x.combatant_id, x]));
+}
+
+/**
+ * Encounter state, combatants (ordered) and — for the GM — their secrets, all live.
+ * Shared: the turn order, the map and the Combat tab read one subscription per campaign.
+ */
 export function useEncounter(campaignId: string, isGm: boolean) {
-  const [encounter, setEncounter] = useState<Encounter | null>(null);
-  const [list, setList] = useState<Combatant[]>([]);
-  const [secrets, setSecrets] = useState<Record<string, Secrets>>({});
-  useEffect(() => {
+  const key = fightKey(campaignId, isGm);
+  const state = useShared<FightState>(key, EMPTY_FIGHT, (set) => {
     let alive = true;
+    let timer: number | undefined;
     const load = async () => {
       const [e, c] = await Promise.all([
         supabase.from('encounters').select('*').eq('campaign_id', campaignId).maybeSingle(),
         supabase.from('combatants').select('*').eq('campaign_id', campaignId),
       ]);
       if (!alive) return;
-      setEncounter((e.data as Encounter) ?? { campaign_id: campaignId, active: false, round: 1, turn: 0 });
-      setList(sortCombatants((c.data as Combatant[]) || []));
-      if (isGm) {
-        const s = await supabase.from('combatant_secrets').select('*').eq('campaign_id', campaignId);
-        if (alive) setSecrets(Object.fromEntries(((s.data as Secrets[]) || []).map((x) => [x.combatant_id, x])));
-      }
+      const secrets = isGm ? await loadSecrets(campaignId) : {};
+      if (!alive) return;
+      set(() => ({
+        encounter: (e.data as Encounter) ?? { campaign_id: campaignId, active: false, round: 1, turn: 0 },
+        list: sortCombatants((c.data as Combatant[]) || []),
+        secrets,
+      }));
     };
+    // a calm full reload after a burst of changes keeps everything exact (the GM's life numbers too)
+    const later = () => { window.clearTimeout(timer); timer = window.setTimeout(() => void load(), 600); };
     void load();
-    let ch = supabase
-      // unique name: the turn order and the Combat tab can watch the same fight at once
-      .channel('combat-' + campaignId + '-' + Math.random().toString(36).slice(2, 8))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'combatants', filter: `campaign_id=eq.${campaignId}` }, () => void load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'encounters', filter: `campaign_id=eq.${campaignId}` }, () => void load());
-    // secrets aren't in the realtime publication: the GM reloads them after own writes
-    ch = ch.subscribe();
+    const ch = supabase
+      .channel('combat-' + campaignId + (isGm ? '-gm-' : '-') + Math.random().toString(36).slice(2, 8))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'combatants', filter: `campaign_id=eq.${campaignId}` }, (p) => {
+        if (p.eventType === 'UPDATE') {
+          const row = p.new as Combatant;
+          set((s) => ({ ...s, list: sortCombatants(s.list.map((x) => (x.id === row.id ? row : x))) }));
+        }
+        later();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'encounters', filter: `campaign_id=eq.${campaignId}` }, (p) => {
+        if (p.eventType !== 'DELETE') set((s) => ({ ...s, encounter: p.new as Encounter }));
+      })
+      .subscribe();
     return () => {
       alive = false;
+      window.clearTimeout(timer);
       void supabase.removeChannel(ch);
     };
-  }, [campaignId, isGm]);
+  });
+  // secrets aren't in the realtime publication: the GM reloads them after own writes
   const reload = async () => {
-    const s = await supabase.from('combatant_secrets').select('*').eq('campaign_id', campaignId);
-    setSecrets(Object.fromEntries(((s.data as Secrets[]) || []).map((x) => [x.combatant_id, x])));
+    const secrets = await loadSecrets(campaignId);
+    updateShared<FightState>(key, (s) => ({ ...s, secrets }));
   };
-  return { encounter, list, secrets, reloadSecrets: reload };
+  return { encounter: state.encounter, list: state.list, secrets: state.secrets, reloadSecrets: reload };
 }
 
 export async function addPlayerCombatant(campaignId: string, characterId: string, name: string, image?: string) {
