@@ -232,7 +232,7 @@
 html[data-tablemode] .topbar { display: none; }
 html[data-tablemode] .sync-banner { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 40; max-width: 560px; }
 html[data-tablemode] body { overflow: hidden; }
-.tm { position: fixed; inset: 0; z-index: 5; display: grid; grid-template-columns: minmax(0, 1fr) 320px; grid-template-rows: 40px minmax(0, 1fr); background: var(--bg); }
+.tm { position: fixed; inset: 0; z-index: 5; display: grid; grid-template-columns: minmax(0, 1fr) 320px; grid-template-rows: 46px minmax(0, 1fr); background: var(--bg); }
 .tm-bar { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; padding: 0 8px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 92%, black); min-width: 0; }
 .tm-bar .btn.sm { padding: 4px 9px; font-size: 12.5px; }
 .tm-name { font-family: var(--font-display); color: var(--gold); letter-spacing: 0.06em; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32ch; }
@@ -466,3 +466,9 @@ button.qs-stat:hover, button.qs-stat:focus-visible { border-color: var(--gold); 
 .tm-reveal { position: fixed; top: 0; left: calc((100% - 320px) / 2); transform: translateX(-50%); z-index: 30; display: grid; place-items: center; width: 44px; height: 14px; padding: 0; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 8px 8px; background: color-mix(in srgb, var(--panel) 92%, black); color: var(--muted); cursor: pointer; }
 .tm-reveal:hover, .tm-reveal:focus-visible { color: var(--gold); border-color: var(--gold); }
 @media (prefers-reduced-motion: reduce) { .tm, .tm-bar { transition: none; } }
+/* bigger icons in the table bar: easy to see and to hit */
+.tm-bar { gap: 4px; }
+.tm-bar .btn.icon { width: 34px; height: 34px; padding: 0; justify-content: center; color: var(--text); border-radius: 8px; }
+.tm-bar .btn.icon svg { width: 20px; height: 20px; }
+.tm-bar .btn.icon:hover, .tm-bar .btn.icon:focus-visible { color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, transparent); }
+.tm-bar .tm-crown { width: 15px; height: 15px; }
