@@ -350,3 +350,6 @@ html[data-tablemode] .dice-tray { right: 336px; bottom: 80px; z-index: 30; }
 .tok.turn::before { content: ''; position: absolute; inset: -22%; border-radius: 50%; border: 3px solid #f3d27a; box-shadow: 0 0 14px 4px rgba(243, 210, 122, 0.75); animation: tok-turn 1.4s ease-in-out infinite; pointer-events: none; }
 @keyframes tok-turn { 50% { opacity: 0.45; transform: scale(1.06); } }
 @media (prefers-reduced-motion: reduce) { .tok.turn::before { animation: none; } }
+
+.summons { position: relative; }
+.summons-close { position: absolute; top: 8px; right: 8px; }

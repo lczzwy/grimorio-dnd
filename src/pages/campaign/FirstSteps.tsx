@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, Plus, Upload, Stamp } from 'lucide-react';
+import { Copy, Plus, Upload, Stamp, X } from 'lucide-react';
 import { useApp } from '../../store';
 import { bringCharacter } from '../../cloud/campaignCharacter';
 import { inviteLink } from '../../cloud/campaignText';
@@ -17,15 +17,19 @@ export function FirstSteps({ campaign, members, isGm, uid }: CampaignProps) {
   const chars = useApp((s) => s.characters);
   const flash = useFlash((s) => s.show);
   const [busy, setBusy] = useState<string | null>(null);
+  // the GM can close the invite card for good (the link stays in Ajustes)
+  const hideKey = 'invite-card-closed-' + campaign.id;
+  const [closed, setClosed] = useState(() => { try { return localStorage.getItem(hideKey) === '1'; } catch { return false; } });
   const me = members.find((m) => m.user_id === uid);
   const players = members.filter((m) => m.role === 'player');
 
   if (isGm) {
-    if (players.length) return null;
+    if (players.length || closed) return null;
     const link = inviteLink(campaign.invite_code);
     return (
       <section className="summons">
         <Stamp className="summons-seal" size={22} aria-hidden />
+        <button className="btn icon sm ghost summons-close" aria-label="Fechar" title="Fechar (o link continua em Ajustes)" onClick={() => { setClosed(true); try { localStorage.setItem(hideKey, '1'); } catch { /* private mode */ } }}><X size={16} /></button>
         <div className="summons-body">
           <h2>Chame o grupo</h2>
           <p>Mande este link no Discord. Quem abrir entra na mesa como jogador.</p>
