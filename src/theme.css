@@ -283,3 +283,7 @@ h1 { text-shadow: 0 2px 0 #000; }
   .sheet-vitals .vital.shield { padding-bottom: 10px; }
   .desk-side { top: 128px; max-height: calc(100vh - 140px); }
 }
+
+/* ---- conexão com a mesa ---- */
+.conn-banner.ok { background: color-mix(in srgb, #3fbf5f 16%, var(--bg-2)); border-bottom-color: color-mix(in srgb, #3fbf5f 45%, transparent); }
+.conn-banner.ok svg { color: #3fbf5f; }

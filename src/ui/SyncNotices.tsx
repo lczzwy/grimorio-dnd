@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { CloudOff, CloudUpload, RefreshCw } from 'lucide-react';
+import { CloudOff, CloudUpload, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { useApp } from '../store';
 import { useAuth } from '../cloud/auth';
+import { useConnection } from '../cloud/connection';
 import { uploadAll, uploader, useSyncStatus } from '../cloud/sync';
 import { Modal, useFlash } from './ui';
 
@@ -78,5 +79,33 @@ export function FirstLoginUpload() {
       </p>
       <p className="small muted mb0">Na conta, elas ficam salvas online, aparecem nos seus outros aparelhos e podem entrar nas campanhas. Dá para fazer isso depois em <b>Sua conta</b>.</p>
     </Modal>
+  );
+}
+
+/** "Reconectando…" while the live connection is down; a short "back" note after it returns. */
+export function ConnectionBanner() {
+  const down = useConnection((s) => s.down);
+  const back = useConnection((s) => s.back);
+  const [showBack, setShowBack] = useState(false);
+  useEffect(() => {
+    if (!back) return;
+    setShowBack(true);
+    const t = window.setTimeout(() => setShowBack(false), 3500);
+    return () => window.clearTimeout(t);
+  }, [back]);
+  if (down) {
+    return (
+      <div className="sync-banner conn-banner" role="status">
+        <WifiOff size={16} />
+        <span className="grow"><b>Reconectando…</b> A conexão com a mesa caiu. Assim que voltar, tudo se atualiza sozinho.</span>
+      </div>
+    );
+  }
+  if (!showBack) return null;
+  return (
+    <div className="sync-banner conn-banner ok" role="status">
+      <Wifi size={16} />
+      <span className="grow">Conexão de volta. A mesa foi atualizada.</span>
+    </div>
   );
 }

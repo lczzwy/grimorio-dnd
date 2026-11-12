@@ -15,6 +15,12 @@ interface Entry<T> {
 }
 const registry = new Map<string, Entry<unknown>>();
 
+/** Drops every shared subscription (after the connection comes back): the next ones load fresh. */
+export function resetShared() {
+  for (const e of registry.values()) { window.clearTimeout(e.timer); e.stop?.(); e.stop = undefined; }
+  registry.clear();
+}
+
 /** Updates a shared value from outside a component (no-op when nobody is watching it). */
 export function updateShared<T>(key: string, f: (v: T) => T) {
   const e = registry.get(key) as Entry<T> | undefined;
@@ -46,7 +52,12 @@ export function useShared<T>(key: string | null, initial: T, start: (set: (f: (v
       entry.subs.delete(setValue);
       entry.refs--;
       // keep it a moment: switching tabs unmounts and remounts the same panels
-      if (entry.refs === 0) entry.timer = window.setTimeout(() => { if (entry.refs === 0) { entry.stop?.(); registry.delete(key); } }, 3000);
+      if (entry.refs === 0) entry.timer = window.setTimeout(() => {
+        if (entry.refs !== 0) return;
+        entry.stop?.();
+        entry.stop = undefined;
+        if (registry.get(key) === entry) registry.delete(key);
+      }, 3000);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);

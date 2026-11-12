@@ -14,7 +14,8 @@ import { Home } from './pages/Home';
 import { Roster } from './pages/Roster';
 import { ErrorBoundary } from './ui/ErrorBoundary';
 import { initErrorLog } from './cloud/errorLog';
-import { FirstLoginUpload, SyncBanner } from './ui/SyncNotices';
+import { ConnectionBanner, FirstLoginUpload, SyncBanner } from './ui/SyncNotices';
+import { useConnection, useConnectionWatch } from './cloud/connection';
 
 // telas carregadas sob demanda: o pacote inicial fica só com a casca, a lista e a conta
 const Campaign = lazy(() => import('./pages/Campaign').then((m) => ({ default: m.Campaign })));
@@ -42,12 +43,15 @@ export default function App() {
   const uid = auth.user?.id;
   useEffect(() => (uid ? startSync(uid) : undefined), [uid]);
 
+  // while a campaign is open: watch the live connection; coming back remounts the page fresh
+  useConnectionWatch(route[0] === 'campanha' && !!uid);
+  const epoch = useConnection((x) => x.epoch);
   let page;
   if (route[0] === 'conta' && route[1] === 'nova-senha') page = <NewPassword />;
   else if (route[0] === 'conta') page = <Account />;
   else if (route[0] === 'campanhas') page = <Campaigns />;
   else if (route[0] === 'convite' && route[1]) page = <Invite code={route[1]} />;
-  else if (route[0] === 'campanha' && route[1]) page = <Campaign id={route[1]} tab={route[2]} />;
+  else if (route[0] === 'campanha' && route[1]) page = <Campaign key={epoch} id={route[1]} tab={route[2]} />;
   else if (!ed) page = <Home />;
   else if (view === 'novo') page = <Creator edition={ed} />;
   else if (view === 'c' && route[2]) page = <Sheet edition={ed} id={route[2]} />;
@@ -90,6 +94,7 @@ export default function App() {
         </button>
       </header>
       <SyncBanner />
+      <ConnectionBanner />
       {/* campaign tabs stay mounted: remounting refetched everything from the server on each click */}
       <div id="conteudo" tabIndex={-1} style={{ outline: 'none' }}>
         <ErrorBoundary key={route[0] === 'campanha' ? route.slice(0, 2).join('/') : route.join('/')}>
