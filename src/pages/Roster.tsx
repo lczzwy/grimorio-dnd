@@ -10,6 +10,9 @@ import { Cloud } from 'lucide-react';
 import { sanitizeHomebrew } from '../data/homebrew';
 import { companionReport, importCompanionCharacter } from '../import/importFile';
 import { go, pickFile, useFlash, download, clickable } from '../ui/ui';
+import { useState } from 'react';
+import { PdfImportModal } from '../import/PdfImportModal';
+import type { PdfImport } from '../import/pdfSheet';
 import { armorClass, classSummary, maxHp, speciesName } from '../engine/rules';
 import { alertBox, confirmBox } from '../ui/dialogs';
 
@@ -27,11 +30,28 @@ export function Roster({ edition }: { edition: Edition }) {
   const { importCharacter, duplicateCharacter, importHomebrew, updateCharacter } = useApp();
   const signedIn = useAuth((s) => !!s.user);
   const flash = useFlash((s) => s.show);
+  const [pdf, setPdf] = useState<PdfImport | null>(null);
   const chars = all.filter((c) => c.edition === edition).sort((a, b) => b.updatedAt - a.updatedAt);
 
   const onImport = async () => {
-    const f = await pickFile('.json,.cah');
+    const f = await pickFile('.json,.cah,.pdf');
     if (!f) return;
+    // the official fillable PDF sheet: read its fields, then review before saving
+    if (/\.pdf$/i.test(f.name) || f.type === 'application/pdf') {
+      if (!srd) return;
+      try {
+        const { readPdfFields, mapPdfSheet } = await import('../import/pdfSheet');
+        const fields = await readPdfFields(await f.arrayBuffer());
+        if (!Object.values(fields).some((v) => v)) {
+          void alertBox('Este PDF não tem campos preenchidos para ler.\n\nFunciona com a ficha oficial editável (a que se preenche no computador). Um PDF escaneado ou "impresso em PDF" vira imagem e não dá para ler.');
+          return;
+        }
+        setPdf(mapPdfSheet(fields, srd, edition));
+      } catch (e) {
+        void alertBox('Não consegui abrir esse PDF: ' + (e as Error).message);
+      }
+      return;
+    }
     try {
       const raw = JSON.parse(await f.text());
       if (isCompanionFile(raw)) {
@@ -58,7 +78,7 @@ export function Roster({ edition }: { edition: Edition }) {
         flash(`${pack.kept} item(ns) adicionado(s) ao Homebrew ${edition}.`);
         return;
       }
-      void alertBox('Esse arquivo não é uma ficha que o site reconheça.\n\nO botão "Importar ficha" aceita:\n• fichas exportadas por este site (.json)\n• fichas do 5e Companion App (.cah)\n\nPacotes de raças, magias e talentos vão em Homebrew → Importar pacote.');
+      void alertBox('Esse arquivo não é uma ficha que o site reconheça.\n\nO botão "Importar ficha" aceita:\n• fichas exportadas por este site (.json)\n• fichas do 5e Companion App (.cah)\n• a ficha oficial em PDF editável (.pdf)\n\nPacotes de raças, magias e talentos vão em Homebrew → Importar pacote.');
     } catch (e) {
       void alertBox('Não consegui ler esse arquivo (ele precisa ser .json ou .cah): ' + (e as Error).message);
     }
@@ -71,7 +91,7 @@ export function Roster({ edition }: { edition: Edition }) {
           <div className="tiny muted">Mesa {edition}</div>
           <h1>Seus personagens</h1>
         </div>
-        <button className="btn" onClick={onImport}><Upload size={16} /> Importar ficha</button>
+        <button className="btn" onClick={onImport} title="Ficha deste site (.json), do 5e Companion (.cah) ou a ficha oficial em PDF editável"><Upload size={16} /> Importar ficha</button>
         <button className="btn primary" onClick={() => go(edition + '/novo')}><Plus size={16} /> Novo personagem</button>
       </div>
       <div className="cards">
@@ -114,6 +134,7 @@ export function Roster({ edition }: { edition: Edition }) {
           <div className="small faint">Passo a passo, com tudo calculado</div>
         </button>}
       </div>
+      {pdf && srd && <PdfImportModal r={pdf} srd={srd} edition={edition} onClose={() => setPdf(null)} />}
     </main>
   );
 }

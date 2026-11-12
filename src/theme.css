@@ -396,3 +396,14 @@ h1 { text-shadow: 0 2px 0 #000; }
 .power-opt-text { font-size: 13.5px; line-height: 1.5; color: var(--muted); }
 .power-opt-text p { margin: 4px 0; }
 .power-focus { padding: 8px 10px; border-left: 3px solid var(--gold); background: color-mix(in srgb, var(--gold) 8%, var(--bg-2)); border-radius: 0 6px 6px 0; }
+
+/* ---- Importar ficha em PDF ---- */
+.pdf-rows { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13.5px; }
+.pdf-rows td, .pdf-rows th { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+.pdf-rows th { font-weight: 600; color: var(--muted); white-space: nowrap; width: 1%; }
+.pdf-rows td:first-child { width: 18px; padding-right: 0; }
+.pdf-rows tr.warn th { color: var(--warn); }
+.pdf-unknown { border-color: var(--warn); }
+.pdf-unknown ul { margin: 0; padding-left: 18px; font-size: 13px; max-height: 180px; overflow-y: auto; }
+.pdf-links .field > span { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+@media (max-width: 560px) { .pdf-rows th { white-space: normal; width: 34%; } }

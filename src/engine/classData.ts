@@ -123,9 +123,9 @@ export function choiceOptions(c: Character, srd: SrdData, choice: ChoiceDef, cla
 
 /* ---------------- migration of older sheets ---------------- */
 
-const fold = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+export const fold = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 /** "Arma Psiônica (Psionic Weapon)" → ["arma psionica psionic weapon", "arma psionica", "psionic weapon"] */
-function nameForms(name: string): string[] {
+export function nameForms(name: string): string[] {
   const out = new Set<string>([fold(name)]);
   const m = name.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
   if (m) { out.add(fold(m[1])); out.add(fold(m[2])); }
