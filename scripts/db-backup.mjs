@@ -4,16 +4,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import pg from 'pg';
+import { connect } from './db/connect.mjs';
 import { counts, exportAll } from './db/core.mjs';
 
-const url = process.env.DATABASE_URL;
-if (!url) { console.error('Falta a variável DATABASE_URL (endereço de conexão do Supabase).'); process.exit(1); }
 const outDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../backups');
 fs.mkdirSync(outDir, { recursive: true });
 
-const db = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
-await db.connect();
+const db = await connect();
 try {
   const b = await exportAll(db);
   const stamp = b.made.replace(/[:.]/g, '-').slice(0, 19);
