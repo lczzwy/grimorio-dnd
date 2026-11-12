@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { turnIndex } from '../cloud/combatLogic';
 import { Hand, CirclePlus, Magnet, Pencil, Eraser, Ruler, Trash2 } from 'lucide-react';
 import { PEN_COLORS, useDrawings, useMapFx } from '../cloud/drawings';
 import { confirmBox } from '../ui/dialogs';
@@ -45,7 +46,7 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
 
   // the fight: whose turn it is, and how hurt the linked creatures are
   const { encounter, list: fighters, secrets } = useEncounter(campaignId, isGm);
-  const current = encounter?.active ? fighters[encounter.turn] : undefined;
+  const current = fighters[turnIndex(encounter, fighters, isGm)];
   const turnId = current ? tokens.find((t) => (t.combatant_id && t.combatant_id === current.id) || (!!current.character_id && t.character_id === current.character_id))?.id : undefined;
   const life: Record<string, number> = {};
   for (const t of tokens) {

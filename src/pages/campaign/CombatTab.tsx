@@ -3,7 +3,8 @@ import { Play, Square, SkipForward, Plus, Trash2, Eye, EyeOff, Dices, Sparkles, 
 import type { MonsterDef } from '../../data/monsters';
 import { loadMonsters } from '../../data/monsters';
 import { useCampaignSrd } from '../../cloud/campaignHomebrew';
-import { addEnemy, addPlayerCombatant, nextTurn, removeCombatant, setEncounter, updateCombatant, updateSecrets, useEncounter, type Combatant, type Secrets } from '../../cloud/combat';
+import { turnIndex } from '../../cloud/combatLogic';
+import { addEnemy, addPlayerCombatant, nextTurn, startFight, removeCombatant, setEncounter, updateCombatant, updateSecrets, useEncounter, type Combatant, type Secrets } from '../../cloud/combat';
 import type { Effect } from '../../cloud/combatLogic';
 import { gmApply } from '../../cloud/campaigns';
 import { partySummary } from '../../cloud/party';
@@ -32,7 +33,8 @@ export function CombatTab({ campaign, members, isGm }: CampaignProps) {
 
   if (!encounter || !srd) return <div className="empty">Carregando combate…</div>;
   const active = encounter.active;
-  const current = list[encounter.turn]?.id;
+  const now = list[turnIndex(encounter, list, isGm)];
+  const current = now?.id;
   const safe = (p: Promise<unknown>) => p.catch(showError);
 
   const rollMonsterInit = async () => {
@@ -80,7 +82,7 @@ export function CombatTab({ campaign, members, isGm }: CampaignProps) {
       <div className="panel row wrap">
         <div className="grow">
           <div className="display" style={{ fontSize: 22, fontWeight: 900 }}>{active ? `Rodada ${encounter.round}` : 'Fora de combate'}</div>
-          {active && list[encounter.turn] && <div className="small muted">Vez de <b>{list[encounter.turn].name}</b></div>}
+          {active && now && <div className="small muted">Vez de <b>{now.name}</b></div>}
         </div>
         {isGm && (
           <>
@@ -93,7 +95,7 @@ export function CombatTab({ campaign, members, isGm }: CampaignProps) {
                 <button className="btn sm" onClick={() => safe(setEncounter(campaign.id, { active: false }))}><Square size={14} /> Encerrar</button>
               </>
             ) : (
-              <button className="btn sm primary" disabled={!list.length} onClick={() => safe(setEncounter(campaign.id, { active: true, round: 1, turn: 0 }))}><Play size={14} /> Começar combate</button>
+              <button className="btn sm primary" disabled={!list.length} onClick={() => safe(startFight(campaign.id, list))}><Play size={14} /> Começar combate</button>
             )}
           </>
         )}

@@ -119,6 +119,9 @@ create index if not exists creatures_owner_idx on public.creatures (owner);
 
 -- o mestre pede iniciativa: cada jogador vê um botão para rolar a sua
 alter table public.encounters add column if not exists init_call boolean not null default false;
+-- quem está agindo, pelo id: os jogadores não veem os inimigos ocultos, então a posição na lista deles
+-- não bate com a do mestre (sem chave estrangeira: se a criatura sair, o mestre segue pela posição)
+alter table public.encounters add column if not exists turn_id uuid;
 
 create table if not exists public.combatants (
   id uuid primary key default gen_random_uuid(),

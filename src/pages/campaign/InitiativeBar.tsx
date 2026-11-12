@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Dices, Play, Plus, SkipForward, Square, Trash2, EyeOff, Megaphone, ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
-import { callInitiative, nextTurn, removeCombatant, reorderCombatants, rollMyInitiative, setEncounter, updateCombatant, useEncounter, type Combatant } from '../../cloud/combat';
+import { Dices, Play, Plus, SkipForward, Square, Trash2, EyeOff, Megaphone, ChevronDown, ChevronUp, GripVertical, Bell, BellOff } from 'lucide-react';
+import { turnIndex } from '../../cloud/combatLogic';
+import { useMyTurn } from './myTurn';
+import { callInitiative, nextTurn, startFight, removeCombatant, reorderCombatants, rollMyInitiative, setEncounter, updateCombatant, useEncounter, type Combatant } from '../../cloud/combat';
 import { useCampaignSrd } from '../../cloud/campaignHomebrew';
 import { initiative } from '../../engine/rules';
 import { fmtMod } from '../../engine/dice';
@@ -30,6 +32,9 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
   // folded: only the title line (the "roll initiative" call still shows when it's your turn to roll)
   const [folded, setFolded] = useState(() => { try { return localStorage.getItem('init-folded') !== '0'; } catch { return true; } });
   const toggleFold = () => setFolded((v) => { try { localStorage.setItem('init-folded', v ? '0' : '1'); } catch { /* private mode */ } return !v; });
+  const myCharId = members.find((m) => m.user_id === uid)?.character_id ?? undefined;
+  const acting = list[turnIndex(encounter, list, isGm)];
+  const alert = useMyTurn(!isGm && !!acting && !!myCharId && acting.character_id === myCharId ? `${acting.id}:${encounter?.round}` : null);
 
   if (!encounter) return null;
   const me = members.find((m) => m.user_id === uid);
@@ -38,7 +43,7 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
   const calling = !!encounter.init_call;
   const needsRoll = !isGm && calling && !!myChar && (mine?.initiative == null);
   const active = encounter.active;
-  const current = active ? list[encounter.turn]?.id : undefined;
+  const current = acting?.id;
   const players = members.filter((m) => m.role === 'player' && m.character_id);
   const waiting = calling ? players.filter((m) => list.find((c) => c.character_id === m.character_id)?.initiative == null) : [];
 
@@ -58,7 +63,7 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
   };
 
   const ask = () => safe(callInitiative(campaign.id, list, players.map((m) => ({ character_id: m.character_id!, name: party[m.character_id!]?.name || m.display_name, image: party[m.character_id!]?.portrait }))));
-  const start = () => safe(setEncounter(campaign.id, { active: true, round: 1, turn: 0, init_call: false }));
+  const start = () => safe(startFight(campaign.id, list));
   const stop = () => safe(setEncounter(campaign.id, { active: false, init_call: false }));
 
   return (
@@ -68,9 +73,14 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
         <button className="btn ghost sm icon" onClick={toggleFold} aria-expanded={!folded} title={folded ? 'Abrir a ordem de iniciativa' : 'Recolher'} aria-label={folded ? 'Abrir a ordem de iniciativa' : 'Recolher a ordem de iniciativa'}>
           {folded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
         </button>
-        {active && list[encounter.turn] && <span className="init-now">vez de <b>{list[encounter.turn].name}</b></span>}
+        {active && acting && <span className="init-now">vez de <b>{acting.name}</b></span>}
         {calling && !active && <span className="init-now">{waiting.length ? `aguardando ${waiting.length} jogador${waiting.length > 1 ? 'es' : ''}…` : 'todos rolaram'}</span>}
         <span className="spacer" />
+        {!isGm && mine && (
+          <button className="btn ghost sm icon" onClick={alert.toggleSound} aria-pressed={alert.sound} title={alert.sound ? 'Som do aviso da sua vez: ligado' : 'Som do aviso da sua vez: desligado'} aria-label={alert.sound ? 'Desligar o som do aviso da sua vez' : 'Ligar o som do aviso da sua vez'}>
+            {alert.sound ? <Bell size={14} /> : <BellOff size={14} />}
+          </button>
+        )}
         {isGm && !folded && (
           <span className="row g4">
             <button className="btn sm" disabled={busy || !players.length} onClick={ask} title="Coloca todos os jogadores na ordem e pede que rolem"><Megaphone size={14} /> Pedir iniciativa</button>
@@ -86,6 +96,13 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
           </span>
         )}
       </header>
+
+      {alert.show && (
+        <div className="my-turn" role="alert" onClick={alert.dismiss}>
+          <b>É a sua vez!</b>
+          <span>{acting?.name}, rodada {encounter.round}</span>
+        </div>
+      )}
 
       {needsRoll && (
         <button className="init-call" onClick={rollMine} disabled={busy}>

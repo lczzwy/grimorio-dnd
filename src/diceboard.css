@@ -400,3 +400,10 @@ button.pbar-li:hover, button.pbar-li:focus-visible { background: var(--panel-2);
 .pbar-li-side { display: flex; align-items: center; gap: 5px; flex: none; }
 .pbar-li-side .tag { padding: 0 6px; font-size: 10.5px; }
 .pbar-num { font-family: 'Cinzel', serif; font-size: 12px; color: var(--muted); font-variant-numeric: lining-nums; }
+
+/* ---- "É a sua vez" ---- */
+.my-turn { position: fixed; top: 72px; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 28px; border: 1px solid var(--gold); border-radius: 10px; background: color-mix(in srgb, var(--panel) 92%, var(--gold)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 18%, transparent), 0 14px 40px rgba(0, 0, 0, 0.55); cursor: pointer; animation: my-turn-in 0.35s ease-out; }
+.my-turn b { font-family: var(--font-display); color: var(--gold); font-size: 22px; font-weight: 400; letter-spacing: 0.04em; }
+.my-turn span { font-size: 13px; color: var(--muted); }
+@keyframes my-turn-in { from { transform: translate(-50%, -14px) scale(0.96); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .my-turn { animation: none; } }

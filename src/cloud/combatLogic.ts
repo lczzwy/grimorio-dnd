@@ -22,6 +22,22 @@ export function reorder<T extends { id: string }>(list: T[], from: number, to: n
   return { order, sorts: Object.fromEntries(order.map((c, i) => [c.id, MANUAL_ORDER + i * 10])) };
 }
 
+/**
+ * Where the acting creature is in this list. By id when the GM saved one (a player's list has no
+ * hidden enemies, so the positions differ): -1 when it's someone this list can't see. The GM's
+ * full list falls back to the position (old fights, or the acting creature was removed).
+ */
+export function turnIndex(e: { active: boolean; turn: number; turn_id?: string | null } | null | undefined, list: { id: string }[], full: boolean): number {
+  if (!e?.active || !list.length) return -1;
+  if (e.turn_id) {
+    const i = list.findIndex((c) => c.id === e.turn_id);
+    if (i >= 0 || !full) return i;
+  } else if (!full) {
+    return e.turn < list.length ? e.turn : -1;
+  }
+  return Math.min(Math.max(0, e.turn), list.length - 1);
+}
+
 export function nextTurnState(s: { round: number; turn: number }, count: number) {
   if (count <= 0) return { round: s.round, turn: 0, newRound: false };
   const turn = s.turn + 1;

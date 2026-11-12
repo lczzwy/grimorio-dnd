@@ -1,7 +1,7 @@
 import { updateShared, useShared } from './shared';
 import { supabase } from './client';
 import { campaignErrorPt } from './campaignText';
-import { MANUAL_ORDER, nextTurnState, reorder, sortCombatants, tickEffects, type Effect } from './combatLogic';
+import { MANUAL_ORDER, nextTurnState, reorder, sortCombatants, tickEffects, turnIndex, type Effect } from './combatLogic';
 import type { MonsterDef, MonsterAction } from '../data/monsters';
 
 export interface Combatant {
@@ -9,7 +9,7 @@ export interface Combatant {
   initiative: number | null; hp_band: string; conditions: string[]; effects: Effect[]; visible: boolean; sort: number;
 }
 export interface Secrets { combatant_id: string; campaign_id: string; hp_current: number; hp_max: number; hp_temp: number; ac: number | null; stat: MonsterDef | null; attacks: MonsterAction[]; notes: string }
-export interface Encounter { campaign_id: string; active: boolean; round: number; turn: number; init_call?: boolean }
+export interface Encounter { campaign_id: string; active: boolean; round: number; turn: number; turn_id?: string | null; init_call?: boolean }
 
 const ok = <T,>(r: { data: T; error: { message: string } | null }) => {
   if (r.error) throw new Error(campaignErrorPt(r.error.message));
@@ -103,11 +103,16 @@ export async function setEncounter(campaignId: string, patch: Partial<Omit<Encou
   ok(await supabase.from('encounters').upsert({ campaign_id: campaignId, ...patch }));
 }
 
-/** Next turn; on a new round, duration effects tick down. */
+/** GM: starts the fight on whoever is first in the order. */
+export async function startFight(campaignId: string, list: Combatant[]) {
+  await setEncounter(campaignId, { active: true, round: 1, turn: 0, turn_id: list[0]?.id ?? null, init_call: false });
+}
+
+/** Next turn (GM, full list); on a new round, duration effects tick down. */
 export async function nextTurn(e: Encounter, list: Combatant[]) {
-  const s = nextTurnState(e, list.length);
+  const s = nextTurnState({ round: e.round, turn: Math.max(0, turnIndex(e, list, true)) }, list.length);
   if (s.newRound) await Promise.all(list.filter((c) => c.effects.some((x) => x.rounds != null)).map((c) => updateCombatant(c.id, { effects: tickEffects(c.effects) })));
-  await setEncounter(e.campaign_id, { round: s.round, turn: s.turn });
+  await setEncounter(e.campaign_id, { round: s.round, turn: s.turn, turn_id: list[s.turn]?.id ?? null });
 }
 
 /** Player: records the initiative from the d20 roll the server just made for them (joins the fight if needed). */
@@ -130,8 +135,8 @@ export async function callInitiative(campaignId: string, list: Combatant[], play
 /** GM: puts the fight in a new order (dragged by hand), keeping the turn on whoever is acting now. */
 export async function reorderCombatants(e: Encounter, list: Combatant[], from: number, to: number) {
   if (from === to) return;
-  const acting = e.active ? list[e.turn]?.id : undefined;
+  const acting = e.active ? list[turnIndex(e, list, true)]?.id : undefined;
   const { order, sorts } = reorder(list, from, to);
   await Promise.all(list.filter((c) => c.sort !== sorts[c.id]).map((c) => updateCombatant(c.id, { sort: sorts[c.id] })));
-  if (acting) await setEncounter(e.campaign_id, { turn: order.findIndex((c) => c.id === acting) });
+  if (acting) await setEncounter(e.campaign_id, { turn: order.findIndex((c) => c.id === acting), turn_id: acting });
 }
