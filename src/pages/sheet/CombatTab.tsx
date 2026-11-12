@@ -13,6 +13,7 @@ import { AdvToggle } from '../../ui/Dice';
 import type { SheetProps } from '../Sheet';
 import { fullAttack as sharedFullAttack } from './attack';
 import { TurnPanel } from './TurnPanel';
+import { applyDamage, applyDeathSave, applyHeal, dropsToZero } from '../../engine/hp';
 
 function HpRing({ cur, max, temp }: { cur: number; max: number; temp: number }) {
   const r = 56;
@@ -69,17 +70,8 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
     if (!n) return;
     pulse('flash-dmg shake');
     // concentration: dropping to 0 HP ends it; otherwise a CON save is required
-    const tempAbsorbs = Math.min(c.hp.temp, n);
-    const dropsTo0 = c.hp.current > 0 && c.hp.current - (n - tempAbsorbs) <= 0;
-    upd((d) => {
-      let left = n;
-      const t = Math.min(d.hp.temp, left);
-      d.hp.temp -= t;
-      left -= t;
-      if (d.hp.current <= 0 && left > 0) { d.deathSaves.fail = Math.min(3, d.deathSaves.fail + 1); return; }
-      d.hp.current = Math.max(0, d.hp.current - left);
-      if (d.hp.current <= 0) d.concentration = undefined;
-    });
+    const dropsTo0 = dropsToZero(c, n);
+    upd((d) => applyDamage(d, n));
     if (c.concentration) {
       if (dropsTo0 || c.hp.current <= 0) flash(`Concentração em ${concName} perdida (0 PV).`);
       else setConcCheck({ dc: concentrationDc(n, c.edition), dmg: n });
@@ -89,10 +81,7 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
   const heal = (n: number) => {
     if (!n) return;
     pulse('flash-heal');
-    upd((d) => {
-      if (d.hp.current <= 0) d.deathSaves = { success: 0, fail: 0 };
-      d.hp.current = Math.min(max, d.hp.current + n);
-    });
+    upd((d) => applyHeal(d, n, max));
     setAmt(undefined);
   };
 
@@ -102,12 +91,7 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
     const r = await roll(`${who}: salvaguarda contra a morte`, '1d20');
     if (!r) return;
     const n = r.rolls[0];
-    upd((d) => {
-      if (n === 20) { d.hp.current = 1; d.deathSaves = { success: 0, fail: 0 }; return; }
-      if (n === 1) d.deathSaves.fail = Math.min(3, d.deathSaves.fail + 2);
-      else if (n >= 10) d.deathSaves.success = Math.min(3, d.deathSaves.success + 1);
-      else d.deathSaves.fail = Math.min(3, d.deathSaves.fail + 1);
-    });
+    upd((d) => applyDeathSave(d, n));
   };
 
   const resources = c.resources;

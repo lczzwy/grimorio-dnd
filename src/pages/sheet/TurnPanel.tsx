@@ -55,7 +55,7 @@ export function TurnPanel({ c, srd, upd }: SheetProps) {
             const list = opts[slot].filter((o) => showBasic || o.kind !== 'basic');
             return (
               <div key={slot} className="col g8">
-                <div className="row g6"><Icon size={15} /><b>{title}</b><span className="tiny faint">{hint}</span></div>
+                <div className="row g6" title={hint}><Icon size={15} /><b>{title}</b><span className="tiny faint">{hint}</span></div>
                 <div className="cond-grid">
                   {list.map(chip)}
                   {!list.length && <span className="small faint">{showBasic ? 'Nada.' : 'Nada específico. Marque "ações básicas" para ver as opções gerais.'}</span>}

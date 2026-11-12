@@ -407,3 +407,52 @@ button.pbar-li:hover, button.pbar-li:focus-visible { background: var(--panel-2);
 .my-turn span { font-size: 13px; color: var(--muted); }
 @keyframes my-turn-in { from { transform: translate(-50%, -14px) scale(0.96); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .my-turn { animation: none; } }
+
+/* ---- Resumo de combate (ficha na mesa) ---- */
+.qs-switch { display: inline-flex; align-self: flex-start; border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; }
+.qs-switch button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px; padding: 5px 12px; cursor: pointer; }
+.qs-switch button.on { background: var(--panel-2); color: var(--gold); }
+.qs { display: flex; flex-direction: column; gap: 10px; }
+.qs .panel { margin: 0 !important; padding: 10px 12px; }
+.qs-vitals { display: grid; grid-template-columns: minmax(120px, 1fr) auto; grid-template-areas: "hp stats" "ctl ctl"; gap: 8px 14px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+.qs-vitals.dying { border-color: var(--bad); }
+.qs-hp { grid-area: hp; min-width: 0; }
+.qs-hp-num { display: flex; align-items: baseline; gap: 4px; font-family: var(--font-display); }
+.qs-hp-num b { font-size: 26px; font-weight: 400; color: var(--text); line-height: 1; }
+.qs-hp-num span { font-size: 14px; color: var(--muted); }
+.qs-hp-num em { font-style: normal; font-size: 13px; color: var(--accent-2); margin-left: 4px; }
+.qs-hp-bar { height: 5px; margin-top: 6px; border-radius: 3px; background: rgba(0, 0, 0, 0.45); overflow: hidden; }
+.qs-hp-bar i { display: block; height: 100%; background: #4fbf6a; transition: width 0.4s; }
+.qs-hp-bar.mid i { background: #e0b341; }
+.qs-hp-bar.low i { background: #e5484d; }
+.qs-hp-ctl { grid-area: ctl; display: flex; gap: 6px; align-items: center; }
+.qs-hp-ctl .qs-amt { width: 64px; height: 30px; padding: 2px 8px; }
+/* janela estreita: as dicas de cada coluna do turno ficam no título (passar o mouse), sem quebrar linha */
+.qs .turn-cols .tiny { display: none; }
+.qs-stats { grid-area: stats; display: flex; gap: 6px; }
+.qs-stats > * { display: flex; flex-direction: column; align-items: center; min-width: 46px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--muted); font: inherit; font-size: 10.5px; line-height: 1.1; }
+.qs-stats b { font-family: var(--font-display); font-weight: 400; font-size: 18px; color: var(--text); font-variant-numeric: lining-nums; }
+button.qs-stat { cursor: pointer; }
+button.qs-stat:hover, button.qs-stat:focus-visible { border-color: var(--gold); }
+.qs-alert { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--gold); border-radius: 8px; background: color-mix(in srgb, var(--gold) 12%, var(--panel)); color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.qs-death { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--bad); border-radius: 8px; background: color-mix(in srgb, var(--bad) 10%, var(--panel)); font-size: 13px; }
+.qs-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.qs-tags .tag { display: inline-flex; align-items: center; gap: 4px; }
+.qs-x { border: 0; background: none; color: inherit; font: inherit; font-size: 14px; line-height: 1; padding: 0 0 0 2px; cursor: pointer; opacity: 0.7; }
+.qs-x:hover, .qs-x:focus-visible { opacity: 1; }
+.qs-row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.qs-pips { display: inline-flex; align-items: center; gap: 4px; }
+.qs-pips .box { width: 14px; height: 14px; }
+.qs-res { display: inline-flex; align-items: center; gap: 2px; }
+.qs-res b { color: var(--text); font-weight: 600; min-width: 30px; text-align: center; }
+.qs-rolls { display: flex; flex-direction: column; gap: 6px; }
+.qs-rolls-head { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.qs-rolls-head b { font-family: var(--font-display); color: var(--gold); font-weight: 400; letter-spacing: 0.04em; }
+.qs-saves { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.qs-skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; }
+.qs-chip { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; min-width: 0; }
+.qs-chip span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qs-chip b { color: var(--text); font-variant-numeric: lining-nums tabular-nums; }
+.qs-chip.prof { border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
+.qs-chip.prof b { color: var(--gold); }
+.qs-chip:hover, .qs-chip:focus-visible { border-color: var(--gold); color: var(--text); }

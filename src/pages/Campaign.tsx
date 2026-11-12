@@ -11,6 +11,7 @@ import { go } from '../ui/ui';
 import { SettingsTab } from './campaign/SettingsTab';
 import { TableTab } from './campaign/TableTab';
 import { MySheetTab } from './campaign/MySheetTab';
+import { QuickSheet } from './campaign/QuickSheet';
 import { RollsTab } from './campaign/RollsTab';
 import { CombatTab } from './campaign/CombatTab';
 import { HomebrewTab } from './campaign/HomebrewTab';
@@ -157,6 +158,19 @@ export function TableMode(props: CampaignProps) {
     document.documentElement.dataset.tablemode = '';
     return () => { delete document.documentElement.dataset.tablemode; };
   }, []);
+  // F opens and closes the sheet (not while typing in the chat or a field)
+  useEffect(() => {
+    if (isGm) return;
+    const k = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'f' || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement;
+      if (t.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('.modal-back')) return;
+      e.preventDefault();
+      setSheet((v) => !v);
+    };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [isGm]);
   const tabs = TABS.filter((t) => t.k !== 'mesa' && t.k !== 'chat' && t.k !== 'ficha' && !(t.k === 'bestiario' && !isGm));
   return (
     <div className="tm">
@@ -165,7 +179,7 @@ export function TableMode(props: CampaignProps) {
         <b className="tm-name" title={campaign.name}>{campaign.name}</b>
         {isGm && <Crown size={13} className="tm-crown" aria-label="Você é o mestre" />}
         <span className="tm-sep" />
-        {!isGm && <button className={'btn sm' + (sheet ? ' active' : '')} onClick={() => setSheet((v) => !v)}><ScrollText size={14} /> Ficha</button>}
+        {!isGm && <button className={'btn sm' + (sheet ? ' active' : '')} onClick={() => setSheet((v) => !v)} title="Abrir ou fechar a sua ficha (tecla F)" aria-keyshortcuts="F"><ScrollText size={14} /> Ficha</button>}
         {isGm && <button className={'btn sm' + (party ? ' active' : '')} onClick={() => setParty((v) => !v)} title="Aplicar dano, cura e condições nos personagens"><Heart size={14} /> Vida e condições</button>}
         <span className="spacer" />
         {tabs.map((t) => (
@@ -176,7 +190,7 @@ export function TableMode(props: CampaignProps) {
         <TableBoard campaignId={campaign.id} isGm={isGm} uid={props.uid} members={props.members} />
         <div className="tm-init"><InitiativeBar {...props} /></div>
         <div className="tm-first"><FirstSteps {...props} /></div>
-        {sheet && <FloatWindow id="sheet" title="Minha ficha" icon={<ScrollText size={15} />} onClose={() => setSheet(false)} initial={{ x: 64, y: 56, w: 600 }}><MySheetTab {...props} /></FloatWindow>}
+        {sheet && <FloatWindow id="sheet" title="Minha ficha" icon={<ScrollText size={15} />} onClose={() => setSheet(false)} initial={{ x: 64, y: 56, w: 560 }}><TableSheet {...props} /></FloatWindow>}
         {peek && <FloatWindow id="peek" title="Ficha do grupo" icon={<Users size={15} />} onClose={() => setPeek(null)} initial={{ x: 90, y: 70, w: 600 }}><PeekSheet id={peek} edition={campaign.edition} campaignId={campaign.id} /></FloatWindow>}
         {party && <FloatWindow id="party" title="Vida e condições" icon={<Heart size={15} />} onClose={() => setParty(false)} initial={{ x: 120, y: 90, w: 520, h: 420 }}><TableTab {...props} /></FloatWindow>}
       </div>
@@ -194,4 +208,22 @@ function PeekSheet({ id, edition, campaignId }: { id: string; edition: Edition; 
   const c = chars[id];
   if (!c) return <div className="empty">Abrindo a ficha…</div>;
   return <Sheet edition={edition} id={id} character={c} readOnly campaignId={campaignId} />;
+}
+
+/** The player's sheet over the table: the combat summary first, the whole sheet one click away. */
+export function TableSheet(props: CampaignProps) {
+  const { campaign, members, uid } = props;
+  const [full, setFull] = useState(() => { try { return localStorage.getItem('table-sheet-full') === '1'; } catch { return false; } });
+  const pick = (v: boolean) => { setFull(v); try { localStorage.setItem('table-sheet-full', v ? '1' : '0'); } catch { /* private mode */ } };
+  const me = members.find((m) => m.user_id === uid);
+  if (!me?.character_id) return <MySheetTab {...props} />;
+  return (
+    <div className="col g8">
+      <div className="seg qs-switch" role="tablist" aria-label="Como ver a ficha">
+        <button role="tab" aria-selected={!full} className={!full ? 'on' : ''} onClick={() => pick(false)}>Resumo de combate</button>
+        <button role="tab" aria-selected={full} className={full ? 'on' : ''} onClick={() => pick(true)}>Ficha completa</button>
+      </div>
+      {full ? <MySheetTab {...props} /> : <QuickSheet id={me.character_id} campaignId={campaign.id} edition={campaign.edition} />}
+    </div>
+  );
 }
