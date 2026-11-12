@@ -546,3 +546,8 @@ html.has-side .desk-main .sheet-grid, html.has-side .desk-main .sheet-grid-3 { g
   html.has-side .sheet-desk { grid-template-columns: 300px minmax(0, 1fr); }
   html.has-side .desk-main .tabs { overflow-x: auto; scrollbar-width: none; }
 }
+.turn-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* painel aberto: os botões do topo descem para uma linha própria e as etiquetas ficam lado a lado */
+html.has-side .sheet-hero { grid-template-columns: auto 1fr; }
+html.has-side .sheet-hero .hero-actions { grid-column: 1 / -1; justify-content: flex-start !important; }
+html.has-side .turn-cols { grid-template-columns: 1fr; }

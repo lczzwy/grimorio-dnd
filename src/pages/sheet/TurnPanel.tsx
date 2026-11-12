@@ -50,7 +50,7 @@ export function TurnPanel({ c, srd, upd }: SheetProps) {
         {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </div>
       {open && (
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+        <div className="grid turn-cols">
           {COLS.map(({ slot, title, hint, icon: Icon }) => {
             const list = opts[slot].filter((o) => showBasic || o.kind !== 'basic');
             return (
