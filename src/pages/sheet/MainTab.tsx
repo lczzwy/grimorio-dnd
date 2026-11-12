@@ -1,7 +1,7 @@
 import type { Ability, ProfLevel } from '../../data/types';
 import { ABILITIES } from '../../data/types';
 import { useDice } from '../../store';
-import { ABILITY_PT, SKILL_PT, computeScores, hasJack, mods, passiveInsight, passiveInvestigation, passivePerception, saveMod, skillMod } from '../../engine/rules';
+import { ABILITY_PT, SKILL_PT, SKILL_DESC_PT, computeScores, hasJack, mods, passiveInsight, passiveInvestigation, passivePerception, saveMod, skillMod } from '../../engine/rules';
 import { fmtMod } from '../../engine/dice';
 import { NumInput, clickable } from '../../ui/ui';
 import { AdvToggle } from '../../ui/Dice';
@@ -93,7 +93,7 @@ export function MainTab({ c, srd, upd }: SheetProps) {
               const v = skillMod(c, srd, s.key);
               const label = SKILL_PT[s.key] || s.name;
               return (
-                <div key={s.key} className="li" style={{ breakInside: 'avoid' }} {...clickable(() => roll(`${who}: ${label}`, `1d20${fmtMod(v)}`))} title={s.desc}>
+                <div key={s.key} className="li" style={{ breakInside: 'avoid' }} {...clickable(() => roll(`${who}: ${label}`, `1d20${fmtMod(v)}`))} title={SKILL_DESC_PT[s.key] || s.desc}>
                   <button
                     className={'pip' + (lvl === 2 ? ' p2' : lvl === 1 ? ' p1' : lvl === 0.5 ? ' p05' : '')}
                     title="Clique: proficiente → especialista → nenhum"

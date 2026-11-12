@@ -40,7 +40,7 @@ export function Home() {
       <BackupPanel />
       <p className="center small faint" style={{ marginTop: 24, maxWidth: 680, marginInline: 'auto' }}>
         Conteúdo de regras do System Reference Document 5.1 e 5.2 da Wizards of the Coast LLC, sob licença CC-BY-4.0. Dados via 5e-bits/5e-database. Este site não é afiliado à Wizards of the Coast.
-        Suas fichas ficam salvas neste navegador; use Exportar para fazer backup.
+        Com uma conta, suas fichas ficam salvas online; sem conta, só neste navegador (use o backup).
       </p>
       <p className="center credit" style={{ maxWidth: 680, marginInline: 'auto' }}>
         Gravuras em domínio público (Wikimedia Commons): gravura de Flammarion (1888); Gustave Doré, A Balada do Velho Marinheiro; Andreas Cellarius, Harmonia Macrocosmica (1660).

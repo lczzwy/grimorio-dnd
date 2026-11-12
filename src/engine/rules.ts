@@ -501,6 +501,28 @@ export const SKILL_PT: Record<string, string> = {
   survival: 'Sobrevivência',
 };
 
+/** What each skill is for, in short words of our own (shown when hovering a skill on the sheet). */
+export const SKILL_DESC_PT: Record<string, string> = {
+  acrobatics: 'Manter o equilíbrio, fazer piruetas, cair de pé, escapar de um agarrão com agilidade.',
+  'animal-handling': 'Acalmar, conduzir ou entender um animal; montar sem perder o controle.',
+  arcana: 'Lembrar o que se sabe sobre magia, magias, itens mágicos, símbolos e planos.',
+  athletics: 'Escalar, nadar, saltar longe, empurrar ou agarrar à força.',
+  deception: 'Mentir de forma convincente, disfarçar intenções, blefar.',
+  history: 'Lembrar fatos sobre reinos, guerras, lendas e povos antigos.',
+  insight: 'Perceber se alguém mente ou o que realmente quer.',
+  intimidation: 'Assustar ou pressionar alguém com ameaças ou presença.',
+  investigation: 'Procurar pistas, deduzir, achar um mecanismo ou uma falha.',
+  medicine: 'Estabilizar quem está morrendo, diagnosticar uma doença ou um ferimento.',
+  nature: 'Lembrar o que se sabe sobre terrenos, plantas, animais e o clima.',
+  perception: 'Notar algo: um ruído, alguém escondido, um detalhe fora do lugar.',
+  performance: 'Entreter uma plateia: música, dança, atuação, contar histórias.',
+  persuasion: 'Convencer alguém com bons argumentos, simpatia ou diplomacia.',
+  religion: 'Lembrar o que se sabe sobre deuses, ritos, cultos e símbolos sagrados.',
+  'sleight-of-hand': 'Bater uma carteira, esconder um objeto, truques com as mãos.',
+  stealth: 'Andar sem ser visto ou ouvido, se esconder.',
+  survival: 'Seguir rastros, caçar, se orientar, prever o tempo.',
+};
+
 export const CONDITION_PT: Record<string, string> = {
   blinded: 'Cego',
   charmed: 'Enfeitiçado',

@@ -107,11 +107,12 @@ export function Roster({ edition }: { edition: Edition }) {
             </div>
           );
         })}
-        <button className="char-card new-card" onClick={() => go(edition + '/novo')}>
+        {/* the big "create" card only when there is nothing yet; otherwise the button at the top does it */}
+        {chars.length === 0 && <button className="char-card new-card" onClick={() => go(edition + '/novo')}>
           <Plus size={30} />
           <div style={{ fontWeight: 600 }}>Criar personagem</div>
           <div className="small faint">Passo a passo, com tudo calculado</div>
-        </button>
+        </button>}
       </div>
     </main>
   );

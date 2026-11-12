@@ -121,7 +121,7 @@ h1 { text-shadow: 0 2px 0 #000; }
 .hero.grim {
   position: relative;
   text-align: center;
-  padding: 100px 16px 80px;
+  padding: 56px 16px 44px;
   margin: -22px -18px 10px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--bg) 5%, transparent), color-mix(in srgb, var(--bg) 35%, transparent) 60%, var(--bg)),
@@ -270,3 +270,16 @@ h1 { text-shadow: 0 2px 0 #000; }
 
 /* ícones das classes no criador: linha de latão, como gravura */
 .choice .ic { color: var(--gold); }
+
+/* ---- Ficha: topo compacto (o conteúdo das abas aparece sem rolar) ---- */
+@media (min-width: 761px) {
+  .sheet-hero { padding: 10px 16px; gap: 14px; margin-bottom: 10px; }
+  .sheet-hero .avatar.lg, .sheet-hero label > .avatar { width: 64px; height: 64px; font-size: 28px; border-radius: 16px; }
+  .sheet-hero .name-input { font-size: clamp(20px, 2.4vw, 28px); }
+  .sheet-vitals { position: sticky; top: 55px; z-index: 20; gap: 8px; margin-bottom: 12px; padding: 6px 0; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(4px); }
+  .sheet-vitals .vital { padding: 5px 6px 6px; }
+  .sheet-vitals .vital .v { font-size: 21px; line-height: 1.05; }
+  .sheet-vitals .vital .l { font-size: 10.5px; }
+  .sheet-vitals .vital.shield { padding-bottom: 10px; }
+  .desk-side { top: 128px; max-height: calc(100vh - 140px); }
+}

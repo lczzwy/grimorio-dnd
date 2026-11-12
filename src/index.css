@@ -523,3 +523,6 @@ label.field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; 
 
 .cloud-tag { font-family: var(--font-body, sans-serif); font-size: 10.5px; vertical-align: 3px; margin-left: 6px; }
 .tag.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+
+/* textos longos em listas: duas linhas; o item aberto mostra tudo */
+.clamp2 { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

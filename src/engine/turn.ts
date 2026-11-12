@@ -56,12 +56,13 @@ export function turnOptions(c: Character, srd: SrdData): Record<TurnSlot, TurnOp
   const seen = new Set<string>();
   for (const g of allFeatures(c, srd)) {
     for (const f of g.items) {
-      for (const [slot, re] of FEATURE_PATTERNS) {
-        const key = slot + '|' + f.name;
-        if (!f.desc || !re.test(f.desc) || seen.has(key)) continue;
-        seen.add(key);
-        out[slot].push({ kind: 'feature', name: f.name, source: g.source, desc: f.desc });
-      }
+      // one place per feature: the first that fits (bonus action, then reaction, then action), so a
+      // feature whose text mentions several kinds of action doesn't show up two or three times
+      if (!f.desc || seen.has(f.name)) continue;
+      const hit = FEATURE_PATTERNS.find(([, re]) => re.test(f.desc!));
+      if (!hit) continue;
+      seen.add(f.name);
+      out[hit[0]].push({ kind: 'feature', name: f.name, source: g.source, desc: f.desc });
     }
   }
 

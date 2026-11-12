@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { lbToKg } from '../../engine/units';
 import { Plus, Search, Trash2, Sword, Shield, Gem, Package } from 'lucide-react';
 import type { EquipmentDef, InventoryItem, MagicItemDef, SrdData } from '../../data/types';
 import { uid } from '../../engine/character';
@@ -85,7 +86,7 @@ export function ItemDetail({ x }: { x: EquipmentDef | MagicItemDef }) {
         {m.rarity && <span className="tag gold">{m.rarity}</span>}
         {m.attune && <span className="tag accent">Sintonização</span>}
         {e.cost && <span className="tag">{e.cost}</span>}
-        {e.weight != null && <span className="tag">{e.weight} lb</span>}
+        {e.weight != null && <span className="tag" title={`${e.weight} lb`}>{lbToKg(e.weight)} kg</span>}
       </div>
       {e.weapon && <div className="small"><Sword size={12} className="ic-inline" /> <b>{e.weapon.dmg} {e.weapon.type}</b> · {e.weapon.cat} {e.weapon.range}{e.weapon.props?.length ? ' · ' + e.weapon.props.join(', ') : ''}{e.weapon.twoHanded ? ` · 2 mãos ${e.weapon.twoHanded}` : ''}{e.weapon.normal && e.weapon.range === 'Ranged' ? ` · ${e.weapon.normal}/${e.weapon.long} ft` : ''}{e.weapon.mastery ? ` · Maestria: ${e.weapon.mastery}` : ''}</div>}
       {e.armor && <div className="small"><Shield size={12} className="ic-inline" /> <b>CA {e.armor.cat === 'Shield' ? '+' : ''}{e.armor.base}{e.armor.dex ? (e.armor.max ? ` + DES (máx ${e.armor.max})` : ' + DES') : ''}</b> · {e.armor.cat}{e.armor.str ? ` · FOR ${e.armor.str}` : ''}{e.armor.stealth ? ' · desvantagem em Furtividade' : ''}</div>}
@@ -122,7 +123,7 @@ export function InventoryTab({ c, srd, upd }: SheetProps) {
             ) : <span style={{ width: 18, display: 'grid', placeItems: 'center' }}>{it.magic ? <Gem size={14} color="var(--gold)" /> : <Package size={14} color="var(--faint)" />}</span>}
             <div className="min0">
               <div className="sn">{it.name}{it.magicBonus ? ` (+${it.magicBonus})` : ''} {it.attuned && <span className="tag gold" style={{ padding: '0 6px' }}>sintonizado</span>}</div>
-              <div className="meta">{[it.weapon && `${it.weapon.dmg} ${it.weapon.type ?? ''}`, it.armor && `CA ${it.armor.base}`, it.weight && `${it.weight} lb`, it.notes].filter(Boolean).join(' · ')}</div>
+              <div className="meta clamp2" title={it.notes && it.notes.length > 140 ? 'Clique para ver tudo' : undefined}>{[it.weapon && `${it.weapon.dmg} ${it.weapon.type ?? ''}`, it.armor && `CA ${it.armor.base}`, it.weight && `${lbToKg(it.weight)} kg`, it.notes].filter(Boolean).join(' · ')}</div>
             </div>
             <div className="row" style={{ gap: 3 }} onClick={(e) => e.stopPropagation()}>
               <button className="btn icon sm ghost" onClick={() => setItem(it.uid, (x) => (x.qty = Math.max(0, x.qty - 1)))}>−</button>
@@ -147,7 +148,7 @@ export function InventoryTab({ c, srd, upd }: SheetProps) {
         </div>
         <div className="panel">
           <div className="panel-title"><h3>Carga</h3></div>
-          <div className="row small"><span className="grow">Peso carregado</span><b>{w} / {cap} lb</b></div>
+          <div className="row small"><span className="grow">Peso carregado</span><b title={`${w} / ${cap} lb`}>{lbToKg(w)} / {lbToKg(cap)} kg</b></div>
           <div className={'hpbar' + (w > cap ? ' low' : w > cap * 0.66 ? ' mid' : '')} style={{ marginTop: 8 }}><span style={{ width: Math.min(100, (w / cap) * 100) + '%' }} /></div>
           <div className="row small" style={{ marginTop: 10 }}><span className="grow">Sintonização</span><b style={{ color: attuned > 3 ? 'var(--bad)' : undefined }}>{attuned}/3</b></div>
         </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { feetToMeters } from '../engine/units';
 import { Gamepad2, Pencil, ChevronLeft, Download, Trash2, ArrowUpCircle, LayoutGrid, Swords, Sparkles, Backpack, Scroll, Feather, Moon, Coffee, Star } from 'lucide-react';
 import type { Character, Edition, SrdData } from '../data/types';
 import { useApp, useDice } from '../store';
@@ -110,21 +111,21 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
         <div className="hero-actions row wrap" style={{ justifyContent: 'flex-end' }}>
           <button className="btn sm" onClick={() => setRest('short')}><Coffee size={15} /> <span className="lbl">Descanso curto</span></button>
           <button className="btn sm" onClick={() => setRest('long')}><Moon size={15} /> <span className="lbl">Descanso longo</span></button>
+          <button className="btn sm primary edit-only" onClick={() => setLevelUp(true)}><ArrowUpCircle size={15} /> <span className="lbl">Subir nível</span></button>
+          <button className="btn icon sm edit-only" title="Exportar ficha" onClick={() => download(`${c.name || 'personagem'}.json`, c)}><Download size={15} /></button>
+          <button className="btn icon sm danger edit-only" title="Excluir" onClick={async () => { if (await confirmAndDelete(c)) go(edition); }}><Trash2 size={15} /></button>
           {!readOnly && (
             <button className={'btn sm' + (gameMode ? ' active' : '')} onClick={toggleGame} title={gameMode ? 'Mostrar tudo para montar e editar a ficha' : 'Esconder o que não se usa durante a sessão'}>
               {gameMode ? <><Pencil size={15} /> <span className="lbl">Editar ficha</span></> : <><Gamepad2 size={15} /> <span className="lbl">Modo jogo</span></>}
             </button>
           )}
-          <button className="btn sm primary edit-only" onClick={() => setLevelUp(true)}><ArrowUpCircle size={15} /> <span className="lbl">Subir nível</span></button>
-          <button className="btn icon sm edit-only" title="Exportar ficha" onClick={() => download(`${c.name || 'personagem'}.json`, c)}><Download size={15} /></button>
-          <button className="btn icon sm danger edit-only" title="Excluir" onClick={async () => { if (await confirmAndDelete(c)) go(edition); }}><Trash2 size={15} /></button>
         </div>
       </div>
 
-      <div className="vitals">
+      <div className="vitals sheet-vitals">
         <div className="vital shield v-ac" title={ac.breakdown}><div className="v">{ac.value}</div><div className="l" data-s="CA">Classe de Armadura</div></div>
         <div className="vital click v-init" {...clickable(() => roll(`${c.name}: Iniciativa`, `1d20${fmtMod(init)}`))}><div className="v">{fmtMod(init)}</div><div className="l" data-s="Inic.">Iniciativa</div></div>
-        <div className="vital v-speed"><div className="v">{speed(c, srd)}<span style={{ fontSize: 14 }}> ft</span></div><div className="l" data-s="Desloc.">Deslocamento</div></div>
+        <div className="vital v-speed"><div className="v" title={`${speed(c, srd)} pés`}>{feetToMeters(speed(c, srd))}<span style={{ fontSize: 14 }}> m</span></div><div className="l" data-s="Desloc.">Deslocamento</div></div>
         <div className="vital click v-hp" {...clickable(() => pickTab('combat'))}>
           <div className="v" style={{ color: c.hp.current <= max / 3 ? 'var(--bad)' : undefined }}>{c.hp.current}<span style={{ fontSize: 14, color: 'var(--muted)' }}>/{max}</span>{c.hp.temp ? <span style={{ fontSize: 14, color: 'var(--accent-2)' }}> +{c.hp.temp}</span> : null}</div>
           <div className="l">Pontos de Vida</div>
