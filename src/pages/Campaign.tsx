@@ -1,6 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { ScrollText, ChevronLeft, LayoutGrid, Swords, Dices, Hammer, Settings, Crown, MessageSquare, BookOpen, Users } from 'lucide-react';
+import { ScrollText, ChevronLeft, LayoutGrid, Swords, Dices, Hammer, Settings, Crown, MessageSquare, BookOpen, Users, Heart } from 'lucide-react';
 import { FloatWindow } from '../ui/FloatWindow';
+import { PartyList } from './campaign/PartyList';
+import { useParty } from './campaign/TableTab';
+import { Sheet } from './Sheet';
+import type { Edition } from '../data/types';
 import { useAuth } from '../cloud/auth';
 import { useCampaign, type Campaign as CampaignT, type Member } from '../cloud/campaigns';
 import { go } from '../ui/ui';
@@ -147,6 +151,8 @@ export function TableMode(props: CampaignProps) {
   const { campaign, isGm } = props;
   const [sheet, setSheet] = useState(false);
   const [party, setParty] = useState(false);
+  // another player's sheet, opened from the party list (read-only)
+  const [peek, setPeek] = useState<string | null>(null);
   useEffect(() => {
     document.documentElement.dataset.tablemode = '';
     return () => { delete document.documentElement.dataset.tablemode; };
@@ -160,7 +166,7 @@ export function TableMode(props: CampaignProps) {
         {isGm && <Crown size={13} className="tm-crown" aria-label="Você é o mestre" />}
         <span className="tm-sep" />
         {!isGm && <button className={'btn sm' + (sheet ? ' active' : '')} onClick={() => setSheet((v) => !v)}><ScrollText size={14} /> Ficha</button>}
-        <button className={'btn sm' + (party ? ' active' : '')} onClick={() => setParty((v) => !v)}><Users size={14} /> Grupo</button>
+        {isGm && <button className={'btn sm' + (party ? ' active' : '')} onClick={() => setParty((v) => !v)} title="Aplicar dano, cura e condições nos personagens"><Heart size={14} /> Vida e condições</button>}
         <span className="spacer" />
         {tabs.map((t) => (
           <button key={t.k} className="btn ghost sm icon" title={t.label} aria-label={t.label} onClick={() => go(`campanha/${campaign.id}/${t.k}`)}><t.icon size={16} /></button>
@@ -171,9 +177,21 @@ export function TableMode(props: CampaignProps) {
         <div className="tm-init"><InitiativeBar {...props} /></div>
         <div className="tm-first"><FirstSteps {...props} /></div>
         {sheet && <FloatWindow id="sheet" title="Minha ficha" icon={<ScrollText size={15} />} onClose={() => setSheet(false)} initial={{ x: 64, y: 56, w: 600 }}><MySheetTab {...props} /></FloatWindow>}
-        {party && <FloatWindow id="party" title="Grupo" icon={<Users size={15} />} onClose={() => setParty(false)} initial={{ x: 120, y: 90, w: 520, h: 420 }}><TableTab {...props} /></FloatWindow>}
+        {peek && <FloatWindow id="peek" title="Ficha do grupo" icon={<Users size={15} />} onClose={() => setPeek(null)} initial={{ x: 90, y: 70, w: 600 }}><PeekSheet id={peek} edition={campaign.edition} campaignId={campaign.id} /></FloatWindow>}
+        {party && <FloatWindow id="party" title="Vida e condições" icon={<Heart size={15} />} onClose={() => setParty(false)} initial={{ x: 120, y: 90, w: 520, h: 420 }}><TableTab {...props} /></FloatWindow>}
       </div>
-      <aside className="tm-chat"><ChatPanel {...props} /></aside>
+      <aside className="tm-chat">
+        <PartyList {...props} onOpen={(id, mine) => (mine ? setSheet(true) : setPeek(id))} />
+        <ChatPanel {...props} />
+      </aside>
     </div>
   );
+}
+
+/** Another player's sheet, live and read-only, opened from the party list. */
+function PeekSheet({ id, edition, campaignId }: { id: string; edition: Edition; campaignId: string }) {
+  const chars = useParty([id]);
+  const c = chars[id];
+  if (!c) return <div className="empty">Abrindo a ficha…</div>;
+  return <Sheet edition={edition} id={id} character={c} readOnly campaignId={campaignId} />;
 }
