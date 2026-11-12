@@ -139,6 +139,12 @@ export function PowerListsEditor({ value, onChange, counters }: { value: PowerLi
             </select>
           </label>
           {l.resource && <input className="input" style={{ width: 80 }} placeholder="Unidade" title="Nome curto do custo, ex.: psi" value={l.unit || ''} onChange={(e) => put(i, { unit: e.target.value || undefined })} />}
+          <label className="row small g4" title="Contador com quantos poderes desta lista o personagem conhece em cada nível">Conhece
+            <select className="select" style={{ width: 'auto' }} value={l.known || ''} onChange={(e) => put(i, { known: e.target.value || undefined })}>
+              <option value="">—</option>
+              {counters.filter((c) => !c.reset).map((c) => <option key={c.id || c.name} value={c.id || slugId(c.name)}>{c.name}</option>)}
+            </select>
+          </label>
           <button className="btn icon sm ghost danger" onClick={() => onChange(value.filter((_, j) => j !== i))} aria-label="Excluir lista"><Trash2 size={13} /></button>
           <input className="input" style={{ width: '100%' }} placeholder="Explicação curta" value={l.desc || ''} onChange={(e) => put(i, { desc: e.target.value || undefined })} />
         </div>

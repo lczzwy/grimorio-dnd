@@ -15,6 +15,7 @@ export function StoryTab({ c, upd }: SheetProps) {
   const set = (k: TextKey) => (e: React.ChangeEvent<HTMLTextAreaElement>) => upd((d: Character) => (d[k] = e.target.value));
   return (
     <div className="col g16">
+      <div className="panel"><div className="panel-title"><h3>Anotações da campanha</h3></div><textarea className="textarea" style={{ minHeight: 220 }} placeholder="NPCs, pistas, missões…" value={c.notes} onChange={set('notes')} /></div>
       <div className="panel row wrap">
         <label className="field grow">Jogador<input className="input" value={c.player || ''} onChange={(e) => upd((d) => (d.player = e.target.value))} /></label>
         <label className="field grow">Tendência
@@ -30,7 +31,6 @@ export function StoryTab({ c, upd }: SheetProps) {
       </div>
       <div className="panel"><div className="panel-title"><h3>Aparência</h3></div><textarea className="textarea" value={c.appearance} onChange={set('appearance')} /></div>
       <div className="panel"><div className="panel-title"><h3>História</h3></div><textarea className="textarea" style={{ minHeight: 220 }} value={c.backstory} onChange={set('backstory')} /></div>
-      <div className="panel"><div className="panel-title"><h3>Anotações da campanha</h3></div><textarea className="textarea" style={{ minHeight: 220 }} placeholder="NPCs, pistas, missões…" value={c.notes} onChange={set('notes')} /></div>
     </div>
   );
 }

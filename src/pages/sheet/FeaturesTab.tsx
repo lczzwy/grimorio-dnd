@@ -4,17 +4,27 @@ import type { Ability, Character, FeatDef } from '../../data/types';
 import { ABILITIES } from '../../data/types';
 import { useDice } from '../../store';
 import { uid } from '../../engine/character';
+import { featuresShownAsPowers } from '../../engine/classData';
 import { ABILITY_PT, XP_TABLE, allFeatures, className, computeScores, findClass, maxHp, mods, speciesName, syncResources, totalLevel } from '../../engine/rules';
 import { fmtMod } from '../../engine/dice';
 import { Markdown, Modal, NumInput, clickable } from '../../ui/ui';
 import type { SheetProps } from '../Sheet';
 
+const TYPE_PT: Record<string, string> = { action: 'Ação', bonus: 'Ação bônus', reaction: 'Reação', resource: 'Recurso', passive: 'Passiva' };
 const KIND_COLOR: Record<string, string> = { class: 'accent', subclass: 'accent', species: 'good', background: 'gold', feat: 'gold', custom: '' };
 
-export function FeaturesTab({ c, srd, upd, onLevelUp }: SheetProps & { onLevelUp: () => void }) {
+const CLASS_KINDS = new Set(['class', 'subclass', 'feat', 'custom']);
+
+/** `scope`: the Classe tab (levels, feats, class features) or the Raça e origem tab (species, background). */
+export function FeaturesTab({ c, srd, upd, onLevelUp, scope = 'class' }: SheetProps & { onLevelUp: () => void; scope?: 'class' | 'origin' }) {
   const [featPick, setFeatPick] = useState(false);
   const [newFeat, setNewFeat] = useState<{ name: string; source: string; desc: string } | null>(null);
-  const groups = allFeatures(c, srd);
+  // a hand-written feature that is now a power (its own tab) isn't listed again here
+  const asPowers = featuresShownAsPowers(c, srd);
+  const groups = allFeatures(c, srd)
+    .filter((g) => CLASS_KINDS.has(g.kind) === (scope === 'class'))
+    .map((g) => (g.kind === 'custom' ? { ...g, items: g.items.filter((f) => !f.id || !asPowers.has(f.id)) } : g))
+    .filter((g) => g.items.length);
   const species = srd.species.find((s) => s.id === c.speciesId);
   const lvl = totalLevel(c);
   const nextXp = XP_TABLE[Math.min(19, lvl)];
@@ -22,7 +32,7 @@ export function FeaturesTab({ c, srd, upd, onLevelUp }: SheetProps & { onLevelUp
   return (
     <div className="sheet-grid" style={{ gridTemplateColumns: '340px 1fr' }}>
       <div className="col g16">
-        <div className="panel edit-only">
+        {scope === 'class' && <div className="panel edit-only">
           <div className="panel-title"><h3>Classes e nível</h3><span className="spacer" /><button className="btn sm primary" onClick={onLevelUp}><ArrowUpCircle size={14} /> Subir</button></div>
           {c.classes.map((e, i) => {
             const subs = srd.subclasses.filter((s) => s.class === e.classId);
@@ -45,9 +55,9 @@ export function FeaturesTab({ c, srd, upd, onLevelUp }: SheetProps & { onLevelUp
           })}
           <div className="row small"><span className="grow muted">Experiência</span><NumInput value={c.xp} min={0} style={{ width: 100 }} onChange={(n) => upd((d) => (d.xp = n))} /></div>
           {lvl < 20 && <div className="small faint" style={{ marginTop: 6 }}>Próximo nível: {nextXp.toLocaleString()} XP {c.xp >= nextXp && <span className="tag good">pronto para subir!</span>}</div>}
-        </div>
+        </div>}
 
-        <div className="panel col edit-only">
+        {scope === 'origin' && <div className="panel col edit-only">
           <div className="panel-title mb0"><h3>Origem</h3></div>
           <label className="field">{c.edition === '2014' ? 'Raça' : 'Espécie'}
             <select className="select" value={c.speciesId || ''} onChange={(e) => upd((d) => { d.speciesId = e.target.value || undefined; d.subraceId = srd.species.find((s) => s.id === e.target.value)?.subraces?.[0]?.id; d.speciesChoice = []; })}>
@@ -80,28 +90,15 @@ export function FeaturesTab({ c, srd, upd, onLevelUp }: SheetProps & { onLevelUp
               ))}
             </div>
           )}
-        </div>
-
-        <div className="panel">
-          <div className="panel-title"><h3>Talentos</h3><span className="spacer" /><button className="btn sm" onClick={() => setFeatPick(true)}><Plus size={14} /> Talento</button></div>
-          {c.feats.length === 0 && <div className="small faint">Nenhum talento.</div>}
-          {c.feats.map((id) => {
-            const f = srd.feats.find((x) => x.id === id);
-            return (
-              <div key={id} className="row mb6">
-                <span className="grow">{f?.name || id}</span>
-                {f?.type && <span className="tag">{f.type}</span>}
-                <button className="btn icon sm ghost danger" onClick={() => upd((d) => (d.feats = d.feats.filter((x) => x !== id)))}><Trash2 size={13} /></button>
-              </div>
-            );
-          })}
-        </div>
+        </div>}
       </div>
 
       <div className="panel">
-        <div className="panel-title"><h3>Características e traços</h3><span className="spacer" />
-          <button className="btn sm" onClick={() => setNewFeat({ name: '', source: '', desc: '' })}><Plus size={14} /> Característica própria</button>
+        <div className="panel-title"><h3>{scope === 'class' ? 'Características de classe e talentos' : 'Traços de raça e antecedente'}</h3><span className="spacer" />
+          {scope === 'class' && <button className="btn sm" onClick={() => setFeatPick(true)}><Plus size={14} /> Talento</button>}
+          {scope === 'class' && <button className="btn sm" onClick={() => setNewFeat({ name: '', source: '', desc: '' })}><Plus size={14} /> Característica própria</button>}
         </div>
+        {!groups.length && <div className="small faint">{scope === 'class' ? 'Nada ainda.' : 'Escolha a raça e o antecedente (em Editar ficha) para ver os traços.'}</div>}
         {groups.map((g) => (
           <div key={g.source + g.kind} style={{ marginBottom: 14 }}>
             <div className="row mb6"><span className={'tag ' + KIND_COLOR[g.kind]}>{g.source}</span></div>
@@ -111,7 +108,9 @@ export function FeaturesTab({ c, srd, upd, onLevelUp }: SheetProps & { onLevelUp
                   <ChevronRight className="chev" size={16} />
                   {f.level != null && <span className="tag" style={{ minWidth: 26, justifyContent: 'center' }}>{f.level}</span>}
                   <span className="grow">{f.name}</span>
+                  {f.type && f.type !== 'passive' && <span className="tag" title="Quando se usa">{TYPE_PT[f.type]}</span>}
                   {c.psychicFocus === f.name && <span className="tag gold">foco</span>}
+                  {g.kind === 'feat' && <button className="btn icon sm ghost danger edit-only" aria-label={'Tirar o talento ' + f.name} onClick={(e) => { e.preventDefault(); const id = srd.feats.find((x) => x.name === f.name)?.id; if (id) upd((d) => (d.feats = d.feats.filter((x) => x !== id))); }}><Trash2 size={13} /></button>}
                   {g.kind === 'custom' && <button className="btn icon sm ghost danger" onClick={(e) => { e.preventDefault(); upd((d) => (d.customFeatures = d.customFeatures.filter((x) => x.uid !== f.id))); }}><Trash2 size={13} /></button>}
                 </summary>
                 <div className="body"><Markdown text={f.desc} /></div>

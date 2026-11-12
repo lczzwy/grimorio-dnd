@@ -287,3 +287,67 @@ h1 { text-shadow: 0 2px 0 #000; }
 /* ---- conexão com a mesa ---- */
 .conn-banner.ok { background: color-mix(in srgb, #3fbf5f 16%, var(--bg-2)); border-bottom-color: color-mix(in srgb, #3fbf5f 45%, transparent); }
 .conn-banner.ok svg { color: #3fbf5f; }
+
+/* ---- Barra de combate: fica no topo da ficha enquanto se rola ---- */
+.combat-bar { display: flex; align-items: center; gap: 6px; overflow-x: auto; scrollbar-width: thin; padding: 6px 2px; margin: -4px 0 10px; }
+.combat-bar > * { flex: none; }
+.cb-hp { display: none; align-items: center; gap: 4px; padding: 4px 9px; border: 1px solid var(--gold); border-radius: 999px; background: var(--bg-2); color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; }
+.cb-hp b { color: var(--text); font-size: 14px; font-variant-numeric: lining-nums tabular-nums; }
+.cb-hp i { font-style: normal; color: var(--accent-2); }
+.cb-hp.low { border-color: var(--bad); }
+.cb-hp.low b { color: var(--bad); }
+.cb-pool { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px 3px 10px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--panel); font-size: 12.5px; color: var(--muted); }
+.cb-pool b { color: var(--text); font-variant-numeric: lining-nums tabular-nums; }
+.cb-pool small { font-size: 11px; }
+.cb-pool-name { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cb-step { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid var(--line); border-radius: 50%; background: var(--bg-2); color: var(--text); cursor: pointer; padding: 0; }
+.cb-step:disabled { opacity: 0.35; cursor: default; }
+.cb-step:not(:disabled):hover, .cb-step:focus-visible { border-color: var(--gold); }
+.cb-slot { padding: 0 3px; }
+.cb-slot.none { opacity: 0.45; }
+.cb-sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 2px; }
+.cb-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--panel-2); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.cb-chip b { color: var(--gold); font-variant-numeric: lining-nums; }
+.cb-chip.atk { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.cb-chip.pow, .cb-chip.spl { border-color: color-mix(in srgb, var(--accent-2) 50%, var(--line)); }
+.cb-chip.focus { box-shadow: 0 0 0 1px var(--gold) inset; }
+.cb-chip:hover, .cb-chip:focus-visible { border-color: var(--gold); }
+@media (min-width: 761px) {
+  .sheet-top { position: sticky; top: 55px; z-index: 20; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(4px); margin-bottom: 6px; }
+  .sheet-top .sheet-vitals { position: static; margin-bottom: 4px; background: none; backdrop-filter: none; }
+  .sheet-top .combat-bar { margin: 0; padding-bottom: 8px; }
+  .desk-side { top: 172px; max-height: calc(100vh - 184px); }
+}
+@media (max-width: 760px) {
+  .sheet-top { display: contents; }
+  .combat-bar { position: sticky; top: 51px; z-index: 20; margin: 0 -12px 10px; padding: 6px 12px; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+  .cb-hp { display: inline-flex; }
+  /* more tabs than fit: the bottom bar scrolls sideways */
+  .tabs.sheet-tabs { justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }
+  .tabs.sheet-tabs .tab { flex: none; min-width: 66px; }
+}
+
+/* ---- Poderes (disciplinas, talentos…) ---- */
+.tip { display: inline-flex; color: var(--muted); cursor: help; margin-left: 4px; }
+.power-pool { align-items: center; }
+.pool-num { font-family: 'Cinzel', serif; font-size: 20px; font-variant-numeric: lining-nums tabular-nums; min-width: 48px; text-align: center; }
+.pool-num small { font-size: 12px; color: var(--muted); }
+.pool-bar { height: 6px; min-width: 80px; border-radius: 3px; background: rgba(0, 0, 0, 0.4); overflow: hidden; }
+.pool-bar i { display: block; height: 100%; background: var(--accent-2); transition: width 0.3s; }
+.power-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.power-card { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); cursor: pointer; }
+.power-card:hover, .power-card:focus-visible { border-color: var(--accent-2); }
+.power-card.focused { border-color: var(--gold); }
+.power-meta .tag { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
+.power-opt { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-2); display: flex; flex-direction: column; gap: 4px; }
+.picker2 { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 14px; min-height: 320px; }
+.picker2-list { display: flex; flex-direction: column; gap: 3px; max-height: 52vh; overflow-y: auto; }
+.picker2-item { display: flex; align-items: center; gap: 6px; text-align: left; padding: 7px 9px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text); font: inherit; font-size: 13.5px; cursor: pointer; }
+.picker2-item:hover { background: var(--panel-2); }
+.picker2-item.on { border-color: var(--gold); background: var(--panel-2); }
+.picker2-view { max-height: 56vh; overflow-y: auto; padding-right: 4px; }
+.input-icon { padding-left: 4px; color: var(--muted); }
+@media (max-width: 760px) {
+  .picker2 { grid-template-columns: 1fr; }
+  .picker2-list { max-height: 30vh; }
+}

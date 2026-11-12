@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { feetToMeters } from '../engine/units';
-import { Gamepad2, Pencil, ChevronLeft, Download, Trash2, ArrowUpCircle, LayoutGrid, Swords, Sparkles, Backpack, Scroll, Feather, Moon, Coffee, Star } from 'lucide-react';
+import { Gamepad2, Pencil, ChevronLeft, Download, Trash2, ArrowUpCircle, LayoutGrid, Swords, Sparkles, Backpack, Scroll, Feather, Moon, Coffee, Star, Sparkle, Footprints } from 'lucide-react';
 import type { Character, Edition, SrdData } from '../data/types';
 import { useApp, useDice } from '../store';
 import { go, download, useFlash, clickable } from '../ui/ui';
-import { armorClass, classSummary, initiative, maxHp, pb, speed, speciesName, passivePerception, findBackground } from '../engine/rules';
+import { armorClass, classSummary, initiative, maxHp, pb, speed, speciesName, passivePerception, findBackground, spellcastingClasses } from '../engine/rules';
 import { fmtMod } from '../engine/dice';
 import { Avatar } from './Roster';
 import { confirmAndDelete } from '../cloud/sync';
@@ -17,6 +17,10 @@ import { SpellsTab } from './sheet/SpellsTab';
 import { InventoryTab } from './sheet/InventoryTab';
 import { FeaturesTab, LevelUpModal } from './sheet/FeaturesTab';
 import { useSheetMigration } from './sheet/useSheetMigration';
+import { CombatBar } from './sheet/CombatBar';
+import { PowersTab } from './sheet/PowersTab';
+import { powerLists } from '../engine/classData';
+import type { PowerListDef } from '../data/types';
 import { StoryTab } from './sheet/StoryTab';
 import { TableDice } from '../dice3d/TableDice';
 
@@ -35,14 +39,34 @@ function useWide() {
 
 export interface SheetProps { c: Character; srd: SrdData; upd: (fn: (d: Character) => void) => void }
 
-const TABS = [
-  { k: 'main', label: 'Principal', icon: LayoutGrid },
-  { k: 'combat', label: 'Combate', icon: Swords },
-  { k: 'spells', label: 'Magias', icon: Sparkles },
-  { k: 'inv', label: 'Inventário', icon: Backpack },
-  { k: 'feat', label: 'Habilidades', icon: Scroll },
-  { k: 'story', label: 'História', icon: Feather },
-] as const;
+/** Fixed tabs; the power lists of the character's classes come in between (see sheetTabs). */
+const BASE_TABS = {
+  main: { label: 'Principal', icon: LayoutGrid },
+  combat: { label: 'Combate', icon: Swords },
+  cantrips: { label: 'Truques', icon: Sparkle },
+  spells: { label: 'Magias', icon: Sparkles },
+  cls: { label: 'Classe', icon: Scroll },
+  origin: { label: 'Raça e origem', icon: Footprints },
+  inv: { label: 'Inventário', icon: Backpack },
+  notes: { label: 'Notas', icon: Feather },
+} as const;
+type BaseTab = keyof typeof BASE_TABS;
+// names saved by the older tabs
+const OLD_TAB: Record<string, string> = { feat: 'cls', story: 'notes' };
+
+/** The tabs this character has: no Truques/Magias for who casts nothing, one tab per power list. */
+function sheetTabs(c: Character, srd: SrdData) {
+  const casts = spellcastingClasses(c, srd).length > 0;
+  const has = (lvl: (n: number) => boolean) => c.spells.some((k) => { const sp = srd.spells.find((x) => x.id === k.id); return !!sp && lvl(sp.level); });
+  const out: { k: string; label: string; icon: typeof Swords; list?: PowerListDef }[] = [];
+  const add = (k: BaseTab) => out.push({ k, ...BASE_TABS[k] });
+  add('main'); add('combat');
+  if (casts || has((n) => n === 0)) add('cantrips');
+  if (casts || has((n) => n > 0)) add('spells');
+  for (const l of powerLists(c, srd)) out.push({ k: 'pw:' + l.id, label: l.name, icon: Sparkles, list: l });
+  add('cls'); add('origin'); add('inv'); add('notes');
+  return out;
+}
 
 /** `character` + `readOnly` show someone else's sheet (campaign table) without editing it. */
 export function Sheet({ edition, id, character, readOnly, campaignId }: { edition: Edition; id: string; character?: Character; readOnly?: boolean; campaignId?: string }) {
@@ -66,7 +90,7 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
       return !g;
     });
   };
-  const [tab, setTab] = useState<(typeof TABS)[number]['k']>(() => (sessionStorage.getItem('tab') as never) || 'main');
+  const [tab, setTab] = useState<string>(() => { const t = sessionStorage.getItem('tab') || 'main'; return OLD_TAB[t] || t; });
   const [rest, setRest] = useState<'short' | 'long' | null>(null);
   const [levelUp, setLevelUp] = useState(false);
   const wide = useWide();
@@ -84,9 +108,12 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
   const init = initiative(c, srd);
   const bg = findBackground(srd, c.backgroundId);
 
-  // on PC the attributes live in the side column, so "Principal" opens Combate
-  const shown: typeof tab = wide && tab === 'main' ? 'combat' : tab;
-  const pickTab = (k: typeof tab) => { setTab(k); try { sessionStorage.setItem('tab', k); } catch { /* private mode */ } };
+  const tabs = sheetTabs(c, srd);
+  // on PC the attributes live in the side column, so "Principal" opens Combate; a tab the
+  // character no longer has (a power list of a class they left) falls back to Combate too
+  const shown = (wide && tab === 'main') || !tabs.some((t) => t.k === tab) ? 'combat' : tab;
+  const shownList = tabs.find((t) => t.k === shown)?.list;
+  const pickTab = (k: string) => { setTab(k); try { sessionStorage.setItem('tab', k); } catch { /* private mode */ } };
 
   return (
     <main className={'page' + (gameMode ? ' game-mode' : '')} style={readOnly || campaignId ? { padding: 0 } : undefined}>
@@ -126,6 +153,7 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
         </div>
       </div>
 
+      <div className="sheet-top">
       <div className="vitals sheet-vitals">
         <div className="vital shield v-ac" title={ac.breakdown}><div className="v">{ac.value}</div><div className="l" data-s="CA">Classe de Armadura</div></div>
         <div className="vital click v-init" {...clickable(() => roll(`${c.name}: Iniciativa`, `1d20${fmtMod(init)}`))}><div className="v">{fmtMod(init)}</div><div className="l" data-s="Inic.">Iniciativa</div></div>
@@ -137,24 +165,29 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
         <div className="vital v-prof"><div className="v">{fmtMod(pb(c))}</div><div className="l" data-s="Profic.">Proficiência</div></div>
         <div className="vital v-pp"><div className="v">{passivePerception(c, srd)}</div><div className="l">Percepção Passiva</div></div>
       </div>
+      <CombatBar {...props} onHp={() => pickTab('combat')} />
+      </div>
 
       <div className={wide ? 'sheet-desk' : undefined}>
         {wide && <aside className="desk-side"><MainTab {...props} /></aside>}
         <div className="desk-main">
-          <nav className="tabs">
-            {TABS.filter((t) => !(gameMode && t.k === 'story') && !(wide && t.k === 'main')).map((t) => (
+          <nav className="tabs sheet-tabs">
+            {tabs.filter((t) => !(wide && t.k === 'main')).map((t) => (
               <button key={t.k} className={'tab' + (shown === t.k ? ' on' : '')} onClick={() => pickTab(t.k)}>
                 <t.icon size={17} /> {t.label}
               </button>
             ))}
           </nav>
 
-          {!wide && (shown === 'main' || (shown === 'story' && gameMode)) && <MainTab {...props} />}
+          {!wide && shown === 'main' && <MainTab {...props} />}
           {shown === 'combat' && <CombatTab {...props} />}
-          {shown === 'spells' && <SpellsTab {...props} />}
+          {shown === 'cantrips' && <SpellsTab {...props} only="cantrips" />}
+          {shown === 'spells' && <SpellsTab {...props} only="leveled" />}
+          {shownList && <PowersTab {...props} list={shownList} />}
+          {shown === 'cls' && <FeaturesTab {...props} scope="class" onLevelUp={() => setLevelUp(true)} />}
+          {shown === 'origin' && <FeaturesTab {...props} scope="origin" onLevelUp={() => setLevelUp(true)} />}
           {shown === 'inv' && <InventoryTab {...props} />}
-          {shown === 'feat' && <FeaturesTab {...props} onLevelUp={() => setLevelUp(true)} />}
-          {shown === 'story' && !gameMode && <StoryTab {...props} />}
+          {shown === 'notes' && <StoryTab {...props} />}
         </div>
       </div>
 

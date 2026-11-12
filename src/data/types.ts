@@ -58,6 +58,8 @@ export interface PowerListDef {
   resource?: string;
   /** short name of the cost unit, e.g. "psi" */
   unit?: string;
+  /** counter id with how many powers of this list the character should know at each level */
+  known?: string;
 }
 
 /** One way to use a power, with its cost in the list's unit. */

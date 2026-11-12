@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Detail } from '../../ui/Detail';
-import { Plus, Search, Trash2, Wand2, Check, Brain, Dices, BookOpen } from 'lucide-react';
+import { Plus, Search, Trash2, Wand2, Check, Brain, Dices, BookOpen, HelpCircle } from 'lucide-react';
 import type { Character, SpellDef, SrdData } from '../../data/types';
 import { useDice } from '../../store';
 import { ABILITY_PT, SCHOOL_PT, className, spellAttack, spellLimits, spellSaveDc, spellSlots, spellcastingClasses, totalLevel } from '../../engine/rules';
@@ -111,7 +111,8 @@ export function SpellPicker({ srd, c, onPick, onClose, title = 'Adicionar magia'
   );
 }
 
-export function SpellsTab({ c, srd, upd }: SheetProps) {
+/** `only`: the Truques tab (cantrips) or the Magias tab (leveled spells, with the slots). */
+export function SpellsTab({ c, srd, upd, only }: SheetProps & { only?: 'cantrips' | 'leveled' }) {
   const roll = useDice((s) => s.roll);
   const flash = useFlash((s) => s.show);
   const [picker, setPicker] = useState(false);
@@ -120,7 +121,7 @@ export function SpellsTab({ c, srd, upd }: SheetProps) {
   const casters = spellcastingClasses(c, srd);
   const { slots, pact } = spellSlots(c, srd);
   const who = c.name || 'Personagem';
-  const spells = c.spells.map((k) => ({ k, sp: srd.spells.find((s) => s.id === k.id) })).filter((x): x is { k: typeof x.k; sp: SpellDef } => !!x.sp);
+  const spells = c.spells.map((k) => ({ k, sp: srd.spells.find((s) => s.id === k.id) })).filter((x): x is { k: typeof x.k; sp: SpellDef } => !!x.sp && (only !== 'cantrips' || x.sp.level === 0) && (only !== 'leveled' || x.sp.level > 0));
   const byLevel = new Map<number, typeof spells>();
   spells.sort((a, b) => a.sp.name.localeCompare(b.sp.name)).forEach((x) => byLevel.set(x.sp.level, [...(byLevel.get(x.sp.level) || []), x]));
   const conc = c.concentration ? { name: srd.spells.find((s) => s.id === c.concentration)?.name ?? c.concentration } : undefined;
@@ -151,7 +152,7 @@ export function SpellsTab({ c, srd, upd }: SheetProps) {
         </div>
       )}
 
-      {casters.length > 0 && (
+      {casters.length > 0 && only !== 'cantrips' && (
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
           {casters.map((k) => {
             const lim = spellLimits(c, srd, k.id);
@@ -176,7 +177,7 @@ export function SpellsTab({ c, srd, upd }: SheetProps) {
         </div>
       )}
 
-      {(slots.some((x) => x > 0) || pact) && (
+      {(slots.some((x) => x > 0) || pact) && only !== 'cantrips' && (
         <div className="panel">
           <div className="panel-title"><h3>Espaços de magia</h3><span className="spacer" />
             {conc && <span className="tag gold"><Brain size={12} /> Concentrando: {conc.name} <button className="btn icon sm ghost" style={{ width: 18, height: 18 }} onClick={() => upd((d) => (d.concentration = undefined))}>×</button></span>}
@@ -209,8 +210,8 @@ export function SpellsTab({ c, srd, upd }: SheetProps) {
       )}
 
       <div className="panel">
-        <div className="panel-title"><h3>Magias</h3><span className="spacer" /><button className="btn sm primary" onClick={() => setPicker(true)}><Plus size={14} /> Adicionar magia</button></div>
-        {spells.length === 0 && <div className="empty small">Nenhuma magia ainda.</div>}
+        <div className="panel-title"><h3>{only === 'cantrips' ? 'Truques' : 'Magias'}</h3>{only === 'cantrips' && <span className="tip" title="Truques são magias de nível 0: não gastam espaço de magia e podem ser usados à vontade."><HelpCircle size={14} /></span>}<span className="spacer" /><button className="btn sm primary" onClick={() => setPicker(true)}><Plus size={14} /> {only === 'cantrips' ? 'Adicionar truque' : 'Adicionar magia'}</button></div>
+        {spells.length === 0 && <div className="empty small">{only === 'cantrips' ? 'Nenhum truque ainda.' : 'Nenhuma magia ainda.'}</div>}
         {[...byLevel.entries()].sort((a, b) => a[0] - b[0]).map(([lvl, arr]) => (
           <div key={lvl} style={{ marginBottom: 12 }}>
             <div className="tiny muted" style={{ margin: '6px 0' }}>{LVL(lvl)}</div>
