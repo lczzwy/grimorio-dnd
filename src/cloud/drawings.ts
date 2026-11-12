@@ -116,9 +116,10 @@ export function useMapFx(campaignId: string, mapId: string | undefined, me: { ui
     if (!ch) return;
     const m = meRef.current;
     if (!line) { void ch.send({ type: 'broadcast', event: 'ruler', payload: { map: mapId, uid: m.uid, clear: true } }); return; }
-    // at most ~15 updates a second
+    // at most ~6 updates a second: each one reaches everyone at the table, and the free realtime
+    // plan allows about 100 messages a second in total
     const now = Date.now();
-    if (now - last.current < 66) return;
+    if (now - last.current < 160) return;
     last.current = now;
     void ch.send({ type: 'broadcast', event: 'ruler', payload: { map: mapId, uid: m.uid, name: m.name, color: m.color, ...line } });
   }, [mapId]);

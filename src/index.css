@@ -520,3 +520,6 @@ label.field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; 
 .cols2 { grid-template-columns: 1fr 1fr !important; }
 .search-ic { position: absolute !important; left: 10px !important; color: var(--faint) !important; }
 .input.pl-search, .pl-search { padding-left: 32px !important; }
+
+.cloud-tag { font-family: var(--font-body, sans-serif); font-size: 10.5px; vertical-align: 3px; margin-left: 6px; }
+.tag.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }

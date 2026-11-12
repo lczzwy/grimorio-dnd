@@ -13,6 +13,7 @@ import { HomebrewTab } from './campaign/HomebrewTab';
 import { ChatPanel } from './campaign/ChatPanel';
 import { BestiaryTab } from './campaign/BestiaryTab';
 import { TableBoard } from '../map/TableBoard';
+import { TableDice } from '../dice3d/TableDice';
 import { useToastQuiet } from '../ui/Dice';
 import { InitiativeBar } from './campaign/InitiativeBar';
 import { FirstSteps } from './campaign/FirstSteps';
@@ -102,8 +103,15 @@ export function Campaign({ id, tab = 'mesa' }: { id: string; tab?: string }) {
   );
   const content = (
     <>
-      <FirstSteps {...props} />
-      <TableBoard campaignId={campaign.id} isGm={isGm} uid={props.uid} members={props.members} />
+      {current === 'mesa' ? (
+        <>
+          <FirstSteps {...props} />
+          <TableBoard campaignId={campaign.id} isGm={isGm} uid={props.uid} members={props.members} />
+        </>
+      ) : (
+        // other tabs keep their content at the top; rolls still show, thrown over the screen
+        <TableDice campaignId={campaign.id} variant="overlay" />
+      )}
       <InitiativeBar {...props} />
       {body ? body(props) : <div className="panel empty">Em construção.</div>}
     </>

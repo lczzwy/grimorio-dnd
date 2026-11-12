@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Crop, Minus, Plus } from 'lucide-react';
 import { Modal } from '../ui/ui';
 
-const OUT_MAX = 4096;
+// 3072 px keeps maps sharp on a big screen at about 1 MB each (every player downloads it)
+const OUT_MAX = 3072;
 
 export interface CroppedMap { blob: Blob; size: number; name: string; putOnTable: boolean }
 
@@ -80,7 +81,7 @@ export function MapCropper({ file, onCancel, onDone, busy }: { file: File; onCan
     const c = document.createElement('canvas');
     c.width = c.height = out;
     c.getContext('2d')!.drawImage(img.el, sx, sy, sSide, sSide, 0, 0, out, out);
-    let q = 0.88;
+    let q = 0.82;
     let blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/webp', q));
     while (blob && blob.size > 5 * 1024 * 1024 && q > 0.4) {
       q -= 0.12;

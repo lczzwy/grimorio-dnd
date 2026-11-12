@@ -1,9 +1,10 @@
-import { Plus, Upload, Copy, Trash2, Download } from 'lucide-react';
+import { Plus, Upload, Copy, Trash2, Download, CloudOff, CloudUpload } from 'lucide-react';
 import { useApp } from '../store';
 import type { Edition } from '../data/types';
 import { useSrd } from '../data/srd';
 import { isCompanionFile } from '../import/detect';
-import { confirmAndDelete } from '../cloud/sync';
+import { confirmAndDelete, uploader } from '../cloud/sync';
+import { useAuth } from '../cloud/auth';
 import { Cloud } from 'lucide-react';
 import { sanitizeHomebrew } from '../data/homebrew';
 import { companionReport, importCompanionCharacter } from '../import/importFile';
@@ -22,7 +23,8 @@ export function Avatar({ name, portrait, size }: { name: string; portrait?: stri
 export function Roster({ edition }: { edition: Edition }) {
   const srd = useSrd(edition);
   const all = useApp((s) => s.characters);
-  const { importCharacter, duplicateCharacter, importHomebrew } = useApp();
+  const { importCharacter, duplicateCharacter, importHomebrew, updateCharacter } = useApp();
+  const signedIn = useAuth((s) => !!s.user);
   const flash = useFlash((s) => s.show);
   const chars = all.filter((c) => c.edition === edition).sort((a, b) => b.updatedAt - a.updatedAt);
 
@@ -80,7 +82,7 @@ export function Roster({ edition }: { edition: Edition }) {
               <div className="top">
                 <Avatar name={c.name} portrait={c.portrait} />
                 <div className="grow">
-                  <div className="display" style={{ fontSize: 19, fontWeight: 700 }}>{c.name || 'Sem nome'} {c.cloud && <Cloud size={14} color="var(--accent-2)" aria-label="Na nuvem" />}</div>
+                  <div className="display" style={{ fontSize: 19, fontWeight: 700 }}>{c.name || 'Sem nome'} {c.cloud ? <span className="tag good cloud-tag" title="Salva na sua conta: abre em qualquer aparelho"><Cloud size={11} /> Na nuvem</span> : <span className="tag warn cloud-tag" title="Esta ficha existe só neste navegador"><CloudOff size={11} /> Só neste aparelho</span>}</div>
                   <div className="small muted">{[speciesName(c.speciesId, srd || undefined), classSummary(c, srd || undefined)].filter(Boolean).join(' · ')}</div>
                 </div>
               </div>
@@ -96,6 +98,7 @@ export function Roster({ edition }: { edition: Edition }) {
               )}
               <div className="row" onClick={(e) => e.stopPropagation()}>
                 <span className="faint small grow">Editado {new Date(c.updatedAt).toLocaleDateString()}</span>
+                {!c.cloud && signedIn && <button className="btn sm" title="Enviar para a sua conta" onClick={() => { updateCharacter(c.id, (d) => (d.cloud = true)); uploader.schedule({ ...c, cloud: true }); flash('Enviando para a nuvem…'); }}><CloudUpload size={14} /> Enviar</button>}
                 <button className="btn icon sm ghost" title="Exportar" onClick={() => download(`${c.name || 'personagem'}.json`, c)}><Download size={14} /></button>
                 <button className="btn icon sm ghost" title="Duplicar" onClick={() => duplicateCharacter(c.id)}><Copy size={14} /></button>
                 <button className="btn icon sm ghost danger" title="Excluir" onClick={() => void confirmAndDelete(c)}><Trash2 size={14} /></button>
