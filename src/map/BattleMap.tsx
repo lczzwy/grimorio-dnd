@@ -36,7 +36,8 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
   setTokens: (f: (t: MapToken[]) => MapToken[]) => void;
   canMove: (t: MapToken) => boolean;
   onMoved: (moves: { id: string; x: number; y: number }[]) => void;
-  onTokenMenu?: (t: MapToken, clientX: number, clientY: number) => void;
+  /** `group`: the selected tokens when this one is among them, else just this one */
+  onTokenMenu?: (t: MapToken, clientX: number, clientY: number, group: MapToken[]) => void;
   /** fit dropped tokens to the grid squares */
   snap?: boolean;
   tool?: MapTool;
@@ -62,6 +63,7 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
   const gesture = useRef<Gesture | null>(null);
   const [rect, setRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const groupOf = (tok: MapToken) => (selected.has(tok.id) && selected.size > 1 ? tokens.filter((t) => selected.has(t.id)) : [tok]);
   const longPress = useRef<number | undefined>(undefined);
   // the tokens being dragged and how far (picture px); drawn on top of the list without touching it
   const [drag, setDrag] = useState<{ ids: Set<string>; dx: number; dy: number } | null>(null);
@@ -209,7 +211,7 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
         const g = gesture.current;
         if (g?.kind === 'drag' && g.moved) return;
         gesture.current = null;
-        onTokenMenu(tok, cx, cy);
+        onTokenMenu(tok, cx, cy, groupOf(tok));
       }, LONG_PRESS_MS);
     }
   };
@@ -350,7 +352,7 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
         e.preventDefault();
         const el = (e.target as HTMLElement).closest<HTMLElement>('[data-token]');
         const tok = el && tokens.find((t) => t.id === el.dataset.token);
-        if (tok && onTokenMenu) onTokenMenu(tok, e.clientX, e.clientY);
+        if (tok && onTokenMenu) onTokenMenu(tok, e.clientX, e.clientY, groupOf(tok));
       }}
     >
       {view && (

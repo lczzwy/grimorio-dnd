@@ -1,5 +1,16 @@
 import { useEffect, useState } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from './client';
+
+/**
+ * A token the GM hides stops reaching the players at all, the change included (the database
+ * filters it), so it would stay on their screens. After hiding or showing, the GM's page sends a
+ * "reload the tokens" note on this channel; it carries no data, only the nudge.
+ */
+const pokers = new Set<RealtimeChannel>();
+function pokeTokens() {
+  pokers.forEach((c) => void c.send({ type: 'broadcast', event: 'reload', payload: {} }));
+}
 import { MAP_BUCKET } from './maps';
 
 export type TokenColor = 'ally' | 'enemy' | 'neutral';
@@ -59,10 +70,14 @@ export function useMapTokens(campaignId: string, mapId: string | undefined) {
         if (id) setTokens((t) => t.filter((x) => x.id !== id));
       })
       .subscribe();
+    const poke = supabase.channel('tokens-poke-' + campaignId).on('broadcast', { event: 'reload' }, () => later()).subscribe();
+    pokers.add(poke);
     return () => {
       alive = false;
       window.clearTimeout(timer);
+      pokers.delete(poke);
       void supabase.removeChannel(ch);
+      void supabase.removeChannel(poke);
     };
   }, [campaignId, mapId]);
   return [tokens, setTokens] as const;
@@ -91,6 +106,15 @@ export async function addToken(t: Omit<MapToken, 'id'>) {
 export async function updateToken(id: string, patch: Partial<Omit<MapToken, 'id' | 'campaign_id' | 'map_id'>>) {
   const { error } = await supabase.from('map_tokens').update(patch).eq('id', id);
   if (error) throw new Error(tokenErrorPt(error.message));
+  if ('hidden' in patch) pokeTokens();
+}
+
+/** GM: hides or shows several tokens at once (an ambush revealed in one go). */
+export async function setTokensHidden(ids: string[], hidden: boolean) {
+  if (!ids.length) return;
+  const { error } = await supabase.from('map_tokens').update({ hidden }).in('id', ids);
+  if (error) throw new Error(tokenErrorPt(error.message));
+  pokeTokens();
 }
 
 export async function deleteToken(id: string) {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CircleUserRound, EyeOff, Eye, Pencil, Trash2, Upload } from 'lucide-react';
 import { Modal } from '../ui/ui';
 import { confirmBox, showError } from '../ui/dialogs';
-import { addToken, deleteToken, snapToGrid, TOKEN_COLORS, updateToken, uploadTokenImage, type MapToken, type TokenColor } from '../cloud/tokens';
+import { addToken, deleteToken, snapToGrid, TOKEN_COLORS, updateToken, uploadTokenImage, type MapToken, type TokenColor, setTokensHidden } from '../cloud/tokens';
 import type { BattleMapRow } from '../cloud/maps';
 import type { Member } from '../cloud/campaigns';
 import type { Character } from '../data/types';
@@ -128,7 +128,7 @@ export function TokenEditor({ map, token, party, fighters = [], onClose }: { map
 }
 
 /** The small menu that opens on a token (right click, or a long press on a phone). */
-export function TokenMenu({ token, x, y, onEdit, onClose, onDeleted }: { token: MapToken; x: number; y: number; onEdit: () => void; onClose: () => void; onDeleted: (id: string) => void }) {
+export function TokenMenu({ token, group = [token], x, y, onEdit, onClose, onDeleted }: { token: MapToken; group?: MapToken[]; x: number; y: number; onEdit: () => void; onClose: () => void; onDeleted: (id: string) => void }) {
   const el = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const away = (e: PointerEvent) => { if (!el.current?.contains(e.target as Node)) onClose(); };
@@ -143,6 +143,15 @@ export function TokenMenu({ token, x, y, onEdit, onClose, onDeleted }: { token: 
   return (
     <div ref={el} className="tok-menu" role="menu" style={{ left, top }} onContextMenu={(e) => e.preventDefault()}>
       <div className="tok-menu-title">{token.name || 'Token'}</div>
+      {group.length > 1 && (() => {
+        // several selected: one click shows (or hides) them all; any still hidden means "show"
+        const show = group.some((t) => t.hidden);
+        return (
+          <button role="menuitem" onClick={() => { onClose(); setTokensHidden(group.map((t) => t.id), !show).catch(showError); }}>
+            {show ? <><Eye size={14} /> Mostrar os {group.length} selecionados</> : <><EyeOff size={14} /> Esconder os {group.length} selecionados</>}
+          </button>
+        );
+      })()}
       <button role="menuitem" onClick={() => { onClose(); onEdit(); }}><Pencil size={14} /> Editar</button>
       <button role="menuitem" onClick={() => { onClose(); updateToken(token.id, { hidden: !token.hidden }).catch(showError); }}>
         {token.hidden ? <><Eye size={14} /> Mostrar aos jogadores</> : <><EyeOff size={14} /> Esconder dos jogadores</>}

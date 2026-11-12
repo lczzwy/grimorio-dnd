@@ -29,7 +29,7 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
   const shown = active && draft?.id === active.id && editing ? draft : active;
   const [tokens, setTokens] = useMapTokens(campaignId, active?.id);
   const [tokenForm, setTokenForm] = useState<{ token?: MapToken } | null>(null);
-  const [menu, setMenu] = useState<{ token: MapToken; x: number; y: number } | null>(null);
+  const [menu, setMenu] = useState<{ token: MapToken; x: number; y: number; group: MapToken[] } | null>(null);
   const [snap, setSnap] = useState(() => { try { return localStorage.getItem('map-snap') === '1'; } catch { return false; } });
   const [tool, setTool] = useState<MapTool>('hand');
   const [penColor, setPenColor] = useState(() => { try { return localStorage.getItem('pen-color') || PEN_COLORS[0]; } catch { return PEN_COLORS[0]; } });
@@ -77,7 +77,7 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
               setTokens={setTokens}
               canMove={canMove}
               onMoved={onMoved}
-              onTokenMenu={isGm ? (token, x, y) => setMenu({ token, x, y }) : undefined}
+              onTokenMenu={isGm ? (token, x, y, group) => setMenu({ token, x, y, group }) : undefined}
               snap={snap}
               tool={tool}
               pen={{ color: penColor, width: 4 }}
@@ -122,7 +122,7 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
           {isGm && <button className="map-tool" title="Novo token" aria-label="Novo token" onClick={() => setTokenForm({})}><CirclePlus size={18} /></button>}
         </nav>
       )}
-      {menu && <TokenMenu token={menu.token} x={menu.x} y={menu.y} onClose={() => setMenu(null)} onEdit={() => setTokenForm({ token: menu.token })} onDeleted={(id) => setTokens((t) => t.filter((x) => x.id !== id))} />}
+      {menu && <TokenMenu token={menu.token} group={menu.group} x={menu.x} y={menu.y} onClose={() => setMenu(null)} onEdit={() => setTokenForm({ token: menu.token })} onDeleted={(id) => setTokens((t) => t.filter((x) => x.id !== id))} />}
       {tokenForm && active && <TokenEditor map={active} token={tokenForm.token} party={party} fighters={fighters.filter((f) => f.kind !== 'player')} onClose={() => setTokenForm(null)} />}
     </>
   );
