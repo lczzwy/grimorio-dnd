@@ -55,6 +55,7 @@ export function PowerUse({ c, srd, upd, power, list }: SheetProps & { power: Pow
           )}
         </div>
       )}
+      {power.focus && <div className="power-focus small"><b>Foco:</b> {power.focus}</div>}
       {(power.options || []).map((o) => {
         const min = o.cost ?? 0;
         const max = o.costMax ?? min;
@@ -74,7 +75,7 @@ export function PowerUse({ c, srd, upd, power, list }: SheetProps & { power: Pow
                 <button className="btn sm" disabled={!!blocked} title={blocked || `Gastar ${cost} ${unit}`} onClick={() => spend(o, cost)}>{blocked || `Gastar ${cost}`}</button>
               )}
             </div>
-            {o.desc && <div className="small muted"><Markdown text={o.desc} /></div>}
+            {o.desc && <Markdown className="prose power-opt-text" text={o.desc} />}
           </div>
         );
       })}

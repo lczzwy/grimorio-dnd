@@ -69,3 +69,13 @@ describe('mergeHomebrew', () => {
     expect(m.feats?.map((f) => f.name)).toEqual(['X', 'Telecinético [TCE]']);
   });
 });
+
+describe('homebrew on top of the SRD', () => {
+  it('adds a kind the SRD files lack (powers) without breaking', async () => {
+    const { withHomebrew } = await import('./srd');
+    const base = { classes: [{ id: 'fighter', name: 'Fighter' }], spells: [] } as unknown as import('./types').SrdData;
+    const out = withHomebrew(base, { powers: [{ id: 'p', name: 'P', list: 'l', desc: 'd' }], classes: [{ id: 'fighter', name: 'Meu Guerreiro' }] } as never);
+    expect(out.powers?.map((p) => p.id)).toEqual(['p']);
+    expect(out.classes.map((c) => c.name)).toEqual(['Meu Guerreiro']);
+  });
+});

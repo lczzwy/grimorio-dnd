@@ -66,10 +66,10 @@ export function applyLevel(c: Character, srd: SrdData, plan: LevelPlan, mkId: ()
     if (plan.asi.mode === 'feat' && plan.asi.feat) { d.feats.push(plan.asi.feat); picked.push(srd.feats.find((f) => f.id === plan.asi!.feat)?.name || plan.asi.feat); }
   }
   d.resources = syncResources(d, srd, mkId);
-  const before = maxHp(c, srd);
-  const after = maxHp(d, srd); // CON raised by the ASI counts too
-  const hpGain = after - before;
-  // a fixed max HP (e.g. imported from another app) still grows by this level's hit points
+  // the gain is counted without a fixed max HP (e.g. imported from another app), which then
+  // grows by it too; CON raised by the ASI counts
+  const free = (x: Character) => maxHp({ ...x, hp: { ...x.hp, maxOverride: undefined } }, srd);
+  const hpGain = free(d) - free(c);
   if (d.hp.maxOverride) d.hp.maxOverride += hpGain;
   d.hp.current = Math.max(0, Math.min(maxHp(d, srd), d.hp.current + hpGain));
   const level = e ? e.level : 1;

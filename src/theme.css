@@ -386,3 +386,13 @@ h1 { text-shadow: 0 2px 0 #000; }
 .lu-pick .body { padding: 0 12px 10px 34px; }
 .lu-pick input { width: 18px; height: 18px; accent-color: var(--accent-2); }
 .lu-summary { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+/* many tabs (power lists): they scroll sideways instead of being cut */
+.tabs.sheet-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.tabs.sheet-tabs .tab { flex: none; }
+@media (max-width: 760px) {
+  /* a panel title with buttons breaks into two lines instead of pushing the page sideways */
+  .panel-title { flex-wrap: wrap; row-gap: 6px; }
+}
+.power-opt-text { font-size: 13.5px; line-height: 1.5; color: var(--muted); }
+.power-opt-text p { margin: 4px 0; }
+.power-focus { padding: 8px 10px; border-left: 3px solid var(--gold); background: color-mix(in srgb, var(--gold) 8%, var(--bg-2)); border-radius: 0 6px 6px 0; }

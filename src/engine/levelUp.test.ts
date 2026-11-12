@@ -46,6 +46,17 @@ describe('level up', () => {
     expect(next.classes[0].level).toBe(3);
   });
 
+  it('a fixed max HP (imported sheet) grows by the level too', () => {
+    const c = chrono(2);
+    c.hp.maxOverride = 58;
+    c.hp.current = 53;
+    const { next, hpGain } = applyLevel(c, srd, { classId: 'hb-chrono', hp: { mode: 'avg' }, picks: {} }, id);
+    expect(hpGain).toBe(7);
+    expect(next.hp.maxOverride).toBe(65);
+    expect(maxHp(next, srd)).toBe(65);
+    expect(next.hp.current).toBe(60);
+  });
+
   it('a roll counts the die instead of the average', () => {
     const c = chrono(2);
     const { hpGain } = applyLevel(c, srd, { classId: 'hb-chrono', hp: { mode: 'roll', rolled: 2 }, picks: {} }, id);
