@@ -5,6 +5,7 @@ import { useSrd } from '../data/srd';
 import { isCompanionFile } from '../import/detect';
 import { confirmAndDelete, uploader } from '../cloud/sync';
 import { useAuth } from '../cloud/auth';
+import { migratePortraits } from '../cloud/portraits';
 import { Cloud } from 'lucide-react';
 import { sanitizeHomebrew } from '../data/homebrew';
 import { companionReport, importCompanionCharacter } from '../import/importFile';
@@ -98,7 +99,7 @@ export function Roster({ edition }: { edition: Edition }) {
               )}
               <div className="row" onClick={(e) => e.stopPropagation()}>
                 <span className="faint small grow">Editado {new Date(c.updatedAt).toLocaleDateString()}</span>
-                {!c.cloud && signedIn && <button className="btn sm" title="Enviar para a sua conta" onClick={() => { updateCharacter(c.id, (d) => (d.cloud = true)); uploader.schedule({ ...c, cloud: true }); flash('Enviando para a nuvem…'); }}><CloudUpload size={14} /> Enviar</button>}
+                {!c.cloud && signedIn && <button className="btn sm" title="Enviar para a sua conta" onClick={() => { updateCharacter(c.id, (d) => (d.cloud = true)); uploader.schedule({ ...c, cloud: true }); flash('Enviando para a nuvem…'); void migratePortraits(); }}><CloudUpload size={14} /> Enviar</button>}
                 <button className="btn icon sm ghost" title="Exportar" onClick={() => download(`${c.name || 'personagem'}.json`, c)}><Download size={14} /></button>
                 <button className="btn icon sm ghost" title="Duplicar" onClick={() => duplicateCharacter(c.id)}><Copy size={14} /></button>
                 <button className="btn icon sm ghost danger" title="Excluir" onClick={() => void confirmAndDelete(c)}><Trash2 size={14} /></button>

@@ -1,6 +1,7 @@
 import { useApp } from '../store';
 import { setMyCharacter } from './campaigns';
 import { uploader } from './sync';
+import { migratePortraits } from './portraits';
 
 /**
  * Puts one of your characters in play in a campaign (or takes it out with null).
@@ -15,4 +16,6 @@ export async function bringCharacter(campaignId: string, characterId: string | n
     await uploader.flush();
   }
   await setMyCharacter(campaignId, characterId);
+  // a picture still inside the sheet goes to the photo storage, so every save stays small
+  void migratePortraits();
 }
