@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Detail } from '../../ui/Detail';
 import { Plus, Search, Trash2, Wand2, Check, Brain, Dices, BookOpen } from 'lucide-react';
 import type { Character, SpellDef, SrdData } from '../../data/types';
 import { useDice } from '../../store';
@@ -231,13 +232,13 @@ export function SpellsTab({ c, srd, upd }: SheetProps) {
 
       {picker && <SpellPicker srd={srd} c={c} onClose={() => setPicker(false)} onPick={(sp) => { upd((d) => { if (!d.spells.some((s) => s.id === sp.id)) d.spells.push({ id: sp.id, prepared: sp.level === 0 }); }); flash(`${sp.name} adicionada`); }} />}
       {view && (
-        <Modal title={view.name} onClose={() => setView(null)} footer={<>
+        <Detail title={view.name} onClose={() => setView(null)} footer={<>
           <button className="btn danger" onClick={() => { upd((d) => (d.spells = d.spells.filter((s) => s.id !== view.id))); setView(null); }}><Trash2 size={14} /> Remover</button>
           <span className="spacer" />
           <button className="btn primary" onClick={() => { const v = view; setView(null); if (v.level === 0) doCast(v, 0, false); else setCast(v); }}><Wand2 size={14} /> Conjurar</button>
         </>}>
           <SpellCard sp={view} srd={srd} c={c} />
-        </Modal>
+        </Detail>
       )}
       {cast && (
         <Modal title={`Conjurar ${cast.name}`} onClose={() => setCast(null)}>

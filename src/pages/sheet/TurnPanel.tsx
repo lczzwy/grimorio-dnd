@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
+import { Detail } from '../../ui/Detail';
 import { ChevronDown, ChevronUp, Swords, Sparkles, Zap, RotateCcw } from 'lucide-react';
 import { turnOptions, type TurnOption, type TurnSlot } from '../../engine/turn';
 import { fmtMod } from '../../engine/dice';
-import { Markdown, Modal, clickable } from '../../ui/ui';
+import { Markdown, clickable } from '../../ui/ui';
 import { SpellCard } from './SpellsTab';
 import { fullAttack } from './attack';
 import { PsiOptions } from './PsiOptions';
@@ -65,7 +66,7 @@ export function TurnPanel({ c, srd, upd }: SheetProps) {
         </div>
       )}
       {detail && (
-        <Modal title={detail.name} onClose={() => setDetail(null)}>
+        <Detail title={detail.name} onClose={() => setDetail(null)}>
           {detail.kind === 'spell' ? <SpellCard sp={detail.spell} srd={srd} c={c} /> : detail.kind === 'attack' ? null : (
             <div className="col">
               {detail.kind === 'feature' && <span className="tag accent self-start">{detail.source}</span>}
@@ -73,7 +74,7 @@ export function TurnPanel({ c, srd, upd }: SheetProps) {
               {detail.kind === 'feature' && <PsiOptions c={c} upd={upd} name={detail.name} desc={detail.desc} />}
             </div>
           )}
-        </Modal>
+        </Detail>
       )}
     </div>
   );

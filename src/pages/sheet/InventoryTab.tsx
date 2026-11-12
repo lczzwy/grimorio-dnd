@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Detail } from '../../ui/Detail';
 import { lbToKg } from '../../engine/units';
 import { Plus, Search, Trash2, Sword, Shield, Gem, Package } from 'lucide-react';
 import type { EquipmentDef, InventoryItem, MagicItemDef, SrdData } from '../../data/types';
@@ -159,7 +160,7 @@ export function InventoryTab({ c, srd, upd }: SheetProps) {
         const it = c.inventory.find((x) => x.uid === open.uid) || open;
         const ref = srd.equipment.find((e) => e.id === it.refId) || srd.magicItems.find((e) => e.id === it.refId);
         return (
-          <Modal title={it.name} onClose={() => setOpen(null)}>
+          <Detail title={it.name} onClose={() => setOpen(null)}>
             <div className="col">
               <label className="field">Nome<input className="input" value={it.name} onChange={(e) => setItem(it.uid, (x) => (x.name = e.target.value))} /></label>
               <div className="row wrap">
@@ -181,7 +182,7 @@ export function InventoryTab({ c, srd, upd }: SheetProps) {
               <label className="field">Notas<textarea className="textarea" value={it.notes || ''} onChange={(e) => setItem(it.uid, (x) => (x.notes = e.target.value))} /></label>
               {ref && <><div className="divider" /><ItemDetail x={ref} /></>}
             </div>
-          </Modal>
+          </Detail>
         );
       })()}
     </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Detail } from '../../ui/Detail';
 import { Heart, HeartCrack, Shield, Plus, Trash2, Skull, Dices, Zap, Minus, Brain, Pencil, Flame, Coffee, Moon } from 'lucide-react';
 import type { CustomAttack } from '../../data/types';
 import { ABILITIES } from '../../data/types';
@@ -350,9 +351,9 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
         </Modal>
       )}
       {condInfo && (
-        <Modal title={CONDITION_PT[condInfo] || condInfo} onClose={() => setCondInfo(null)}>
+        <Detail title={CONDITION_PT[condInfo] || condInfo} onClose={() => setCondInfo(null)}>
           <Markdown text={srd.conditions.find((x) => x.id === condInfo)?.desc} />
-        </Modal>
+        </Detail>
       )}
     </div>
     </>
