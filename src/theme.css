@@ -351,3 +351,38 @@ h1 { text-shadow: 0 2px 0 #000; }
   .picker2 { grid-template-columns: 1fr; }
   .picker2-list { max-height: 30vh; }
 }
+
+/* ---- Subir de nível em etapas ---- */
+.lu-steps { display: flex; gap: 4px; list-style: none; margin: 0 0 14px; padding: 0; }
+.lu-steps li { flex: 1; display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 2px solid var(--line); color: var(--muted); font-size: 12px; min-width: 0; }
+.lu-steps li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lu-steps li.on { border-color: var(--gold); color: var(--gold); }
+.lu-steps li.done { border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); color: var(--text); }
+@media (max-width: 560px) { .lu-steps li:not(.on) span { display: none; } }
+.lu-option { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--panel); color: var(--text); font: inherit; cursor: pointer; text-align: left; }
+.lu-option.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+.lu-option span { color: var(--muted); font-size: 13px; }
+.lu-warn { display: flex; gap: 10px; padding: 10px 12px; border: 1px solid var(--warn); border-radius: 8px; background: color-mix(in srgb, var(--warn) 10%, var(--panel)); }
+.lu-warn > svg { color: var(--warn); flex: none; margin-top: 2px; }
+.lu-seg button { flex: 1; }
+.lu-die { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 16px; border: 1px dashed var(--gold); border-radius: 12px; background: var(--bg-2); color: var(--text); font: inherit; cursor: pointer; }
+.lu-die span { font-family: 'Cinzel', serif; font-size: 34px; min-width: 2ch; text-align: center; font-variant-numeric: lining-nums; }
+.lu-die small { color: var(--muted); }
+.lu-die.rolling svg { animation: lu-spin 0.6s linear infinite; }
+@keyframes lu-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .lu-die.rolling svg { animation: none; } }
+.lu-sum { display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: 4px 8px; padding: 10px; border-radius: 10px; background: var(--panel-2); }
+.lu-sum span { font-family: 'Cinzel', serif; font-size: 22px; font-variant-numeric: lining-nums; }
+.lu-sum small { color: var(--muted); font-size: 11px; margin-right: 6px; }
+.lu-sum b { font-family: 'Cinzel', serif; font-size: 24px; color: var(--good); margin-left: 6px; }
+.lu-counters { display: flex; flex-wrap: wrap; gap: 6px; }
+.lu-choice { border-color: color-mix(in srgb, var(--accent-2) 55%, var(--line)); }
+.lu-picks { display: flex; flex-direction: column; gap: 4px; max-height: 42vh; overflow-y: auto; }
+.lu-pick { border: 1px solid var(--line); border-radius: 8px; background: var(--bg-2); }
+.lu-pick.on { border-color: var(--accent-2); }
+.lu-pick summary { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; list-style: none; font-size: 14px; }
+.lu-pick summary::-webkit-details-marker { display: none; }
+.lu-pick[open] .chev { transform: rotate(90deg); }
+.lu-pick .body { padding: 0 12px 10px 34px; }
+.lu-pick input { width: 18px; height: 18px; accent-color: var(--accent-2); }
+.lu-summary { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }

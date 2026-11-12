@@ -15,7 +15,8 @@ import { MainTab } from './sheet/MainTab';
 import { CombatTab, RestModal } from './sheet/CombatTab';
 import { SpellsTab } from './sheet/SpellsTab';
 import { InventoryTab } from './sheet/InventoryTab';
-import { FeaturesTab, LevelUpModal } from './sheet/FeaturesTab';
+import { FeaturesTab } from './sheet/FeaturesTab';
+import { LevelUpWizard } from './sheet/LevelUpWizard';
 import { useSheetMigration } from './sheet/useSheetMigration';
 import { CombatBar } from './sheet/CombatBar';
 import { PowersTab } from './sheet/PowersTab';
@@ -194,7 +195,7 @@ export function Sheet({ edition, id, character, readOnly, campaignId }: { editio
       {/* standalone sheet of a character in play: its table's dice fall here too */}
       {!readOnly && !campaignId && myCampaign && <TableDice campaignId={myCampaign} />}
       {rest && <RestModal {...props} kind={rest} onClose={() => setRest(null)} onDone={(m) => { setRest(null); flash(m); }} />}
-      {levelUp && <LevelUpModal {...props} onClose={() => setLevelUp(false)} onDone={(m) => { setLevelUp(false); flash(m); }} />}
+      {levelUp && <LevelUpWizard {...props} onClose={() => setLevelUp(false)} onDone={(m) => { setLevelUp(false); flash(m); }} />}
     </main>
   );
 }

@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { ChevronRight, Plus, Trash2, ArrowUpCircle, Dices, Star } from 'lucide-react';
-import type { Ability, Character, FeatDef } from '../../data/types';
-import { ABILITIES } from '../../data/types';
-import { useDice } from '../../store';
+import { ChevronRight, Plus, Trash2, ArrowUpCircle, Undo2 } from 'lucide-react';
+import type { FeatDef } from '../../data/types';
 import { uid } from '../../engine/character';
 import { featuresShownAsPowers } from '../../engine/classData';
-import { ABILITY_PT, XP_TABLE, allFeatures, className, computeScores, findClass, maxHp, mods, speciesName, syncResources, totalLevel } from '../../engine/rules';
-import { fmtMod } from '../../engine/dice';
+import { undoLevel } from '../../engine/levelUp';
+import { confirmBox } from '../../ui/dialogs';
+import { ABILITY_PT, XP_TABLE, allFeatures, className, speciesName, syncResources, totalLevel } from '../../engine/rules';
 import { Markdown, Modal, NumInput, clickable } from '../../ui/ui';
 import type { SheetProps } from '../Sheet';
 
@@ -33,7 +32,19 @@ export function FeaturesTab({ c, srd, upd, onLevelUp, scope = 'class' }: SheetPr
     <div className="sheet-grid" style={{ gridTemplateColumns: '340px 1fr' }}>
       <div className="col g16">
         {scope === 'class' && <div className="panel edit-only">
-          <div className="panel-title"><h3>Classes e nível</h3><span className="spacer" /><button className="btn sm primary" onClick={onLevelUp}><ArrowUpCircle size={14} /> Subir</button></div>
+          <div className="panel-title"><h3>Classes e nível</h3><span className="spacer" />
+            {!!c.levelHistory?.length && (
+              <button className="btn sm" title={'Desfazer: ' + c.levelHistory[c.levelHistory.length - 1].summary} onClick={async () => {
+                const last = c.levelHistory![c.levelHistory!.length - 1];
+                if (!(await confirmBox(`Desfazer o último nível (${last.summary})?
+
+A ficha volta exatamente como estava antes de subir, incluindo PV, recursos e o que você mudou depois disso.`, { ok: 'Desfazer', danger: true }))) return;
+                const back = undoLevel(c);
+                if (back) upd((d) => { for (const k of Object.keys(d)) if (!(k in back)) delete (d as unknown as Record<string, unknown>)[k]; Object.assign(d, back); });
+              }}><Undo2 size={14} /> Desfazer nível</button>
+            )}
+            <button className="btn sm primary" onClick={onLevelUp}><ArrowUpCircle size={14} /> Subir</button>
+          </div>
           {c.classes.map((e, i) => {
             const subs = srd.subclasses.filter((s) => s.class === e.classId);
             return (
@@ -156,146 +167,3 @@ function FeatPicker({ feats, onPick, onClose }: { feats: FeatDef[]; onPick: (f: 
 }
 
 /* ---------------- level up ---------------- */
-
-export function LevelUpModal({ c, srd, upd, onClose, onDone }: SheetProps & { onClose: () => void; onDone: (m: string) => void }) {
-  const roll = useDice((s) => s.roll);
-  const [classId, setClassId] = useState(c.classes[0]?.classId || srd.classes[0].id);
-  const [hpMode, setHpMode] = useState<'avg' | 'roll'>('avg');
-  const [rolled, setRolled] = useState<number | null>(null);
-  const [sub, setSub] = useState<string>('');
-  const cls = findClass(srd, classId)!;
-  const entry = c.classes.find((e) => e.classId === classId);
-  const newLevel = (entry?.level || 0) + 1;
-  const total = totalLevel(c) + (c.classes.length ? 1 : 0);
-  const con = mods(c, srd).con;
-  const avg = Math.floor(cls.hitDie / 2) + 1;
-  const row = cls.levels.find((l) => l.level === newLevel);
-  const subNow = srd.subclasses.find((s) => s.id === (entry?.subclassId || sub));
-  const subFeatures = subNow?.features.filter((f) => f.level === newLevel) || [];
-  const needsSub = !entry?.subclassId && (row?.features || []).some((f) => /subclass|archetype|path|college|domain|circle|oath|tradition|origin|patron|conclave/i.test(f.name));
-  const scores = computeScores(c, srd);
-  const mcOk = entry || !cls.multiclass?.prereq?.length || cls.multiclass.prereq.every((p) => scores[p.ability] >= p.min);
-  const gain = Math.max(1, (hpMode === 'avg' ? avg : rolled ?? avg) + con);
-
-  // Ability Score Improvement: listed in the class table, or the usual levels for homebrew classes
-  const hasAsi = (row?.features || []).some((f) => /ability score improvement|aumento de atributo/i.test(f.name)) || (!!cls.custom && [4, 8, 12, 16, 19].includes(newLevel));
-  const [asiMode, setAsiMode] = useState<'plus2' | 'split' | 'feat' | 'later'>('plus2');
-  const [asiA, setAsiA] = useState<Ability>('str');
-  const [asiB, setAsiB] = useState<Ability>('dex');
-  const [asiFeat, setAsiFeat] = useState('');
-  const room = (a: Ability) => Math.max(0, 20 - scores[a]);
-  const asiPlan: Partial<Record<Ability, number>> = !hasAsi ? {} : asiMode === 'plus2' ? { [asiA]: Math.min(2, room(asiA)) } : asiMode === 'split' ? { [asiA]: Math.min(1, room(asiA)), [asiB]: Math.min(1, room(asiB)) } : {};
-  const asiReady = !hasAsi || asiMode === 'later' || (asiMode === 'feat' ? !!asiFeat : asiMode === 'split' ? asiA !== asiB : true);
-
-  const mutate = (d: Character) => {
-    const e = d.classes.find((x) => x.classId === classId);
-    if (e) { e.level += 1; if (sub && !e.subclassId) e.subclassId = sub; }
-    else {
-      d.classes.push({ classId, level: 1, subclassId: sub || undefined });
-      // multiclass: add the class' multiclass proficiencies to the text
-      if (cls.multiclass?.profs?.length) d.proficienciesText = [d.proficienciesText, ...cls.multiclass.profs].filter(Boolean).join(', ');
-    }
-    if (hpMode === 'roll' && rolled != null) d.hp.maxBonus += rolled - avg;
-    // a fixed max HP (e.g. imported from another app) still grows by this level's hit points
-    if (d.hp.maxOverride) d.hp.maxOverride += gain;
-    for (const [a, n] of Object.entries(asiPlan) as [Ability, number][]) if (n) d.extra[a] = (d.extra[a] || 0) + n;
-    if (hasAsi && asiMode === 'feat' && asiFeat) d.feats.push(asiFeat);
-    d.resources = syncResources(d, srd, uid);
-  };
-
-  const apply = () => {
-    const before = maxHp(c, srd);
-    const sim = structuredClone(c);
-    mutate(sim);
-    const after = maxHp(sim, srd); // includes CON increases from the ASI
-    upd((d) => {
-      mutate(d);
-      d.hp.current = Math.min(after, d.hp.current + (after - before));
-    });
-    const asiText = Object.entries(asiPlan).filter(([, n]) => n).map(([a, n]) => `${ABILITY_PT[a as Ability].short} +${n}`).join(', ');
-    onDone(`${c.name} agora é nível ${total}! +${after - before} PV${asiText ? ` · ${asiText}` : ''}${hasAsi && asiMode === 'feat' && asiFeat ? ` · talento ${srd.feats.find((f) => f.id === asiFeat)?.name}` : ''}`);
-  };
-
-  return (
-    <Modal title={`Subir para o nível ${total}`} onClose={onClose} icon={<ArrowUpCircle color="var(--accent-2)" />}
-      footer={<><button className="btn" onClick={onClose}>Cancelar</button><button className="btn primary" disabled={!mcOk || (hpMode === "roll" && rolled == null) || !asiReady} onClick={apply}>Confirmar</button></>}>
-      <div className="col">
-        <label className="field">Classe que vai ganhar o nível
-          <select className="select" value={classId} onChange={(e) => { setClassId(e.target.value); setSub(''); }}>
-            {c.classes.map((e) => <option key={e.classId} value={e.classId}>{className(e.classId, srd)} → {e.level + 1}</option>)}
-            <optgroup label="Multiclasse (nova classe)">
-              {srd.classes.filter((k) => !c.classes.some((e) => e.classId === k.id)).map((k) => <option key={k.id} value={k.id}>{className(k.id, srd)} 1</option>)}
-            </optgroup>
-          </select>
-        </label>
-        {!mcOk && <div className="tag bad">Pré-requisito de multiclasse: {cls.multiclass?.prereq?.map((p) => `${ABILITY_PT[p.ability].short} ${p.min}`).join(', ')}</div>}
-
-        <div className="panel">
-          <div className="row">
-            <span className="grow">Pontos de Vida (d{cls.hitDie} {fmtMod(con)})</span>
-            <div className="seg">
-              <button className={hpMode === 'avg' ? 'on' : ''} onClick={() => setHpMode('avg')}>Média ({avg})</button>
-              <button className={hpMode === 'roll' ? 'on' : ''} onClick={() => setHpMode('roll')}>Rolar</button>
-            </div>
-          </div>
-          {hpMode === 'roll' && (
-            <div className="row" style={{ marginTop: 10 }}>
-              <button className="btn" onClick={async () => { const r = await roll(`${c.name}: PV do nível ${total}`, `1d${cls.hitDie}`); if (r) setRolled(r.total); }}><Dices size={15} /> Rolar d{cls.hitDie}</button>
-              {rolled != null && <b>Resultado: {rolled}</b>}
-            </div>
-          )}
-          <div className="display" style={{ fontSize: 22, marginTop: 8 }}>+{gain} PV</div>
-        </div>
-
-        {needsSub && srd.subclasses.some((s) => s.class === classId) && (
-          <label className="field">Escolha sua subclasse
-            <select className="select" value={sub} onChange={(e) => setSub(e.target.value)}>
-              <option value="">—</option>
-              {srd.subclasses.filter((s) => s.class === classId).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </label>
-        )}
-
-        <div className="tiny muted">Novidades no nível {newLevel} de {className(classId, srd)}</div>
-        {[...(row?.features || []), ...subFeatures].map((f) => (
-          <details key={f.name} className="feature">
-            <summary><ChevronRight className="chev" size={16} />{f.name}</summary>
-            <div className="body"><Markdown text={f.desc} /></div>
-          </details>
-        ))}
-        {!(row?.features || []).length && !subFeatures.length && <div className="small faint">Nenhuma característica nova listada neste nível.</div>}
-        {hasAsi && (
-          <div className="panel col" style={{ borderColor: 'var(--gold)' }}>
-            <div className="row"><span className="grow" style={{ fontWeight: 700 }}><Star size={14} className="ic-inline" /> Aumento de Atributo</span>
-              <div className="seg">
-                <button className={asiMode === 'plus2' ? 'on' : ''} onClick={() => setAsiMode('plus2')}>+2 em um</button>
-                <button className={asiMode === 'split' ? 'on' : ''} onClick={() => setAsiMode('split')}>+1 em dois</button>
-                <button className={asiMode === 'feat' ? 'on' : ''} onClick={() => setAsiMode('feat')}>Talento</button>
-                <button className={asiMode === 'later' ? 'on' : ''} onClick={() => setAsiMode('later')}>Depois</button>
-              </div>
-            </div>
-            {(asiMode === 'plus2' || asiMode === 'split') && (
-              <div className="row wrap">
-                {[asiA, ...(asiMode === 'split' ? [asiB] : [])].map((cur, i) => (
-                  <select key={i} className="select" style={{ width: 'auto' }} value={cur} onChange={(e) => (i === 0 ? setAsiA : setAsiB)(e.target.value as Ability)}>
-                    {ABILITIES.map((a) => <option key={a} value={a} disabled={room(a) === 0}>{ABILITY_PT[a].name} ({scores[a]}{room(a) === 0 ? ', máximo' : ` → ${Math.min(20, scores[a] + (asiMode === 'plus2' ? 2 : 1))}`})</option>)}
-                  </select>
-                ))}
-                {asiMode === 'split' && asiA === asiB && <span className="tag bad">Escolha dois atributos diferentes</span>}
-              </div>
-            )}
-            {asiMode === 'feat' && (
-              <select className="select" value={asiFeat} onChange={(e) => setAsiFeat(e.target.value)}>
-                <option value="">Escolha um talento…</option>
-                {srd.feats.filter((f) => f.type !== 'origin' || c.edition === '2014').map((f) => <option key={f.id} value={f.id}>{f.name}{f.type ? ` (${f.type})` : ''}{f.prereq ? ` · requer ${f.prereq}` : ''}</option>)}
-              </select>
-            )}
-            {asiMode === 'later' && <div className="small muted">Você pode ajustar depois em Principal → Editar atributos, ou em Habilidades → + Talento.</div>}
-            <div className="small faint">Nenhum atributo passa de 20.</div>
-          </div>
-        )}
-        {row?.spellcasting && <div className="small muted">Magias: {row.spellcasting.cantrips != null && `${row.spellcasting.cantrips} truques · `}{row.spellcasting.known != null && `${row.spellcasting.known} conhecidas · `}{row.spellcasting.prepared != null && `${row.spellcasting.prepared} preparadas · `}espaços {row.spellcasting.slots.filter(Boolean).join('/')}</div>}
-      </div>
-    </Modal>
-  );
-}
