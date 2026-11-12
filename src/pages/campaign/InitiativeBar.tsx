@@ -65,6 +65,9 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
     <section className={'init-bar' + (folded ? ' folded' : '')}>
       <header className="init-head">
         <span className="init-title">{active ? `Rodada ${encounter.round}` : 'Ordem de iniciativa'}</span>
+        <button className="btn ghost sm icon" onClick={toggleFold} aria-expanded={!folded} title={folded ? 'Abrir a ordem de iniciativa' : 'Recolher'} aria-label={folded ? 'Abrir a ordem de iniciativa' : 'Recolher a ordem de iniciativa'}>
+          {folded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+        </button>
         {active && list[encounter.turn] && <span className="init-now">vez de <b>{list[encounter.turn].name}</b></span>}
         {calling && !active && <span className="init-now">{waiting.length ? `aguardando ${waiting.length} jogador${waiting.length > 1 ? 'es' : ''}…` : 'todos rolaram'}</span>}
         <span className="spacer" />
@@ -82,9 +85,6 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
             )}
           </span>
         )}
-        <button className="btn ghost sm icon" onClick={toggleFold} aria-expanded={!folded} title={folded ? 'Abrir a ordem de iniciativa' : 'Recolher'} aria-label={folded ? 'Abrir a ordem de iniciativa' : 'Recolher a ordem de iniciativa'}>
-          {folded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-        </button>
       </header>
 
       {needsRoll && (

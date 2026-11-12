@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import type React from 'react';
 import { X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { create } from 'zustand';
 
 /* ---------------- hash router ---------------- */
@@ -61,7 +62,8 @@ export function Modal({ title, onClose, children, footer, wide, icon }: { title:
     };
   }, []);
   const titleId = useId();
-  return (
+  // drawn at the end of the page, so no panel it was opened from (turn order, floating window) can sit on top of it
+  return createPortal(
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div ref={box} tabIndex={-1} className={'modal' + (wide ? ' wide' : '')} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <div className="modal-head">
@@ -74,7 +76,8 @@ export function Modal({ title, onClose, children, footer, wide, icon }: { title:
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
