@@ -472,3 +472,8 @@ button.qs-stat:hover, button.qs-stat:focus-visible { border-color: var(--gold); 
 .tm-bar .btn.icon svg { width: 20px; height: 20px; }
 .tm-bar .btn.icon:hover, .tm-bar .btn.icon:focus-visible { color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, transparent); }
 .tm-bar .tm-crown { width: 15px; height: 15px; }
+
+/* the full sheet inside a table window scrolls as a whole: nothing stuck to the page's top
+   (that offset belongs to the sheet page and landed in the middle of the window) */
+.fwin .sheet-top, .fwin .sheet-vitals, .fwin .combat-bar { position: static; backdrop-filter: none; background: none; }
+.fwin .desk-side { position: static; max-height: none; overflow: visible; }
