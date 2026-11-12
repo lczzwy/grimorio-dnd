@@ -788,13 +788,51 @@ grant select, insert, update, delete on public.map_tokens to authenticated;
 revoke all on public.map_tokens from anon;
 grant execute on function public.move_tokens(uuid[], real[], real[]) to authenticated;
 
+-- ---------------------------------------------------------------- desenhos no mapa (Fase 8d)
+-- Traços de lápis sobre um mapa: pontos em pixels da imagem, cor e espessura.
+-- Qualquer membro desenha; cada um apaga os seus e o mestre apaga qualquer um.
+create table if not exists public.map_drawings (
+  id uuid primary key default gen_random_uuid(),
+  campaign_id uuid not null references public.campaigns (id) on delete cascade,
+  map_id uuid not null references public.campaign_maps (id) on delete cascade,
+  author uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  color text not null default '#e8c46a' check (color ~ '^#[0-9a-fA-F]{6}$'),
+  width real not null default 4 check (width between 1 and 40),
+  points jsonb not null check (jsonb_typeof(points) = 'array' and jsonb_array_length(points) between 4 and 4000),
+  created_at timestamptz not null default now()
+);
+create index if not exists map_drawings_map on public.map_drawings (map_id);
+alter table public.map_drawings enable row level security;
+drop policy if exists drawings_select on public.map_drawings;
+create policy drawings_select on public.map_drawings for select using (is_member(campaign_id));
+drop policy if exists drawings_insert on public.map_drawings;
+create policy drawings_insert on public.map_drawings for insert with check (
+  author = auth.uid() and is_member(campaign_id)
+  and exists (select 1 from campaign_maps m where m.id = map_id and m.campaign_id = map_drawings.campaign_id));
+drop policy if exists drawings_delete on public.map_drawings;
+create policy drawings_delete on public.map_drawings for delete using (author = auth.uid() or is_gm(campaign_id));
+
+-- no máximo 300 traços por mapa: os mais antigos saem
+create or replace function public.trim_drawings() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from map_drawings where id in (
+    select id from map_drawings where map_id = new.map_id order by created_at desc offset 300);
+  return null;
+end $$;
+drop trigger if exists trim_drawings on public.map_drawings;
+create trigger trim_drawings after insert on public.map_drawings for each row execute function public.trim_drawings();
+
+grant select, insert, delete on public.map_drawings to authenticated;
+revoke all on public.map_drawings from anon;
+
 -- ---------------------------------------------------------------- tempo real
 
 do $$
 declare t text;
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    foreach t in array array['characters', 'campaign_members', 'campaign_homebrew', 'rolls', 'encounters', 'combatants', 'chat_messages', 'campaign_maps', 'map_tokens'] loop
+    foreach t in array array['characters', 'campaign_members', 'campaign_homebrew', 'rolls', 'encounters', 'combatants', 'chat_messages', 'campaign_maps', 'map_tokens', 'map_drawings'] loop
       if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
         execute format('alter publication supabase_realtime add table public.%I', t);
       end if;

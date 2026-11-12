@@ -1,12 +1,14 @@
 import { useCallback, useState } from 'react';
-import { Hand, CirclePlus, Magnet } from 'lucide-react';
+import { Hand, CirclePlus, Magnet, Pencil, Eraser, Ruler, Trash2 } from 'lucide-react';
+import { PEN_COLORS, useDrawings, useMapFx } from '../cloud/drawings';
+import { confirmBox } from '../ui/dialogs';
 import { TableDice } from '../dice3d/TableDice';
 import { useCampaignMaps, type BattleMapRow } from '../cloud/maps';
 import { moveTokens, useMapTokens, type MapToken } from '../cloud/tokens';
 import type { Member } from '../cloud/campaigns';
 import { useParty } from '../pages/campaign/TableTab';
 import { showError } from '../ui/dialogs';
-import { BattleMap } from './BattleMap';
+import { BattleMap, type MapTool } from './BattleMap';
 import { GridEditor, MapsButton } from './MapManager';
 import { TokenEditor, TokenMenu, type PartyPick } from './TokenTools';
 
@@ -24,6 +26,12 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
   const [tokenForm, setTokenForm] = useState<{ token?: MapToken } | null>(null);
   const [menu, setMenu] = useState<{ token: MapToken; x: number; y: number } | null>(null);
   const [snap, setSnap] = useState(() => { try { return localStorage.getItem('map-snap') === '1'; } catch { return false; } });
+  const [tool, setTool] = useState<MapTool>('hand');
+  const [penColor, setPenColor] = useState(() => { try { return localStorage.getItem('pen-color') || PEN_COLORS[0]; } catch { return PEN_COLORS[0]; } });
+  const pickColor = (c: string) => { setPenColor(c); try { localStorage.setItem('pen-color', c); } catch { /* private mode */ } };
+  const { drawings, add: addDrawing, remove: removeDrawings } = useDrawings(campaignId, active?.id);
+  const me = members.find((m) => m.user_id === uid);
+  const { rulers, pings, sendRuler, sendPing } = useMapFx(campaignId, active?.id, { uid, name: me?.display_name || '', color: penColor });
   const toggleSnap = () => setSnap((v) => { try { localStorage.setItem('map-snap', v ? '0' : '1'); } catch { /* private mode */ } return !v; });
 
   const chars = useParty(members.map((m) => m.character_id).filter((x): x is string => !!x));
@@ -53,6 +61,16 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
               onMoved={onMoved}
               onTokenMenu={isGm ? (token, x, y) => setMenu({ token, x, y }) : undefined}
               snap={snap}
+              tool={tool}
+              pen={{ color: penColor, width: 4 }}
+              drawings={drawings}
+              canErase={(d) => isGm || d.author === uid}
+              onStroke={(points) => { addDrawing({ campaign_id: campaignId, map_id: active!.id, color: penColor, width: 4, points }).catch(showError); }}
+              onErase={(ids) => { removeDrawings(ids).catch(showError); }}
+              rulers={rulers}
+              onRuler={sendRuler}
+              pings={pings}
+              onPing={sendPing}
             />
             {isGm && editing && <GridEditor map={active!} onChange={setDraft} onClose={() => { setEditing(false); setDraft(null); }} />}
           </>
@@ -60,7 +78,26 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
       />
       {active && (
         <nav className="map-tools" aria-label="Ferramentas do mapa">
-          <button className="map-tool on" title="Mão: arraste o mapa e os tokens. Botão direito e arrastar seleciona vários." aria-pressed="true"><Hand size={18} /></button>
+          {([
+            ['hand', Hand, 'Mão: arraste o mapa e os tokens. Botão direito e arrastar seleciona vários. Dois cliques marcam um ponto para todos.'],
+            ['pen', Pencil, 'Lápis: desenhe no mapa (todos veem)'],
+            ['eraser', Eraser, isGm ? 'Borracha: passe sobre um desenho para apagar' : 'Borracha: apaga os seus desenhos'],
+            ['ruler', Ruler, 'Régua: arraste para medir a distância (todos veem)'],
+          ] as const).map(([id, Icon, label]) => (
+            <button key={id} className={'map-tool' + (tool === id ? ' on' : '')} title={label} aria-label={label} aria-pressed={tool === id} onClick={() => setTool(id)}><Icon size={18} /></button>
+          ))}
+          {tool === 'pen' && (
+            <div className="map-pal" role="radiogroup" aria-label="Cor do lápis">
+              {PEN_COLORS.map((c) => (
+                <button key={c} role="radio" aria-checked={penColor === c} aria-label={'Cor ' + c} className={'map-swatch' + (penColor === c ? ' on' : '')} style={{ background: c }} onClick={() => pickColor(c)} />
+              ))}
+            </div>
+          )}
+          {isGm && drawings.length > 0 && (
+            <button className="map-tool danger" title="Apagar todos os desenhos deste mapa" aria-label="Apagar todos os desenhos" onClick={async () => {
+              if (await confirmBox('Apagar todos os desenhos deste mapa, de todo mundo?', { danger: true, ok: 'Apagar tudo' })) removeDrawings(drawings.map((d) => d.id)).catch(showError);
+            }}><Trash2 size={18} /></button>
+          )}
           <button className={'map-tool' + (snap ? ' on' : '')} title={snap ? 'Encaixar na grade: ligado' : 'Encaixar na grade: desligado (token fica onde você soltar)'} aria-pressed={snap} aria-label="Encaixar na grade" onClick={toggleSnap}><Magnet size={18} /></button>
           {isGm && <button className="map-tool" title="Novo token" aria-label="Novo token" onClick={() => setTokenForm({})}><CirclePlus size={18} /></button>}
         </nav>

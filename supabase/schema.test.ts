@@ -550,3 +550,19 @@ describe('phase 8b: tokens', () => {
     expect(upd).toEqual([]);
   });
 });
+
+describe('phase 8d: drawings', () => {
+  it('members draw; each erases their own and the GM erases any', async () => {
+    const [{ id: map }] = await as<{ id: string }>(GM, `insert into campaign_maps (campaign_id, image_url, width, height) values ($1, 'u', 500, 500) returning id`, [campaign]);
+    const pts = JSON.stringify([1, 2, 30, 40]);
+    const [{ id: a }] = await as<{ id: string }>(P1, `insert into map_drawings (campaign_id, map_id, points, color) values ($1, $2, $3, '#ff0000') returning id`, [campaign, map, pts]);
+    const [{ id: b }] = await as<{ id: string }>(GM, `insert into map_drawings (campaign_id, map_id, points) values ($1, $2, $3) returning id`, [campaign, map, pts]);
+    await fails(as(OUT, `insert into map_drawings (campaign_id, map_id, points) values ($1, $2, $3)`, [campaign, map, pts]), /row-level security/);
+    await fails(as(P1, `insert into map_drawings (campaign_id, map_id, points, color) values ($1, $2, $3, 'red')`, [campaign, map, pts]), /check constraint/);
+    expect(await as(P1, `delete from map_drawings where id = $1 returning id`, [b])).toEqual([]);
+    expect(await as(P1, `delete from map_drawings where id = $1 returning id`, [a])).toEqual([{ id: a }]);
+    expect(await as(GM, `delete from map_drawings where id = $1 returning id`, [b])).toEqual([{ id: b }]);
+    const [{ id: c }] = await as<{ id: string }>(P1, `insert into map_drawings (campaign_id, map_id, points) values ($1, $2, $3) returning id`, [campaign, map, pts]);
+    expect(await as(GM, `delete from map_drawings where id = $1 returning id`, [c])).toEqual([{ id: c }]);
+  });
+});

@@ -2,6 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Maximize, Minus, Plus } from 'lucide-react';
 import type { BattleMapRow } from '../cloud/maps';
 import { snapToGrid, type MapToken } from '../cloud/tokens';
+import { gridDistance, type Drawing, type PingFx, type RulerFx } from '../cloud/drawings';
+
+export type MapTool = 'hand' | 'pen' | 'eraser' | 'ruler';
+type Pt = { x: number; y: number };
+const pathOf = (p: number[]) => p.reduce((d, v, i) => d + (i % 2 ? ' ' + v : (i ? ' L ' : 'M ') + v), '');
 
 interface View { x: number; y: number; z: number }
 const MAX_ZOOM = 6; // times the fitted size
@@ -10,7 +15,10 @@ const LONG_PRESS_MS = 550;
 type Gesture =
   | { kind: 'pan'; x: number; y: number }
   | { kind: 'drag'; ids: string[]; start: { x: number; y: number }; from: Map<string, { x: number; y: number }>; moved: boolean }
-  | { kind: 'select'; x0: number; y0: number; x1: number; y1: number };
+  | { kind: 'select'; x0: number; y0: number; x1: number; y1: number }
+  | { kind: 'pen'; pts: number[] }
+  | { kind: 'erase'; ids: Set<string> }
+  | { kind: 'ruler'; a: Pt };
 
 /**
  * The battle map under the dice: the GM's square crop, filling the square frame, with its grid
@@ -21,7 +29,7 @@ type Gesture =
  *   rectangle moves together once, then the selection clears.
  * - Right click (or a long press) on a token opens its menu.
  */
-export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMenu, snap = false }: {
+export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMenu, snap = false, tool = 'hand', pen, drawings = [], canErase, onStroke, onErase, rulers = {}, onRuler, pings = [], onPing }: {
   map: BattleMapRow;
   tokens: MapToken[];
   setTokens: (f: (t: MapToken[]) => MapToken[]) => void;
@@ -30,6 +38,17 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
   onTokenMenu?: (t: MapToken, clientX: number, clientY: number) => void;
   /** fit dropped tokens to the grid squares */
   snap?: boolean;
+  tool?: MapTool;
+  pen?: { color: string; width: number };
+  drawings?: Drawing[];
+  canErase?: (d: Drawing) => boolean;
+  onStroke?: (points: number[]) => void;
+  onErase?: (ids: string[]) => void;
+  /** other people's rulers, live */
+  rulers?: Record<string, RulerFx>;
+  onRuler?: (line: { a: Pt; b: Pt } | null) => void;
+  pings?: PingFx[];
+  onPing?: (x: number, y: number) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View | null>(null);
@@ -41,6 +60,10 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
   const longPress = useRef<number | undefined>(undefined);
   // the tokens being dragged and how far (picture px); drawn on top of the list without touching it
   const [drag, setDrag] = useState<{ ids: Set<string>; dx: number; dy: number } | null>(null);
+  // the stroke being drawn, strokes being rubbed out, and my own ruler (all local until released)
+  const [draft, setDraft] = useState<number[] | null>(null);
+  const [erasing, setErasing] = useState<Set<string>>(new Set());
+  const [myRuler, setMyRuler] = useState<{ a: Pt; b: Pt } | null>(null);
   // pointer moves are applied once per frame, not once per event
   const frame = useRef<number | undefined>(undefined);
   const pending = useRef<(() => void) | null>(null);
@@ -120,6 +143,21 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
 
+  /** the eraser takes the strokes under the pointer (only the ones this person may erase) */
+  const rubAt = (cx: number, cy: number, ids: Set<string>) => {
+    const hit = document.elementsFromPoint(cx, cy).map((el) => (el as HTMLElement).dataset?.stroke).filter((x): x is string => !!x);
+    let changed = false;
+    for (const id of hit) {
+      const d = drawings.find((x) => x.id === id);
+      if (d && !ids.has(id) && (canErase?.(d) ?? false)) { ids.add(id); changed = true; }
+    }
+    if (changed) setErasing(new Set(ids));
+  };
+  // once the server drops them, forget the local "being erased" marks
+  useEffect(() => {
+    setErasing((s) => (s.size && ![...s].some((id) => drawings.some((d) => d.id === id)) ? new Set() : s));
+  }, [drawings]);
+
   const onDown = (e: React.PointerEvent) => {
     const mouse = e.pointerType === 'mouse';
     if (mouse && e.button !== 0 && e.button !== 2) return;
@@ -137,6 +175,15 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
     const tokenEl = (e.target as HTMLElement).closest<HTMLElement>('[data-token]');
     const tok = tokenEl ? tokens.find((t) => t.id === tokenEl.dataset.token) : undefined;
 
+    // Alt+click anywhere: a ping everyone sees
+    if (e.altKey && onPing && view) { const m = toMap(p.x, p.y); onPing(m.x, m.y); gesture.current = null; return; }
+    if (tool !== 'hand' && !(mouse && e.button === 2)) {
+      const m = toMap(p.x, p.y);
+      if (tool === 'pen') gesture.current = { kind: 'pen', pts: [Math.round(m.x), Math.round(m.y)] };
+      else if (tool === 'ruler') gesture.current = { kind: 'ruler', a: m };
+      else { const g2: Gesture = { kind: 'erase', ids: new Set() }; gesture.current = g2; rubAt(e.clientX, e.clientY, g2.ids); }
+      return;
+    }
     if (mouse && e.button === 2) {
       // right button: on a token the menu opens (contextmenu event); on the map, a selection box
       if (!tok) gesture.current = { kind: 'select', x0: p.x, y0: p.y, x1: p.x, y1: p.y };
@@ -189,6 +236,22 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
       if (Math.abs(dx) + Math.abs(dy) > 2) g.moved = true;
       const ids = new Set(g.ids);
       perFrame(() => setDrag({ ids, dx, dy }));
+    } else if (g.kind === 'pen') {
+      const p = local(e);
+      const m = toMap(p.x, p.y);
+      const lx = g.pts[g.pts.length - 2], ly = g.pts[g.pts.length - 1];
+      // keep a point every couple of screen pixels: smooth enough, small to store
+      if (Math.hypot(m.x - lx, m.y - ly) * (view?.z ?? 1) < 2.5 || g.pts.length >= 3990) return;
+      g.pts.push(Math.round(m.x), Math.round(m.y));
+      const pts = g.pts.slice();
+      perFrame(() => setDraft(pts));
+    } else if (g.kind === 'erase') {
+      rubAt(e.clientX, e.clientY, g.ids);
+    } else if (g.kind === 'ruler') {
+      const p = local(e);
+      const line = { a: g.a, b: toMap(p.x, p.y) };
+      perFrame(() => setMyRuler(line));
+      onRuler?.(line);
     } else {
       const p = local(e);
       g.x1 = p.x; g.y1 = p.y;
@@ -203,6 +266,24 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
     const g = gesture.current;
     gesture.current = null;
     if (!g) return;
+    if (g.kind === 'pen') {
+      if (frame.current) { cancelAnimationFrame(frame.current); frame.current = undefined; pending.current = null; }
+      setDraft(null);
+      // a single click leaves a dot
+      const pts = g.pts.length >= 4 ? g.pts : [...g.pts, g.pts[0] + 1, g.pts[1] + 1];
+      onStroke?.(pts);
+      return;
+    }
+    if (g.kind === 'erase') {
+      if (g.ids.size) onErase?.([...g.ids]);
+      return;
+    }
+    if (g.kind === 'ruler') {
+      if (frame.current) { cancelAnimationFrame(frame.current); frame.current = undefined; pending.current = null; }
+      setMyRuler(null);
+      onRuler?.(null);
+      return;
+    }
     if (g.kind === 'drag') {
       if (frame.current) { cancelAnimationFrame(frame.current); frame.current = undefined; pending.current = null; }
       setDrag(null);
@@ -245,7 +326,7 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
   return (
     <div
       ref={box}
-      className="bmap"
+      className={'bmap tool-' + tool}
       tabIndex={0}
       role="application"
       aria-label={`Mapa ${map.name}. Arraste para mover o mapa ou um token; botão direito e arrastar seleciona vários tokens.`}
@@ -254,6 +335,12 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
       onPointerUp={onUp}
       onPointerCancel={onUp}
       onKeyDown={onKey}
+      onDoubleClick={(e) => {
+        if (tool !== 'hand' || !onPing || (e.target as HTMLElement).closest('[data-token], button')) return;
+        const p = local(e);
+        const m = toMap(p.x, p.y);
+        onPing(m.x, m.y);
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         const el = (e.target as HTMLElement).closest<HTMLElement>('[data-token]');
@@ -275,6 +362,16 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
               <rect width="100%" height="100%" fill={`url(#${patId})`} />
             </svg>
           )}
+          <svg className="bmap-ink" width={map.width} height={map.height} aria-hidden>
+            {drawings.map((d) => (
+              <g key={d.id} className={erasing.has(d.id) ? 'rubbed' : undefined}>
+                <path d={pathOf(d.points)} stroke={d.color} strokeWidth={d.width} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                {/* wider invisible copy: easier to hit with the eraser */}
+                <path data-stroke={d.id} className="ink-hit" d={pathOf(d.points)} strokeWidth={Math.max(d.width, 14 / view.z)} fill="none" strokeLinecap="round" />
+              </g>
+            ))}
+            {draft && pen && <path d={pathOf(draft)} stroke={pen.color} strokeWidth={pen.width} fill="none" strokeLinecap="round" strokeLinejoin="round" />}
+          </svg>
           {tokens.map((t) => {
             const d = t.size * g;
             const off = drag?.ids.has(t.id) ? drag : null;
@@ -296,6 +393,31 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
               </div>
             );
           })}
+          <svg className="bmap-fx" width={map.width} height={map.height} aria-hidden>
+            {[...Object.values(rulers), ...(myRuler ? [{ uid: 'me', name: '', color: pen?.color ?? '#e8c46a', ...myRuler }] : [])].map((r) => {
+              const dist = gridDistance(r.a, r.b, g);
+              const fs = 13 / view.z;
+              const w = 2.5 / view.z;
+              return (
+                <g key={r.uid}>
+                  <line x1={r.a.x} y1={r.a.y} x2={r.b.x} y2={r.b.y} stroke="#000" strokeOpacity={0.6} strokeWidth={w * 2.2} strokeLinecap="round" />
+                  <line x1={r.a.x} y1={r.a.y} x2={r.b.x} y2={r.b.y} stroke={r.color} strokeWidth={w} strokeDasharray={`${8 / view.z} ${5 / view.z}`} strokeLinecap="round" />
+                  <circle cx={r.a.x} cy={r.a.y} r={4 / view.z} fill={r.color} />
+                  <circle cx={r.b.x} cy={r.b.y} r={4 / view.z} fill={r.color} />
+                  <text x={r.b.x + 10 / view.z} y={r.b.y - 10 / view.z} fontSize={fs} className="fx-label" paintOrder="stroke" stroke="#000" strokeWidth={3 / view.z}>
+                    {r.name ? `${r.name}: ` : ''}{dist.label}
+                  </text>
+                </g>
+              );
+            })}
+            {pings.map((pg) => (
+              <g key={pg.key} className="fx-ping" style={{ ['--c' as string]: pg.color }}>
+                <circle cx={pg.x} cy={pg.y} r={g * 0.9} fill="none" stroke={pg.color} strokeWidth={3 / view.z} />
+                <circle cx={pg.x} cy={pg.y} r={5 / view.z} fill={pg.color} />
+                {pg.name && <text x={pg.x} y={pg.y - g * 1.1} fontSize={12 / view.z} textAnchor="middle" className="fx-label" paintOrder="stroke" stroke="#000" strokeWidth={3 / view.z}>{pg.name}</text>}
+              </g>
+            ))}
+          </svg>
         </div>
       )}
       {rect && <div className="bmap-select" style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }} />}

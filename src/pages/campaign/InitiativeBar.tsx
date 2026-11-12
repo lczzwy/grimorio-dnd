@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Dices, Play, Plus, SkipForward, Square, Trash2, EyeOff, Megaphone } from 'lucide-react';
+import { Dices, Play, Plus, SkipForward, Square, Trash2, EyeOff, Megaphone, ChevronDown, ChevronUp } from 'lucide-react';
 import { callInitiative, nextTurn, removeCombatant, rollMyInitiative, setEncounter, updateCombatant, useEncounter, type Combatant } from '../../cloud/combat';
 import { useCampaignSrd } from '../../cloud/campaignHomebrew';
 import { initiative } from '../../engine/rules';
@@ -25,6 +25,9 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // folded: only the title line (the "roll initiative" call still shows when it's your turn to roll)
+  const [folded, setFolded] = useState(() => { try { return localStorage.getItem('init-folded') !== '0'; } catch { return true; } });
+  const toggleFold = () => setFolded((v) => { try { localStorage.setItem('init-folded', v ? '0' : '1'); } catch { /* private mode */ } return !v; });
 
   if (!encounter) return null;
   const me = members.find((m) => m.user_id === uid);
@@ -57,13 +60,13 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
   const stop = () => safe(setEncounter(campaign.id, { active: false, init_call: false }));
 
   return (
-    <section className="init-bar">
+    <section className={'init-bar' + (folded ? ' folded' : '')}>
       <header className="init-head">
         <span className="init-title">{active ? `Rodada ${encounter.round}` : 'Ordem de iniciativa'}</span>
         {active && list[encounter.turn] && <span className="init-now">vez de <b>{list[encounter.turn].name}</b></span>}
         {calling && !active && <span className="init-now">{waiting.length ? `aguardando ${waiting.length} jogador${waiting.length > 1 ? 'es' : ''}…` : 'todos rolaram'}</span>}
         <span className="spacer" />
-        {isGm && (
+        {isGm && !folded && (
           <span className="row g4">
             <button className="btn sm" disabled={busy || !players.length} onClick={ask} title="Coloca todos os jogadores na ordem e pede que rolem"><Megaphone size={14} /> Pedir iniciativa</button>
             <button className="btn sm" disabled={busy} onClick={() => setAdding(true)}><Plus size={14} /> Criatura</button>
@@ -77,6 +80,9 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
             )}
           </span>
         )}
+        <button className="btn ghost sm icon" onClick={toggleFold} aria-expanded={!folded} title={folded ? 'Abrir a ordem de iniciativa' : 'Recolher'} aria-label={folded ? 'Abrir a ordem de iniciativa' : 'Recolher a ordem de iniciativa'}>
+          {folded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+        </button>
       </header>
 
       {needsRoll && (
@@ -85,7 +91,7 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
         </button>
       )}
 
-      {list.length > 0 ? (
+      {folded ? null : list.length > 0 ? (
         <ol className="init-list">
           {list.map((c, i) => (
             <Entry
