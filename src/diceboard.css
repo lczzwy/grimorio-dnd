@@ -341,3 +341,12 @@ html[data-tablemode] .dice-tray { right: 336px; bottom: 80px; z-index: 30; }
 .init-bar.folded .init-head { margin-bottom: 0; }
 .init-bar.folded .init-call { margin: 8px 0 2px; }
 .tm-init:has(.init-bar.folded) { width: auto; max-width: min(340px, 40%); }
+
+/* ---- Token ligado ao combate: anel de vida e brilho na vez ---- */
+.tok-life { position: absolute; inset: -12%; width: 124%; height: 124%; transform: rotate(-90deg); pointer-events: none; overflow: visible; }
+.tok-life circle { fill: none; stroke-width: 6; }
+.tok-life-bg { stroke: rgba(0, 0, 0, 0.55); }
+.tok-life-fg { stroke-linecap: round; transition: stroke-dasharray 0.5s ease, stroke 0.5s; }
+.tok.turn::before { content: ''; position: absolute; inset: -22%; border-radius: 50%; border: 3px solid #f3d27a; box-shadow: 0 0 14px 4px rgba(243, 210, 122, 0.75); animation: tok-turn 1.4s ease-in-out infinite; pointer-events: none; }
+@keyframes tok-turn { 50% { opacity: 0.45; transform: scale(1.06); } }
+@media (prefers-reduced-motion: reduce) { .tok.turn::before { animation: none; } }

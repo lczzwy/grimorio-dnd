@@ -6,6 +6,7 @@ import { gridDistance, type Drawing, type PingFx, type RulerFx } from '../cloud/
 
 export type MapTool = 'hand' | 'pen' | 'eraser' | 'ruler';
 type Pt = { x: number; y: number };
+const lifeColor = (f: number) => (f > 0.5 ? '#4fbf6a' : f > 0.25 ? '#e0b341' : '#e5484d');
 const pathOf = (p: number[]) => p.reduce((d, v, i) => d + (i % 2 ? ' ' + v : (i ? ' L ' : 'M ') + v), '');
 
 interface View { x: number; y: number; z: number }
@@ -29,7 +30,7 @@ type Gesture =
  *   rectangle moves together once, then the selection clears.
  * - Right click (or a long press) on a token opens its menu.
  */
-export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMenu, snap = false, tool = 'hand', pen, drawings = [], canErase, onStroke, onErase, rulers = {}, onRuler, pings = [], onPing }: {
+export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMenu, snap = false, tool = 'hand', pen, drawings = [], canErase, onStroke, onErase, rulers = {}, onRuler, pings = [], onPing, turnId, life = {} }: {
   map: BattleMapRow;
   tokens: MapToken[];
   setTokens: (f: (t: MapToken[]) => MapToken[]) => void;
@@ -49,6 +50,10 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
   onRuler?: (line: { a: Pt; b: Pt } | null) => void;
   pings?: PingFx[];
   onPing?: (x: number, y: number) => void;
+  /** the token whose turn it is */
+  turnId?: string;
+  /** life left (0 to 1) of tokens linked to a creature in the fight */
+  life?: Record<string, number>;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View | null>(null);
@@ -382,13 +387,19 @@ export function BattleMap({ map, tokens, setTokens, canMove, onMoved, onTokenMen
               <div
                 key={t.id}
                 data-token={t.id}
-                className={'tok tok-' + t.color + (t.hidden ? ' hidden' : '') + (selected.has(t.id) ? ' sel' : '') + (canMove(t) ? ' movable' : '') + (off ? ' dragging' : '')}
+                className={'tok tok-' + t.color + (t.hidden ? ' hidden' : '') + (selected.has(t.id) ? ' sel' : '') + (canMove(t) ? ' movable' : '') + (off ? ' dragging' : '') + (t.id === turnId ? ' turn' : '')}
                 style={{ left: tx - d / 2, top: ty - d / 2, width: d, height: d, ['--ring' as string]: `${Math.max(1.5, 2 / view.z)}px` }}
                 title={t.name}
               >
                 <div className="tok-face" style={t.image_url ? { backgroundImage: `url(${t.image_url})` } : undefined}>
                   {!t.image_url && <span style={{ fontSize: d * 0.42 }}>{(t.name || '?').trim().charAt(0).toUpperCase()}</span>}
                 </div>
+                {life[t.id] != null && (
+                  <svg className="tok-life" viewBox="0 0 100 100" aria-hidden>
+                    <circle cx="50" cy="50" r="46" className="tok-life-bg" />
+                    <circle cx="50" cy="50" r="46" pathLength={100} strokeDasharray={`${Math.max(0, Math.min(1, life[t.id])) * 100} 100`} className="tok-life-fg" style={{ stroke: lifeColor(life[t.id]) }} />
+                  </svg>
+                )}
                 {t.name && <span className="tok-name" style={{ fontSize: label }}>{t.name}</span>}
               </div>
             );

@@ -566,3 +566,13 @@ describe('phase 8d: drawings', () => {
     expect(await as(GM, `delete from map_drawings where id = $1 returning id`, [c])).toEqual([{ id: c }]);
   });
 });
+
+describe('phase 8: tokens linked to the fight', () => {
+  it('a token points at a combatant and loses the link when the creature leaves the fight', async () => {
+    const [{ id: map }] = await as<{ id: string }>(GM, `insert into campaign_maps (campaign_id, image_url, width, height) values ($1, 'u', 500, 500) returning id`, [campaign]);
+    const [{ id: cb }] = await as<{ id: string }>(GM, `insert into combatants (campaign_id, kind, name) values ($1, 'monster', 'Orc') returning id`, [campaign]);
+    const [{ id: tk }] = await as<{ id: string }>(GM, `insert into map_tokens (campaign_id, map_id, name, combatant_id) values ($1, $2, 'Orc', $3) returning id`, [campaign, map, cb]);
+    await as(GM, `delete from combatants where id = $1`, [cb]);
+    expect(await as(GM, `select combatant_id from map_tokens where id = $1`, [tk])).toEqual([{ combatant_id: null }]);
+  });
+});

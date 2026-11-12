@@ -757,6 +757,9 @@ create table if not exists public.map_tokens (
   created_at timestamptz not null default now()
 );
 create index if not exists map_tokens_map on public.map_tokens (map_id);
+-- ligação com o combate (Fase 8, item 5): a vez de quem joga e a vida aparecem no token
+alter table public.map_tokens add column if not exists combatant_id uuid references public.combatants (id) on delete set null;
+alter table public.map_tokens add column if not exists character_id text references public.characters (id) on delete set null;
 alter table public.map_tokens enable row level security;
 drop policy if exists tokens_select on public.map_tokens;
 create policy tokens_select on public.map_tokens for select using (is_gm(campaign_id) or (is_member(campaign_id) and not hidden));

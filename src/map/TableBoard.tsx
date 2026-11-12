@@ -2,6 +2,10 @@ import { useCallback, useState } from 'react';
 import { Hand, CirclePlus, Magnet, Pencil, Eraser, Ruler, Trash2 } from 'lucide-react';
 import { PEN_COLORS, useDrawings, useMapFx } from '../cloud/drawings';
 import { confirmBox } from '../ui/dialogs';
+import { useEncounter } from '../cloud/combat';
+
+/** how much life a hurt band means, for players who only see the band */
+const BAND_LIFE: Record<string, number> = { ileso: 1, ferido: 0.7, sangrando: 0.4, 'quase morto': 0.15, caido: 0 };
 import { TableDice } from '../dice3d/TableDice';
 import { useCampaignMaps, type BattleMapRow } from '../cloud/maps';
 import { moveTokens, useMapTokens, type MapToken } from '../cloud/tokens';
@@ -39,6 +43,19 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
     .filter((m) => m.role === 'player' && m.character_id && chars[m.character_id])
     .map((m) => ({ member: m, character: chars[m.character_id!] }));
 
+  // the fight: whose turn it is, and how hurt the linked creatures are
+  const { encounter, list: fighters, secrets } = useEncounter(campaignId, isGm);
+  const current = encounter?.active ? fighters[encounter.turn] : undefined;
+  const turnId = current ? tokens.find((t) => (t.combatant_id && t.combatant_id === current.id) || (!!current.character_id && t.character_id === current.character_id))?.id : undefined;
+  const life: Record<string, number> = {};
+  for (const t of tokens) {
+    const f = t.combatant_id ? fighters.find((x) => x.id === t.combatant_id) : undefined;
+    if (!f || f.kind === 'player') continue;
+    const s = secrets[f.id];
+    // the GM sees the exact life; players see the band the server gives them
+    life[t.id] = isGm && s && s.hp_max > 0 ? s.hp_current / s.hp_max : BAND_LIFE[f.hp_band] ?? 1;
+  }
+
   const canMove = useCallback((t: MapToken) => isGm || (!!t.owner && t.owner === uid), [isGm, uid]);
   const onMoved = useCallback((moves: { id: string; x: number; y: number }[]) => {
     moveTokens(moves).catch((e) => { showError(e); });
@@ -71,6 +88,8 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
               onRuler={sendRuler}
               pings={pings}
               onPing={sendPing}
+              turnId={turnId}
+              life={life}
             />
             {isGm && editing && <GridEditor map={active!} onChange={setDraft} onClose={() => { setEditing(false); setDraft(null); }} />}
           </>
@@ -103,7 +122,7 @@ export function TableBoard({ campaignId, isGm, uid, members }: { campaignId: str
         </nav>
       )}
       {menu && <TokenMenu token={menu.token} x={menu.x} y={menu.y} onClose={() => setMenu(null)} onEdit={() => setTokenForm({ token: menu.token })} onDeleted={(id) => setTokens((t) => t.filter((x) => x.id !== id))} />}
-      {tokenForm && active && <TokenEditor map={active} token={tokenForm.token} party={party} onClose={() => setTokenForm(null)} />}
+      {tokenForm && active && <TokenEditor map={active} token={tokenForm.token} party={party} fighters={fighters.filter((f) => f.kind !== 'player')} onClose={() => setTokenForm(null)} />}
     </>
   );
 }

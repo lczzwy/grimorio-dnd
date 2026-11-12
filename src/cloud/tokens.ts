@@ -16,6 +16,8 @@ export interface MapToken {
   color: TokenColor;
   hidden: boolean;
   owner: string | null;
+  combatant_id?: string | null;
+  character_id?: string | null;
 }
 
 export const TOKEN_COLORS: { id: TokenColor; label: string; hint: string }[] = [

@@ -6,6 +6,7 @@ import { addToken, deleteToken, snapToGrid, TOKEN_COLORS, updateToken, uploadTok
 import type { BattleMapRow } from '../cloud/maps';
 import type { Member } from '../cloud/campaigns';
 import type { Character } from '../data/types';
+import type { Combatant } from '../cloud/combat';
 
 export interface PartyPick { member: Member; character: Character }
 
@@ -13,10 +14,12 @@ export interface PartyPick { member: Member; character: Character }
  * Create or edit a token: a picture (uploaded, or a player's character portrait), a name,
  * its size in squares, and the ring colour that says whose side it is on.
  */
-export function TokenEditor({ map, token, party, onClose }: { map: BattleMapRow; token?: MapToken; party: PartyPick[]; onClose: () => void }) {
+export function TokenEditor({ map, token, party, fighters = [], onClose }: { map: BattleMapRow; token?: MapToken; party: PartyPick[]; fighters?: Combatant[]; onClose: () => void }) {
   const [name, setName] = useState(token?.name ?? '');
   const [image, setImage] = useState<string | null>(token?.image_url ?? null);
   const [owner, setOwner] = useState<string | null>(token?.owner ?? null);
+  const [characterId, setCharacterId] = useState<string | null>(token?.character_id ?? null);
+  const [combatantId, setCombatantId] = useState<string | null>(token?.combatant_id ?? null);
   const [size, setSize] = useState(token?.size ?? 1);
   const [color, setColor] = useState<TokenColor>(token?.color ?? 'enemy');
   const [hidden, setHidden] = useState(token?.hidden ?? false);
@@ -27,6 +30,8 @@ export function TokenEditor({ map, token, party, onClose }: { map: BattleMapRow;
     setName(p.character.name || p.member.display_name);
     setImage(p.character.portrait || null);
     setOwner(p.member.user_id);
+    setCharacterId(p.character.id);
+    setCombatantId(null);
     setColor('ally');
   };
   const upload = async (f: File) => {
@@ -36,7 +41,7 @@ export function TokenEditor({ map, token, party, onClose }: { map: BattleMapRow;
   const save = async () => {
     setBusy(true);
     try {
-      const fields = { name: name.trim(), image_url: image, owner, size, color, hidden };
+      const fields = { name: name.trim(), image_url: image, owner, size, color, hidden, character_id: characterId, combatant_id: combatantId };
       if (token) await updateToken(token.id, fields);
       else {
         // new tokens land in the middle of the map, on the grid
@@ -84,6 +89,25 @@ export function TokenEditor({ map, token, party, onClose }: { map: BattleMapRow;
           </div>
         </div>
       </div>
+      {fighters.length > 0 && (
+        <label className="field" style={{ marginTop: 14 }}>
+          Criatura do combate
+          <select className="input" value={combatantId ?? ''} onChange={(e) => {
+            const c = fighters.find((f) => f.id === e.target.value);
+            setCombatantId(c?.id ?? null);
+            if (c) {
+              setCharacterId(null);
+              setOwner(null);
+              if (!name.trim()) setName(c.name);
+              if (!image && c.image) setImage(c.image);
+            }
+          }}>
+            <option value="">Nenhuma</option>
+            {fighters.map((f) => <option key={f.id} value={f.id}>{f.name}{f.visible ? '' : ' (escondida)'}</option>)}
+          </select>
+          <span className="tiny muted">Ligado, o token mostra a vida da criatura e brilha na vez dela.</span>
+        </label>
+      )}
       <div className="small muted" style={{ margin: '14px 0 6px' }}>Lado</div>
       <div className="seg">
         {TOKEN_COLORS.map((c) => (
