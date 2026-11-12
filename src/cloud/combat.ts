@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './client';
 import { campaignErrorPt } from './campaignText';
-import { nextTurnState, sortCombatants, tickEffects, type Effect } from './combatLogic';
+import { MANUAL_ORDER, nextTurnState, reorder, sortCombatants, tickEffects, type Effect } from './combatLogic';
 import type { MonsterDef, MonsterAction } from '../data/monsters';
 
 export interface Combatant {
@@ -97,8 +97,19 @@ export async function rollMyInitiative(campaignId: string, rollId: string) {
 export async function callInitiative(campaignId: string, list: Combatant[], players: { character_id: string; name: string; image?: string }[]) {
   for (const p of players) {
     const c = list.find((x) => x.character_id === p.character_id);
-    if (c) await updateCombatant(c.id, { initiative: null });
+    if (c) await updateCombatant(c.id, { initiative: null, sort: 0 });
     else await addPlayerCombatant(campaignId, p.character_id, p.name, p.image);
   }
+  // a new call for initiative goes back to ordering by the numbers
+  await Promise.all(list.filter((c) => c.sort >= MANUAL_ORDER && !players.some((p) => p.character_id === c.character_id)).map((c) => updateCombatant(c.id, { sort: 0 })));
   await setEncounter(campaignId, { init_call: true });
+}
+
+/** GM: puts the fight in a new order (dragged by hand), keeping the turn on whoever is acting now. */
+export async function reorderCombatants(e: Encounter, list: Combatant[], from: number, to: number) {
+  if (from === to) return;
+  const acting = e.active ? list[e.turn]?.id : undefined;
+  const { order, sorts } = reorder(list, from, to);
+  await Promise.all(list.filter((c) => c.sort !== sorts[c.id]).map((c) => updateCombatant(c.id, { sort: sorts[c.id] })));
+  if (acting) await setEncounter(e.campaign_id, { turn: order.findIndex((c) => c.id === acting) });
 }

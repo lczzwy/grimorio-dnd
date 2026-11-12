@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Dices, Play, Plus, SkipForward, Square, Trash2, EyeOff, Megaphone, ChevronDown, ChevronUp } from 'lucide-react';
-import { callInitiative, nextTurn, removeCombatant, rollMyInitiative, setEncounter, updateCombatant, useEncounter, type Combatant } from '../../cloud/combat';
+import { Dices, Play, Plus, SkipForward, Square, Trash2, EyeOff, Megaphone, ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
+import { callInitiative, nextTurn, removeCombatant, reorderCombatants, rollMyInitiative, setEncounter, updateCombatant, useEncounter, type Combatant } from '../../cloud/combat';
 import { useCampaignSrd } from '../../cloud/campaignHomebrew';
 import { initiative } from '../../engine/rules';
 import { fmtMod } from '../../engine/dice';
@@ -25,6 +25,8 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
   // folded: only the title line (the "roll initiative" call still shows when it's your turn to roll)
   const [folded, setFolded] = useState(() => { try { return localStorage.getItem('init-folded') !== '0'; } catch { return true; } });
   const toggleFold = () => setFolded((v) => { try { localStorage.setItem('init-folded', v ? '0' : '1'); } catch { /* private mode */ } return !v; });
@@ -96,6 +98,14 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
           {list.map((c, i) => (
             <Entry
               key={c.id}
+              drag={isGm ? {
+                over: dragOver === i && dragFrom !== null && dragFrom !== i,
+                onStart: () => setDragFrom(i),
+                onOver: () => setDragOver(i),
+                onEnd: () => { setDragFrom(null); setDragOver(null); },
+                onDrop: () => { if (dragFrom !== null && encounter) void safe(reorderCombatants(encounter, list, dragFrom, i)); setDragFrom(null); setDragOver(null); },
+                onKey: (dir: -1 | 1) => { if (encounter && i + dir >= 0 && i + dir < list.length) void safe(reorderCombatants(encounter, list, i, i + dir)); },
+              } : undefined}
               c={c}
               pos={i + 1}
               now={c.id === current}
@@ -117,7 +127,9 @@ export function InitiativeBar({ campaign, members, isGm, uid }: CampaignProps) {
   );
 }
 
-function Entry({ c, pos, now, mine, isGm, editing, onEdit, onSet, onRemove }: { c: Combatant; pos: number; now: boolean; mine: boolean; isGm: boolean; editing: boolean; onEdit: () => void; onSet: (n: number | undefined) => void; onRemove: () => void }) {
+interface DragProps { over: boolean; onStart: () => void; onOver: () => void; onEnd: () => void; onDrop: () => void; onKey: (dir: -1 | 1) => void }
+
+function Entry({ c, pos, now, mine, isGm, editing, onEdit, onSet, onRemove, drag }: { c: Combatant; pos: number; now: boolean; mine: boolean; isGm: boolean; editing: boolean; onEdit: () => void; onSet: (n: number | undefined) => void; onRemove: () => void; drag?: DragProps }) {
   const [val, setVal] = useState<number | undefined>(c.initiative ?? undefined);
   const box = useRef<HTMLSpanElement>(null);
   useEffect(() => {
@@ -129,7 +141,17 @@ function Entry({ c, pos, now, mine, isGm, editing, onEdit, onSet, onRemove }: { 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
   return (
-    <li className={'init-item' + (now ? ' now' : '') + (mine ? ' mine' : '') + (c.kind === 'player' ? ' player' : ' enemy') + (c.visible ? '' : ' hidden')}>
+    <li
+      className={'init-item' + (now ? ' now' : '') + (mine ? ' mine' : '') + (c.kind === 'player' ? ' player' : ' enemy') + (c.visible ? '' : ' hidden') + (drag ? ' draggable' : '') + (drag?.over ? ' drop-here' : '')}
+      draggable={!!drag && !editing}
+      onDragStart={drag && ((e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.id); drag.onStart(); })}
+      onDragOver={drag && ((e) => { e.preventDefault(); drag.onOver(); })}
+      onDragEnd={drag?.onEnd}
+      onDrop={drag && ((e) => { e.preventDefault(); drag.onDrop(); })}
+    >
+      {drag
+        ? <button className="init-grip" title="Arraste para mudar a ordem (ou use as setas ↑ ↓)" aria-label={`Mudar a posição de ${c.name}`} onKeyDown={(e) => { if (e.key === 'ArrowUp') { e.preventDefault(); drag.onKey(-1); } if (e.key === 'ArrowDown') { e.preventDefault(); drag.onKey(1); } }}><GripVertical size={12} /></button>
+        : null}
       <span className="init-pos">{pos}</span>
       <span className="init-av" style={c.image ? { backgroundImage: `url(${c.image})` } : undefined}>{!c.image && (c.name[0] || '?')}</span>
       <span className="init-name">{c.name}{!c.visible && <EyeOff size={11} className="faint" style={{ marginLeft: 4 }} />}</span>

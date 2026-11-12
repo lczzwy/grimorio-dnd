@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextTurnState, sortCombatants, tickEffects, type Effect } from './combatLogic';
+import { MANUAL_ORDER, nextTurnState, reorder, sortCombatants, tickEffects, type Effect } from './combatLogic';
 
 describe('combat logic', () => {
   it('orders by initiative (desc), unrolled last, ties by sort', () => {
@@ -14,5 +14,13 @@ describe('combat logic', () => {
   it('effects with a duration lose a round and disappear at 0; permanent ones stay', () => {
     const fx: Effect[] = [{ id: '1', name: 'Bênção', kind: 'buff', rounds: 2, visible: true }, { id: '2', name: 'Veneno', kind: 'debuff', rounds: 1, visible: true }, { id: '3', name: 'Maldição', kind: 'debuff', visible: false }];
     expect(tickEffects(fx).map((e) => [e.name, e.rounds])).toEqual([['Bênção', 1], ['Maldição', undefined]]);
+  });
+  it('the GM can drag the order by hand, and that wins over the initiative numbers', () => {
+    const list = [{ id: 'orc', initiative: 18, sort: 0 }, { id: 'ana', initiative: 12, sort: 0 }, { id: 'kai', initiative: 5, sort: 0 }];
+    const { order, sorts } = reorder(list, 2, 0);
+    expect(order.map((x) => x.id)).toEqual(['kai', 'orc', 'ana']);
+    const after = list.map((c) => ({ ...c, sort: sorts[c.id] }));
+    expect(sortCombatants(after).map((x) => x.id)).toEqual(['kai', 'orc', 'ana']);
+    expect(Math.min(...Object.values(sorts))).toBe(MANUAL_ORDER);
   });
 });

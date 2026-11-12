@@ -353,3 +353,9 @@ html[data-tablemode] .dice-tray { right: 336px; bottom: 80px; z-index: 30; }
 
 .summons { position: relative; }
 .summons-close { position: absolute; top: 8px; right: 8px; }
+
+/* ordem de iniciativa: o mestre arrasta para reordenar */
+.init-item.draggable { cursor: grab; }
+.init-item.drop-here { box-shadow: 0 -2px 0 var(--gold); }
+.init-grip { display: grid; place-items: center; width: 14px; padding: 0; border: 0; background: none; color: var(--faint); cursor: grab; }
+.init-grip:hover, .init-grip:focus-visible { color: var(--gold); }
