@@ -53,7 +53,7 @@ function Quick({ c, srd, upd }: { c: Character; srd: SrdData; upd: (fn: (d: Char
     const down = dropsToZero(c, n);
     const snap = { hp: { ...c.hp }, deathSaves: { ...c.deathSaves }, concentration: c.concentration };
     markLocalHpChange();
-    upd((d) => applyDamage(d, n));
+    upd((d) => applyDamage(d, n, max));
     offerUndo(`${who}: −${n} PV`, () => upd((d) => { d.hp = { ...snap.hp }; d.deathSaves = { ...snap.deathSaves }; d.concentration = snap.concentration; }));
     if (c.concentration) {
       if (down || dying) { setConc(null); flash(`Concentração em ${concName} perdida (0 PV).`); }

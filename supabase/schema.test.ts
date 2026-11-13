@@ -140,6 +140,12 @@ describe('characters', () => {
     expect(k.gm_apply.concentration ?? null).toBeNull();
   });
 
+  it('gm_apply: damage on a downed character is a failed death save (it was 2: now 3)', async () => {
+    const [r] = await as<{ gm_apply: { hp: { current: number }; deathSaves: { fail: number; success: number } } }>(GM, `select gm_apply('voss', $1, -5, null, null, null, 40)`, [campaign]);
+    expect(r.gm_apply.hp.current).toBe(0);
+    expect(r.gm_apply.deathSaves).toEqual({ success: 1, fail: 3 });
+  });
+
   it('gm_apply: healing from 0 resets death saves and respects max; temp hp does not stack; conditions add/remove', async () => {
     const [h] = await as<{ gm_apply: { hp: { current: number; temp: number }; deathSaves: object; conditions: string[] } }>(GM, `select gm_apply('voss', $1, 50, 4, array['poisoned','prone'], null, 40)`, [campaign]);
     expect(h.gm_apply.hp).toMatchObject({ current: 40, temp: 4 });
@@ -151,6 +157,18 @@ describe('characters', () => {
     expect(row.version).toBeGreaterThan(1);
   });
 
+
+  it('gm_apply: massive damage (what is left after 0 reaches the max HP) kills outright', async () => {
+    await as(GM, `select gm_apply('voss', $1, 100, null, null, null, 40)`, [campaign]);
+    const [r] = await as<{ gm_apply: { hp: { current: number }; deathSaves: { fail: number } } }>(GM, `select gm_apply('voss', $1, -85, null, null, null, 40)`, [campaign]);
+    expect(r.gm_apply.hp.current).toBe(0);
+    expect(r.gm_apply.deathSaves.fail).toBe(3);
+    // and a normal drop to 0 doesn't
+    await as(GM, `select gm_apply('voss', $1, 100, null, null, null, 40)`, [campaign]);
+    const [k] = await as<{ gm_apply: { deathSaves: { fail: number } } }>(GM, `select gm_apply('voss', $1, -50, null, null, null, 40)`, [campaign]);
+    expect(k.gm_apply.deathSaves.fail).toBe(0);
+    await as(GM, `select gm_apply('voss', $1, 100, null, null, null, 40)`, [campaign]);
+  });
   it('gm_apply refuses a character not in that campaign', async () => {
     await fails(as(GM, `select gm_apply('lyra', $1, -1, null, null, null, null)`, [campaign]), /forbidden/);
   });

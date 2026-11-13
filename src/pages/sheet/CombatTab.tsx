@@ -75,7 +75,7 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
     const dropsTo0 = dropsToZero(c, n);
     const snap = { hp: { ...c.hp }, deathSaves: { ...c.deathSaves }, concentration: c.concentration };
     markLocalHpChange();
-    upd((d) => applyDamage(d, n));
+    upd((d) => applyDamage(d, n, max));
     offerUndo(`${who}: −${n} PV`, () => upd((d) => { d.hp = { ...snap.hp }; d.deathSaves = { ...snap.deathSaves }; d.concentration = snap.concentration; }));
     if (c.concentration) {
       if (dropsTo0 || c.hp.current <= 0) flash(`Concentração em ${concName} perdida (0 PV).`);

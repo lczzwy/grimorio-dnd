@@ -497,7 +497,7 @@ create or replace function public.gm_apply(
   ch text, campaign uuid, delta_hp int, temp_hp int, add_conditions text[], remove_conditions text[], max_hp int default null
 ) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare d jsonb; cur int; tmp int; dmg int; conds text[];
+declare d jsonb; cur int; tmp int; dmg int; conds text[]; fails int;
 begin
   if not is_gm(campaign) or not exists (select 1 from campaign_members where campaign_id = campaign and character_id = ch) then
     raise exception 'forbidden';
@@ -509,8 +509,17 @@ begin
   if delta_hp is not null and delta_hp < 0 then
     dmg := -delta_hp;
     if tmp >= dmg then tmp := tmp - dmg; dmg := 0; else dmg := dmg - tmp; tmp := 0; end if;
-    cur := greatest(0, cur - dmg);
+    fails := coalesce((d -> 'deathSaves' ->> 'fail')::int, 0);
+    if cur <= 0 and dmg > 0 then
+      -- already down: each hit is a failed death save; one as big as the max HP kills
+      fails := case when max_hp is not null and dmg >= max_hp then 3 else least(3, fails + 1) end;
+    elsif dmg > 0 then
+      -- what is left after reaching 0, if it is as big as the max HP, kills outright (massive damage)
+      if dmg >= cur and max_hp is not null and dmg - cur >= max_hp then fails := 3; end if;
+      cur := greatest(0, cur - dmg);
+    end if;
     if cur = 0 then d := d - 'concentration'; end if;
+    d := jsonb_set(d, '{deathSaves}', coalesce(d -> 'deathSaves', '{"success":0,"fail":0}'::jsonb) || jsonb_build_object('fail', fails));
   elsif delta_hp is not null and delta_hp > 0 then
     if cur = 0 then d := jsonb_set(d, '{deathSaves}', '{"success":0,"fail":0}'); end if;
     cur := cur + delta_hp;

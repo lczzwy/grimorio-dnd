@@ -80,6 +80,12 @@ export function Creator({ edition }: { edition: Edition }) {
 
   const bgSkills = bg?.skills || [];
   const classSkillPicks = Object.entries(c.skills).filter(([k, v]) => v && !bgSkills.includes(k)).map(([k]) => k);
+  // the class picks N from its list; a custom background (2014) adds 2 skills of any kind
+  const skillNeed = cls?.skillChoice?.choose ?? 0;
+  const skillFrom = cls?.skillChoice?.from ?? [];
+  const freeSkills = edition === '2014' && !c.backgroundId ? 2 : 0;
+  const offList = classSkillPicks.filter((k) => !skillFrom.includes(k)).length;
+  const skillsOk = !cls?.skillChoice || (classSkillPicks.length >= skillNeed && classSkillPicks.length <= skillNeed + freeSkills && offList <= freeSkills);
 
   const valid = useMemo(() => {
     if (!srd) return [false];
@@ -88,11 +94,13 @@ export function Creator({ edition }: { edition: Edition }) {
       !!c.classes[0],
       edition === '2014' ? true : !!c.backgroundId && Object.values(c.backgroundBonus).reduce((s, n) => s + (n || 0), 0) === 3,
       method === 'manual' || method === 'points' ? (method === 'points' ? spent <= 27 : true) : ABILITIES.every((a) => assign[a] != null),
-      !cls?.skillChoice || (c.backgroundId ? classSkillPicks.length === cls.skillChoice.choose : classSkillPicks.length >= cls.skillChoice.choose),
+      skillsOk,
       c.name.trim().length > 0,
       true,
     ];
-  }, [srd, c, species, method, assign, spent, cls, classSkillPicks.length, edition]);
+  }, [srd, c, species, method, assign, spent, skillsOk, edition]);
+  // why a step can't be left yet (shown under the buttons)
+  const STEP_HINT = ['Escolha a raça e os atributos que ela pede.', 'Escolha a classe.', edition === '2024' ? 'Escolha o antecedente e distribua os 3 pontos de atributo dele.' : '', method === 'points' ? 'Use no máximo 27 pontos.' : 'Distribua todos os valores nos atributos.', `Escolha ${skillNeed} perícia(s) da lista da classe${freeSkills ? ` (e até ${freeSkills} livres do antecedente personalizado)` : ''}.`, 'Dê um nome ao personagem.', ''];
 
   if (!srd) return <main className="page"><div className="empty">Abrindo o grimório…</div></main>;
 
@@ -369,7 +377,7 @@ export function Creator({ edition }: { edition: Edition }) {
       {step === 4 && (
         <div className="panel col">
           {cls?.skillChoice ? (
-            <div className="row"><Sparkles size={16} /> <span>Escolha <b>{cls.skillChoice.choose}</b> perícias de {className(cls.id, srd)}. Selecionadas: {classSkillPicks.length}</span></div>
+            <div className="row"><Sparkles size={16} /> <span>Escolha <b>{skillNeed}</b> perícias da lista de {className(cls.id, srd)}{freeSkills ? <> e até <b>{freeSkills}</b> livres (antecedente personalizado)</> : null}. Selecionadas: <b className={skillsOk ? '' : 'gold'}>{classSkillPicks.length}/{skillNeed + freeSkills}</b></span></div>
           ) : <div className="muted">Esta classe não tem escolha de perícias.</div>}
           <div className="choice-grid">
             {srd.skills.map((s) => {
@@ -377,19 +385,26 @@ export function Creator({ edition }: { edition: Edition }) {
               const allowed = cls?.skillChoice?.from.includes(s.key);
               const on = !!c.skills[s.key] || fromBg;
               return (
-                <button key={s.key} disabled={fromBg} className={'choice' + (on ? ' on' : '')} style={{ opacity: !allowed && !fromBg && c.backgroundId ? 0.45 : 1 }}
-                  onClick={() => upd((d) => {
-                    if (d.skills[s.key]) delete d.skills[s.key];
-                    else d.skills[s.key] = 1;
-                  })}>
+                <button key={s.key} disabled={fromBg} className={'choice' + (on ? ' on' : '')} style={{ opacity: !allowed && !fromBg && !on && !freeSkills ? 0.45 : 1 }}
+                  onClick={() => {
+                    if (!c.skills[s.key] && cls?.skillChoice) {
+                      const total = classSkillPicks.length;
+                      if (total >= skillNeed + freeSkills) { flash(`Já escolheu ${skillNeed + freeSkills} perícia(s). Desmarque uma para trocar.`); return; }
+                      if (!allowed && offList >= freeSkills) { flash(freeSkills ? `Só ${freeSkills} perícias podem ser de fora da lista da classe.` : `${SKILL_PT[s.key]} não está na lista de ${className(cls.id, srd)}.`); return; }
+                    }
+                    upd((d) => {
+                      if (d.skills[s.key]) delete d.skills[s.key];
+                      else d.skills[s.key] = 1;
+                    });
+                  }}>
                   {on && <Check className="chk" size={16} />}
                   <div className="ct" style={{ fontSize: 14 }}>{SKILL_PT[s.key]}</div>
-                  <div className="cs">{ABILITY_PT[s.ability].short} {fromBg ? '· antecedente' : allowed ? '· classe' : !c.backgroundId ? '· livre (antecedente)' : ''}</div>
+                  <div className="cs">{ABILITY_PT[s.ability].short} {fromBg ? '· antecedente' : allowed ? '· classe' : freeSkills ? '· livre (antecedente)' : '· fora da classe'}</div>
                 </button>
               );
             })}
           </div>
-          <p className="small faint">Perícias fora da lista da classe podem vir do antecedente personalizado ou de outras fontes. Tudo pode ser ajustado na ficha depois.</p>
+          <p className="small faint">Perícias de outras fontes (raça, talento, item) podem ser marcadas depois, na ficha.</p>
         </div>
       )}
 
@@ -450,11 +465,12 @@ export function Creator({ edition }: { edition: Edition }) {
         <button className="btn" disabled={step === 0} onClick={() => setStep(step - 1)}><ChevronLeft size={16} /> Anterior</button>
         <span className="spacer" />
         {step < STEPS.length - 1 ? (
-          <button className="btn primary" onClick={() => setStep(step + 1)}>Próximo <ChevronRight size={16} /></button>
+          <button className="btn primary" disabled={!valid[step]} onClick={() => setStep(step + 1)} title={valid[step] ? undefined : STEP_HINT[step]}>Próximo <ChevronRight size={16} /></button>
         ) : (
-          <button className="btn primary" disabled={!c.name.trim() || !c.classes[0] || !c.speciesId} onClick={finish}><Sparkles size={16} /> Criar personagem</button>
+          <button className="btn primary" disabled={!valid.slice(0, 6).every(Boolean)} onClick={finish}><Sparkles size={16} /> Criar personagem</button>
         )}
       </div>
+      {step < STEPS.length - 1 && !valid[step] && STEP_HINT[step] && <div className="small" style={{ marginTop: 8, textAlign: 'right', color: 'var(--warn)' }}>{STEP_HINT[step]}</div>}
     </main>
   );
 }

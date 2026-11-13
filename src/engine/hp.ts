@@ -5,13 +5,21 @@ import type { Character } from '../data/types';
  * Used by the full sheet and by the table's combat summary, so both follow the same rules.
  */
 
-/** Temporary HP soak first; damage at 0 HP is a failed death save. Concentration ends at 0. */
-export function applyDamage(d: Character, n: number) {
+/**
+ * Temporary HP soak first; damage at 0 HP is a failed death save. Concentration ends at 0.
+ * With the max HP known, massive damage kills: what is left after 0 (or a hit while down)
+ * as big as the max HP.
+ */
+export function applyDamage(d: Character, n: number, max?: number) {
   let left = n;
   const t = Math.min(d.hp.temp, left);
   d.hp.temp -= t;
   left -= t;
-  if (d.hp.current <= 0 && left > 0) { d.deathSaves.fail = Math.min(3, d.deathSaves.fail + 1); return; }
+  if (d.hp.current <= 0 && left > 0) {
+    d.deathSaves.fail = max != null && left >= max ? 3 : Math.min(3, d.deathSaves.fail + 1);
+    return;
+  }
+  if (max != null && left > 0 && left - d.hp.current >= max) d.deathSaves.fail = 3;
   d.hp.current = Math.max(0, d.hp.current - left);
   if (d.hp.current <= 0) d.concentration = undefined;
 }

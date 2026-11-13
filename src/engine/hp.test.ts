@@ -20,6 +20,12 @@ describe('hit points', () => {
     applyDamage(c, 2);
     expect(c.deathSaves.fail).toBe(1);
   });
+  it('massive damage kills: what is left after 0, or a hit while down, as big as the max HP', () => {
+    const a = mk(10); applyDamage(a, 40, 30); expect(a.deathSaves.fail).toBe(3);
+    const b = mk(10); applyDamage(b, 39, 30); expect(b.deathSaves.fail).toBe(0);
+    const c = mk(0); applyDamage(c, 30, 30); expect(c.deathSaves.fail).toBe(3);
+    const e = mk(0); applyDamage(e, 5, 30); expect(e.deathSaves.fail).toBe(1);
+  });
   it('healing caps at max and clears death saves when getting up', () => {
     const c = mk(0);
     c.deathSaves = { success: 1, fail: 2 };
