@@ -8,12 +8,14 @@ import { classSummary } from '../../engine/rules';
 import { go, useFlash } from '../../ui/ui';
 import type { CampaignProps } from '../Campaign';
 import { confirmBox, showError } from '../../ui/dialogs';
+import { Modal } from '../../ui/ui';
 
 export function SettingsTab({ campaign, members, isGm, uid }: CampaignProps) {
   const flash = useFlash((s) => s.show);
   const chars = useApp((s) => s.characters);
   const [code, setCode] = useState(campaign.invite_code);
   const [name, setName] = useState(campaign.name);
+  const [deleting, setDeleting] = useState(false);
   const me = members.find((m) => m.user_id === uid);
   const mine = chars.filter((c) => c.edition === campaign.edition);
   const link = inviteLink(code);
@@ -89,13 +91,43 @@ export function SettingsTab({ campaign, members, isGm, uid }: CampaignProps) {
               <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
               <button className="btn" disabled={!name.trim() || name === campaign.name} onClick={async () => { try { await renameCampaign(campaign.id, name.trim()); flash('Nome salvo'); } catch (e) { showError(e); } }}>Salvar</button>
             </div>
-            <button className="btn sm danger" style={{ alignSelf: 'flex-start' }} onClick={async () => {
-              if (!(await confirmBox(`Apagar a campanha "${campaign.name}" para todos? As fichas dos jogadores continuam deles. Não dá para desfazer.`, { danger: true, ok: 'Apagar' }))) return;
-              try { await deleteCampaign(campaign.id); go('campanhas'); } catch (e) { showError(e); }
-            }}><Trash2 size={14} /> Apagar campanha</button>
+            <button className="btn sm danger" style={{ alignSelf: 'flex-start' }} onClick={() => setDeleting(true)}><Trash2 size={14} /> Apagar campanha</button>
           </div>
         )}
       </div>
+      {deleting && <DeleteCampaign name={campaign.name} onClose={() => setDeleting(false)} onDelete={async () => { await deleteCampaign(campaign.id); go('campanhas'); }} />}
     </div>
+  );
+}
+
+const WORD = 'confirma';
+
+/**
+ * Deleting a campaign can't be undone and affects everyone at the table, so the GM has to type a
+ * word first: one click by mistake isn't enough.
+ */
+function DeleteCampaign({ name, onClose, onDelete }: { name: string; onClose: () => void; onDelete: () => Promise<void> }) {
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const ok = typed.trim().toLowerCase() === WORD;
+  const go = async () => {
+    if (!ok) return;
+    setBusy(true);
+    try { await onDelete(); } catch (e) { showError(e); setBusy(false); }
+  };
+  return (
+    <Modal title="Apagar campanha" icon={<Trash2 size={18} color="var(--bad)" />} onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Cancelar</button><button className="btn danger" disabled={!ok || busy} onClick={go}><Trash2 size={14} /> Apagar para sempre</button></>}>
+      <div className="col g10">
+        <p style={{ margin: 0 }}>Você vai apagar <b>“{name}”</b> para todos os participantes. <b>Não dá para desfazer.</b></p>
+        <div className="small">
+          Some junto: os mapas e tokens, o combate e a iniciativa, o chat, as rolagens e o homebrew publicado nesta campanha.
+          <br />As fichas dos jogadores <b>continuam</b> com eles.
+        </div>
+        <label className="field"><span>Para confirmar, digite <b>{WORD}</b></span>
+          <input className="input" autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && go()} placeholder={WORD} autoComplete="off" spellCheck={false} aria-invalid={typed.length > 0 && !ok} />
+        </label>
+      </div>
+    </Modal>
   );
 }
