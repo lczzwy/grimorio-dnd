@@ -426,3 +426,16 @@ html[data-tablemode] .undo-toast { bottom: 64px; }
 
 .cb-chip.init.call { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
 .qs-rest { grid-area: rest; display: flex; gap: 4px; justify-content: flex-end; }
+
+/* ---- Escolher forma e empunhadura ao atacar ---- */
+.atk-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; width: 100%; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--panel); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.atk-choice span { color: var(--muted); font-size: 13px; }
+.atk-choice:hover:not(:disabled), .atk-choice:focus-visible { border-color: var(--gold); }
+.atk-choice:disabled { opacity: 0.55; cursor: default; }
+.atk-choice-desc { flex-basis: 100%; font-size: 12.5px; color: var(--muted); }
+.atk-choice-desc p { margin: 2px 0; }
+.atk-grips { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+.atk-grips .atk-choice { flex-direction: column; align-items: flex-start; }
+.atk-grips .atk-choice b { font-size: 16px; }
+.two-hands { display: inline-flex; gap: 2px; color: var(--text); }
+.atk-choice-desc .prose, .atk-choice-desc p, .atk-choice-desc li { font-size: 13px; line-height: 1.45; color: var(--muted); }

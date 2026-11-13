@@ -280,6 +280,17 @@ export interface InventoryItem {
   proficient?: boolean; // force proficiency (racial training, feats...)
 }
 
+/** One shape of a weapon that changes (a wand that becomes a needle or a staff). */
+export interface AttackForm {
+  name: string;
+  desc?: string;
+  /** damage dice in this form; none = it doesn't attack in this form */
+  damage?: string;
+  /** damage dice with two hands, when versatile in this form */
+  versatile?: string;
+  type?: string;
+}
+
 export interface CustomAttack {
   uid: string;
   name: string;
@@ -291,6 +302,10 @@ export interface CustomAttack {
   addMod: boolean;
   type: string;
   notes?: string;
+  /** damage dice with two hands (versatile) */
+  versatile?: string;
+  /** shapes the weapon can take; attacking asks which one */
+  forms?: AttackForm[];
 }
 
 export interface Resource {

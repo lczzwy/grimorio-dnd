@@ -5,7 +5,7 @@ import { turnOptions, type TurnOption, type TurnSlot } from '../../engine/turn';
 import { fmtMod } from '../../engine/dice';
 import { Markdown, clickable } from '../../ui/ui';
 import { SpellCard } from './SpellsTab';
-import { fullAttack } from './attack';
+import { attack } from './attack';
 import { PowerUse } from './PowerUse';
 import type { SheetProps } from '../Sheet';
 
@@ -35,7 +35,7 @@ export function TurnPanel({ c, srd, upd }: SheetProps) {
     return (
       <button key={o.kind + o.name + i} className={'cond' + (o.kind === 'basic' ? '' : ' on')} style={o.kind === 'basic' ? undefined : { color: 'var(--text)', borderColor: o.kind === 'attack' ? 'var(--accent)' : o.kind === 'spell' || o.kind === 'power' ? 'var(--accent-2)' : 'var(--line-2)', background: 'var(--panel-2)' }}
         title={o.kind === 'attack' ? 'Ataque completo (acerto + dano)' : 'Ver descrição'}
-        onClick={() => (o.kind === 'attack' ? fullAttack(who, o.attack) : setDetail(o))}>
+        onClick={() => (o.kind === 'attack' ? attack(who, o.attack) : setDetail(o))}>
         {icon} {o.name}{extra}
       </button>
     );

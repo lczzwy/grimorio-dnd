@@ -181,3 +181,25 @@ describe('concentration', () => {
     expect(concentrationDc(80, '2024')).toBe(30);
   });
 });
+
+describe('weapons with shapes and two hands', () => {
+  it('a custom attack keeps its two-handed damage and its shapes, modifier included', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { newCharacter } = await import('./character');
+    const { weaponAttacks } = await import('./rules');
+    const srd = JSON.parse(fs.readFileSync(path.join(__dirname, '../../public/data/srd-2014.json'), 'utf8'));
+    const c = newCharacter('2014');
+    c.base.str = 16;
+    c.attacks = [
+      { uid: 'w', name: 'Varinha', ability: 'str', proficient: true, bonus: 0, damage: '1d6', damageBonus: 0, addMod: true, type: 'Concussão',
+        forms: [{ name: 'Agulha', desc: 'Escondida.' }, { name: 'Cajado', damage: '1d6', versatile: '1d8' }] },
+      { uid: 's', name: 'Espada', ability: 'str', proficient: false, bonus: 0, damage: '2d6', damageBonus: 0, addMod: true, type: 'Fogo', versatile: '2d8' },
+    ];
+    const lines = weaponAttacks(c, srd);
+    const wand = lines.find((l) => l.uid === 'w')!;
+    expect(wand.forms).toEqual([{ name: 'Agulha', desc: 'Escondida.', damage: undefined, altDamage: undefined, type: undefined }, { name: 'Cajado', desc: undefined, damage: '1d6+3', altDamage: '1d8+3', type: undefined }]);
+    const sword = lines.find((l) => l.uid === 's')!;
+    expect([sword.damage, sword.altDamage, sword.forms]).toEqual(['2d6+3', '2d8+3', undefined]);
+  });
+});

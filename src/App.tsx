@@ -9,6 +9,7 @@ import { Invite } from './pages/Invite';
 import { useRoute, go, FlashHost, D20Icon } from './ui/ui';
 import { DialogHost } from './ui/dialogs';
 import { UndoHost } from './ui/UndoHost';
+import { AttackChooser } from './pages/sheet/AttackChooser';
 import { DiceTray, RollToast } from './ui/Dice';
 import type { Edition } from './data/types';
 import { Home } from './pages/Home';
@@ -106,6 +107,7 @@ export default function App() {
       <RollToast />
       <FlashHost />
       <UndoHost />
+      <AttackChooser />
       <DialogHost />
       <Onboarding />
       <FirstLoginUpload />

@@ -242,6 +242,8 @@ export interface AttackLine {
   mastery?: string;
   ability?: Ability | 'none';
   custom?: boolean;
+  /** shapes of the weapon, damage with the modifier added (none = no attack in that shape) */
+  forms?: { name: string; desc?: string; damage?: string; altDamage?: string; type?: string }[];
 }
 
 const withMod = (dice: string | undefined, mod: number) => (!dice ? `${mod}` : mod ? `${dice}${mod > 0 ? '+' : ''}${mod}` : dice);
@@ -291,15 +293,18 @@ export function weaponAttacks(c: Character, srd: SrdData): AttackLine[] {
   });
   for (const a of c.attacks) {
     const am = a.ability === 'none' ? 0 : m[a.ability];
+    const dm = (a.addMod ? am : 0) + (a.damageBonus || 0);
     lines.push({
       uid: a.uid,
       name: a.name,
       toHit: am + (a.proficient ? p : 0) + (a.bonus || 0),
-      damage: withMod(a.damage, (a.addMod ? am : 0) + (a.damageBonus || 0)),
+      damage: withMod(a.damage, dm),
+      altDamage: a.versatile ? withMod(a.versatile, dm) : undefined,
       type: a.type,
       notes: a.notes,
       ability: a.ability,
       custom: true,
+      forms: a.forms?.length ? a.forms.map((f) => ({ name: f.name, desc: f.desc, damage: f.damage ? withMod(f.damage, dm) : undefined, altDamage: f.versatile ? withMod(f.versatile, dm) : undefined, type: f.type })) : undefined,
     });
   }
   return lines;

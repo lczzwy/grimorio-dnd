@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Detail } from '../../ui/Detail';
 import { Heart, HeartCrack, Shield, Plus, Trash2, Skull, Dices, Zap, Minus, Brain, Pencil, Flame, Coffee, Moon } from 'lucide-react';
-import type { CustomAttack } from '../../data/types';
+import type { AttackForm, CustomAttack } from '../../data/types';
 import { ABILITIES } from '../../data/types';
 import { useDice } from '../../store';
 import { uid } from '../../engine/character';
@@ -11,7 +11,7 @@ import { promptBox } from '../../ui/dialogs';
 import { Modal, NumInput, Markdown, useFlash } from '../../ui/ui';
 import { AdvToggle } from '../../ui/Dice';
 import type { SheetProps } from '../Sheet';
-import { fullAttack as sharedFullAttack } from './attack';
+import { attack as sharedAttack } from './attack';
 import { TurnPanel } from './TurnPanel';
 import { applyDamage, applyDeathSave, applyHeal, dropsToZero } from '../../engine/hp';
 import { offerUndo } from '../../ui/undo';
@@ -92,7 +92,7 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
     setAmt(undefined);
   };
 
-  const fullAttack = (a: AttackLine, attackOnly = false) => sharedFullAttack(who, a, attackOnly);
+  const fullAttack = (a: AttackLine, attackOnly = false) => sharedAttack(who, a, attackOnly);
 
   const deathSave = async () => {
     const r = await roll(`${who}: salvaguarda contra a morte`, '1d20');
@@ -323,7 +323,9 @@ export function CombatTab({ c, srd, upd }: SheetProps) {
               <label className="field">Tipo<input className="input" value={atkEdit.type} onChange={(e) => setAtkEdit({ ...atkEdit, type: e.target.value })} placeholder="Cortante, Fogo…" /></label>
               <label className="row small" style={{ gap: 6, marginTop: 18 }}><input type="checkbox" checked={atkEdit.addMod} onChange={(e) => setAtkEdit({ ...atkEdit, addMod: e.target.checked })} /> Somar modificador no dano</label>
             </div>
+            <label className="field" title="Armas versáteis: o dano quando usada com as duas mãos. Ao atacar, o site pergunta uma ou duas mãos.">Dano com duas mãos (versátil, opcional)<input className="input" value={atkEdit.versatile || ''} placeholder="Ex.: 1d10" onChange={(e) => setAtkEdit({ ...atkEdit, versatile: e.target.value.trim() || undefined })} /></label>
             <label className="field">Notas<input className="input" value={atkEdit.notes || ''} onChange={(e) => setAtkEdit({ ...atkEdit, notes: e.target.value })} /></label>
+            <FormsEditor value={atkEdit.forms || []} onChange={(forms) => setAtkEdit({ ...atkEdit, forms: forms.length ? forms : undefined })} />
           </div>
         </Modal>
       )}
@@ -420,5 +422,27 @@ export function RestModal({ c, srd, upd, kind, onClose, onDone }: SheetProps & {
       )}
       {recovering.length > 0 && <p className="small mb0">Também recupera: {recovering.map((r) => r.name).join(', ')}{kind === 'short' && c.classes.some((x) => x.classId === 'warlock') ? ', espaços de Pacto' : ''}.</p>}
     </Modal>
+  );
+}
+
+/** Shapes of a weapon (a wand that becomes a needle or a staff): attacking asks which one. */
+function FormsEditor({ value, onChange }: { value: AttackForm[]; onChange: (v: AttackForm[]) => void }) {
+  const put = (i: number, patch: Partial<AttackForm>) => onChange(value.map((f, j) => (j === i ? { ...f, ...patch } : f)));
+  return (
+    <div className="col g6">
+      <div className="row"><span className="tiny muted grow" title="Para armas que mudam de forma. Ao atacar, o site pergunta a forma (e uma ou duas mãos, se a forma for versátil).">Formas da arma (opcional)</span>
+        <button className="btn sm" onClick={() => onChange([...value, { name: '' }])}><Plus size={13} /> Forma</button></div>
+      {value.map((f, i) => (
+        <div key={i} className="panel col" style={{ padding: 8, gap: 6 }}>
+          <div className="row wrap g6">
+            <input className="input grow" placeholder="Nome da forma (ex.: Cajado)" value={f.name} onChange={(e) => put(i, { name: e.target.value })} aria-label="Nome da forma" />
+            <input className="input" style={{ width: 90 }} placeholder="Dano" title="Vazio: não ataca nesta forma" value={f.damage || ''} onChange={(e) => put(i, { damage: e.target.value.trim() || undefined })} aria-label="Dano da forma" />
+            <input className="input" style={{ width: 110 }} placeholder="Duas mãos" title="Dano com as duas mãos (opcional)" value={f.versatile || ''} onChange={(e) => put(i, { versatile: e.target.value.trim() || undefined })} aria-label="Dano com duas mãos" />
+            <button className="btn icon sm ghost danger" onClick={() => onChange(value.filter((_, j) => j !== i))} aria-label="Tirar forma"><Trash2 size={13} /></button>
+          </div>
+          <input className="input" placeholder="O que muda nesta forma (opcional)" value={f.desc || ''} onChange={(e) => put(i, { desc: e.target.value || undefined })} aria-label="Descrição da forma" />
+        </div>
+      ))}
+    </div>
   );
 }

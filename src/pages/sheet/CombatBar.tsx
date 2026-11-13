@@ -8,7 +8,7 @@ import { rollMyInitiative, useEncounter } from '../../cloud/combat';
 import { showError } from '../../ui/dialogs';
 import { fmtMod } from '../../engine/dice';
 import { Detail } from '../../ui/Detail';
-import { fullAttack } from './attack';
+import { attack } from './attack';
 import { PowerUse } from './PowerUse';
 import { SpellCard } from './SpellsTab';
 import type { SheetProps } from '../Sheet';
@@ -100,7 +100,7 @@ export function CombatBar({ c, srd, upd, onHp, campaignId }: SheetProps & { onHp
       )}
       <span className="cb-sep" aria-hidden />
       {attacks.map((a) => (
-        <button key={a.uid} className="cb-chip atk" onClick={() => fullAttack(who, a)} title={`Ataque completo: ${fmtMod(a.toHit)} para acertar, ${a.damage}`}>
+        <button key={a.uid} className="cb-chip atk" onClick={() => attack(who, a)} title={a.forms?.length ? `Ataque: ${fmtMod(a.toHit)} para acertar; escolhe a forma` : a.altDamage ? `Ataque: ${fmtMod(a.toHit)} para acertar, ${a.damage} (${a.altDamage} com duas mãos)` : `Ataque completo: ${fmtMod(a.toHit)} para acertar, ${a.damage}`}>
           <Swords size={12} /> {a.name} <b>{fmtMod(a.toHit)}</b>
         </button>
       ))}
