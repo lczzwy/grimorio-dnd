@@ -1,6 +1,7 @@
 // Importer for "5e Companion App" character exports (.cah, JSON).
 // The export embeds full definitions for the character's class, race and background,
 // so anything missing from the SRD (e.g. UA/third-party content) is turned into homebrew.
+import { applyGuess, findEquipment, guessItem } from './items';
 import type { Ability, BackgroundDef, Character, ClassDef, ClassLevel, FeatDef, FeatureRef, InventoryItem, ProfLevel, SpeciesDef, SpellDef, SrdData, SubclassDef } from '../data/types';
 import { ABILITIES } from '../data/types';
 import { newCharacter, uid } from '../engine/character';
@@ -268,7 +269,7 @@ export function importCompanion(raw: CompanionFile, srd: SrdData): CompanionImpo
   for (const e of raw.equipment || []) {
     const name = e.name || e.item?.name;
     if (!name) continue;
-    const ref = findByName(srd.equipment, name) || findByName(srd.magicItems, name);
+    const ref = findByName(srd.equipment, name) || findByName(srd.magicItems, name) || findEquipment(srd, name);
     const eq = ref && 'category' in ref ? (ref as SrdData['equipment'][number]) : undefined;
     const item: InventoryItem = {
       uid: uid(),
@@ -284,6 +285,13 @@ export function importCompanion(raw: CompanionFile, srd: SrdData): CompanionImpo
       magic: !!e.item && !ref,
     };
     c.inventory.push(item);
+    // homebrew weapons, armor and items with uses, read from their text (equipped as in the app)
+    const g = guessItem(item, srd, c.resources.some((r) => r.name === item.name));
+    if (g) {
+      applyGuess(c, item.uid, g);
+      if (g.weapon || g.armor) item.equipped = !!e.isEquipped;
+      warnings.push(`${item.name} reconhecido: ${g.label}${(g.weapon || g.armor) && !item.equipped ? ' (equipe no inventário para usar)' : ''}.`);
+    }
   }
 
   /* ---- class resources (Psi Points, etc.) ---- */

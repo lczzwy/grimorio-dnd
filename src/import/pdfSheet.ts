@@ -4,6 +4,8 @@ import { newCharacter, uid } from '../engine/character';
 import { fold, nameForms } from '../engine/classData';
 import { ABILITY_PT, CLASS_PT, SKILL_PT, SPECIES_PT, abilityMod, profBonus, spellLimits, spellSlots, spellcastingClasses } from '../engine/rules';
 import { fromPtBrSheet, isPtBrSheet, type PdfLayout } from './pdfPtBr';
+import { applyGuess, findEquipment, itemSuggestions, readItemText, splitItemLine } from './items';
+import { armorClass, weaponAttacks } from '../engine/rules';
 
 /**
  * Import of the official fillable D&D 5e character sheet (PDF with form fields).
@@ -195,7 +197,8 @@ export function mapPdfSheet(fields: PdfFields, srd: SrdData, edition: Edition = 
   const gear = get('equipment').split(/\r?\n|;|,(?![^(]*\))/).map((x) => x.trim()).filter(Boolean);
   for (const g of gear) {
     const m = g.match(/^(\d+)\s*x?\s+(.+)$/i);
-    c.inventory.push({ uid: uid(), name: m ? m[2] : g, qty: m ? +m[1] : 1 });
+    const { name, notes } = splitItemLine(m ? m[2] : g);
+    c.inventory.push({ uid: uid(), name, qty: m ? +m[1] : 1, ...(notes ? { notes } : {}) });
   }
   row('Equipamento', gear.length ? `${gear.length} itens` : '');
 
@@ -256,7 +259,12 @@ export function mapPdfSheet(fields: PdfFields, srd: SrdData, edition: Edition = 
 }
 
 /** What the player decided in the review: for each class (and the race), link or create. */
-export interface PdfChoices { classes: (string | { create: true; hitDie: number })[]; race: string | { create: true } | null }
+export interface PdfChoices {
+  classes: (string | { create: true; hitDie: number })[];
+  race: string | { create: true } | null;
+  /** items to turn into what was recognized (weapon, armor, uses); absent = all of them */
+  items?: string[];
+}
 
 const slugId = (s: string) => 'hb-' + fold(s).replace(/\s+/g, '-');
 
@@ -287,6 +295,7 @@ export function finishPdfImport(r: PdfImport, choices: PdfChoices, srd?: SrdData
     const casters = spellcastingClasses(c, full);
     if (casters.length && casters.every((k) => spellLimits(c, full, k.id).known != null)) c.spells = c.spells.map((x) => ({ ...x, prepared: true }));
   }
+  if (srd) reconcileItems(c, { ...srd, classes: [...srd.classes, ...hb.classes], species: [...srd.species, ...hb.species] }, choices.items);
   if (srd && Object.keys(r.slotsUsed).length) {
     const full = { ...srd, classes: [...srd.classes, ...hb.classes] };
     const pact = spellSlots(c, full).pact;
@@ -296,4 +305,43 @@ export function finishPdfImport(r: PdfImport, choices: PdfChoices, srd?: SrdData
     }
   }
   return { character: c, homebrew: { ...(hb.classes.length ? { classes: hb.classes } : {}), ...(hb.species.length ? { species: hb.species } : {}) } };
+}
+
+/**
+ * The recognized items, reconciled with what the PDF already says: a weapon whose attack line the
+ * sheet calculates exactly the same takes over that line (proficiency deduced from the bonus);
+ * otherwise the line stays as written (with two hands added) and the weapon waits unequipped so
+ * the attack doesn't show twice. A recognized armor that gives the PDF's AC frees the AC.
+ */
+function reconcileItems(c: Character, srd: SrdData, accepted?: string[]) {
+  for (const s of itemSuggestions(c, srd)) if (!accepted || accepted.includes(s.uid)) applyGuess(c, s.uid, s.guess);
+  const norm = (x: string) => fold(cleanName(x));
+  for (const a of [...c.attacks]) {
+    const it = c.inventory.find((x) => x.weapon && norm(x.name) === norm(a.name));
+    const sheetDmg = `${a.damage}${a.damageBonus ? (a.damageBonus > 0 ? '+' : '') + a.damageBonus : ''}`;
+    if (it) {
+      it.equipped = true;
+      let line = weaponAttacks(c, srd).find((l) => l.uid === it.uid);
+      if (line && line.toHit !== a.bonus && line.notes && !it.proficient) {
+        it.proficient = true;
+        const p = weaponAttacks(c, srd).find((l) => l.uid === it.uid);
+        if (p?.toHit === a.bonus) line = p; else it.proficient = undefined;
+      }
+      if (line && line.toHit === a.bonus && line.damage.replace(/\s/g, '') === sheetDmg.replace(/\s/g, '')) {
+        c.attacks = c.attacks.filter((x) => x.uid !== a.uid);
+        continue;
+      }
+      it.equipped = false;
+      if (it.weapon?.twoHanded && !a.versatile) a.versatile = it.weapon.twoHanded;
+      continue;
+    }
+    // no item: the official weapon (or the text of the damage) still says if it's versatile
+    const eq = findEquipment(srd, a.name)?.weapon;
+    const v = eq?.twoHanded || readItemText(a.name, a.type).versatile;
+    if (v && !a.versatile) a.versatile = v;
+  }
+  if (c.acOverride && c.inventory.some((x) => x.equipped && x.armor)) {
+    const live = armorClass({ ...c, acOverride: undefined }, srd).value;
+    if (live === c.acOverride) c.acOverride = undefined;
+  }
 }

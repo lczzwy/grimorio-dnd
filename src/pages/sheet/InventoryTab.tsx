@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Detail } from '../../ui/Detail';
 import { lbToKg } from '../../engine/units';
-import { Plus, Search, Trash2, Sword, Shield, Gem, Package } from 'lucide-react';
+import { Plus, Search, Trash2, Sword, Shield, Gem, Package, Wand2 } from 'lucide-react';
 import type { EquipmentDef, InventoryItem, MagicItemDef, SrdData } from '../../data/types';
 import { uid } from '../../engine/character';
 import { carriedWeight, carryCapacity } from '../../engine/rules';
 import { Markdown, Modal, NumInput, useFlash, clickable } from '../../ui/ui';
 import type { SheetProps } from '../Sheet';
+import { applyGuess, guessItem } from '../../import/items';
+import { fold } from '../../engine/classData';
 
 const COINS = [
   ['pp', 'Platina', '#cfd8e3'],
@@ -159,6 +161,7 @@ export function InventoryTab({ c, srd, upd }: SheetProps) {
       {open && (() => {
         const it = c.inventory.find((x) => x.uid === open.uid) || open;
         const ref = srd.equipment.find((e) => e.id === it.refId) || srd.magicItems.find((e) => e.id === it.refId);
+        const guess = guessItem(it, srd, c.resources.some((r) => fold(r.name) === fold(it.name)));
         return (
           <Detail title={it.name} onClose={() => setOpen(null)}>
             <div className="col">
@@ -180,6 +183,13 @@ export function InventoryTab({ c, srd, upd }: SheetProps) {
                 </div>
               )}
               <label className="field">Notas<textarea className="textarea" value={it.notes || ''} onChange={(e) => setItem(it.uid, (x) => (x.notes = e.target.value))} /></label>
+              {guess && (
+                <div className="panel col g6 item-guess">
+                  <div className="small"><Wand2 size={13} className="ic-inline" /> O site entendeu: <b>{guess.label}</b></div>
+                  <div className="tiny muted">Arma vira ataque (pergunta uma ou duas mãos quando versátil), armadura calcula a CA, usos viram um contador que volta no descanso.</div>
+                  <button className="btn sm primary" style={{ alignSelf: 'flex-start' }} onClick={() => { upd((d) => applyGuess(d, it.uid, guess)); flash(`${it.name}: ${guess.label}`); }}>Aplicar</button>
+                </div>
+              )}
               {ref && <><div className="divider" /><ItemDetail x={ref} /></>}
             </div>
           </Detail>

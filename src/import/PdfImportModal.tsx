@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { Calculator, Check, FileText, TriangleAlert } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Calculator, Check, FileText, Swords, TriangleAlert } from 'lucide-react';
 import type { Edition, SrdData } from '../data/types';
 import { useApp } from '../store';
 import { className, speciesName } from '../engine/rules';
 import { Modal, go, useFlash } from '../ui/ui';
 import { finishPdfImport, type PdfChoices, type PdfImport } from './pdfSheet';
+import { itemSuggestions } from './items';
 
 const CREATE = '__create';
 
@@ -20,11 +21,14 @@ export function PdfImportModal({ r, srd, edition, onClose }: { r: PdfImport; srd
   const [hitDie, setHitDie] = useState(r.hitDie && [6, 8, 10, 12].includes(r.hitDie) ? r.hitDie : 8);
   const [race, setRace] = useState<string>(r.race.speciesId || (r.race.text ? CREATE : ''));
   const creating = classes.some((x) => x === CREATE) || race === CREATE;
+  const items = useMemo(() => itemSuggestions(r.character, srd), [r, srd]);
+  const [itemsOn, setItemsOn] = useState<string[]>(() => items.map((x) => x.uid));
 
   const save = () => {
     const choices: PdfChoices = {
       classes: classes.map((x) => (x === CREATE ? { create: true as const, hitDie } : x)),
       race: race === CREATE ? { create: true } : race || null,
+      items: itemsOn,
     };
     const { character, homebrew } = finishPdfImport(r, choices, srd);
     if (homebrew.classes || homebrew.species) importHomebrew(edition, homebrew, { keepExisting: true });
@@ -69,6 +73,19 @@ export function PdfImportModal({ r, srd, edition, onClose }: { r: PdfImport; srd
             </label>
           )}
           {creating && <div className="small muted">A classe ou raça nova é criada só com o nome (e o dado de vida). Depois, em <b>Homebrew</b>, você completa as características de cada nível.</div>}
+        </div>
+      )}
+
+      {items.length > 0 && (
+        <div className="panel col g6 pdf-items">
+          <div className="row g6"><Swords size={15} /><b>Itens reconhecidos ({items.length})</b></div>
+          <div className="small muted">Armas viram ataques (com duas mãos quando versáteis), armaduras calculam a CA e itens com usos ganham um contador. Desmarque o que não estiver certo.</div>
+          {items.map((x) => (
+            <label key={x.uid} className="row g6 small" style={{ alignItems: 'flex-start' }}>
+              <input type="checkbox" checked={itemsOn.includes(x.uid)} onChange={(e) => setItemsOn(e.target.checked ? [...itemsOn, x.uid] : itemsOn.filter((k) => k !== x.uid))} />
+              <span><b>{x.name}</b> → {x.guess.label}</span>
+            </label>
+          ))}
         </div>
       )}
 
